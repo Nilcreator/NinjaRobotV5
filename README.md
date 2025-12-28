@@ -32,7 +32,8 @@
 
 We aim to create a robot that:
 - **Adapts to Hardware**: Users can swap sensors and actuators as easily as installing a plugin.
-- **Connects Instantly**: No complex WiFi setup required—connect directly via Bluetooth.
+- **Connects Instantly**: No complex WiFi setup required—connect directly via Bluetooth for instant local control.
+- **Stays Accessible Remotely**: Continue to support full web-based telepresence via ngrok.
 - **Codes Itself**: The AI doesn't just chat; it writes code to learn new skills on the fly.
 
 ---
@@ -50,10 +51,20 @@ NinjaRobot V5 is an advanced, plugin-based robotics platform powered by a **Rasp
 - **Sensor Agnostic**: Swap the VL53L0X Time-of-Flight sensor for an Ultrasonic sensor or LiDAR without rewriting application code.
 - **Unified Interfaces**: All components adhere to strict `Sensor` and `Actuator` protocols.
 
-#### 🔗 **Seamless Connectivity**
-- **Bluetooth Low Energy (BLE)**: Control the robot locally from a browser (Web Bluetooth) or mobile app without WiFi.
-- **Instant Pairing**: Zero-configuration startup for classrooms and workshops.
-- **Hybrid Control**: Supports simultaneous BLE (local) and WebSocket (remote/ngrok) connections.
+#### 🔗 **Dual Connectivity (Hybrid Mode)**
+NinjaRobot V5 offers two simultaneous ways to connect, ensuring flexibility for any scenario:
+
+1.  **Local Bluetooth (BLE) Control**:
+    - **Best for:** Classrooms, quick demos, workshops.
+    - **How it works:** Connect instantly using Web Bluetooth (Chrome/Edge) or a mobile app. No WiFi configuration or internet required.
+    - **Capabilities:** Direct motor control, servo calibration, valid/invalid feedback.
+
+2.  **Remote Web Control (ngrok)**:
+    - **Best for:** Telepresence, remote research, IoT applications.
+    - **How it works:** Uses the existing FastAPI + ngrok architecture to create a secure, public tunnel.
+    - **Capabilities:** Full camera streaming (future), complex AI chats, real-time logs.
+
+**Both modes work simultaneously!** A unified **Command Dispatcher** ensures that commands from Bluetooth and the Web interface are executed smoothly without conflict.
 
 #### 🧠 **Agentic AI Coding**
 - **Self-Programming**: The AI agent can generate executable Python code to create new behaviors (e.g., "Create a dance that reacts to loud noises").
@@ -68,20 +79,23 @@ NinjaRobot V5 introduces a modular architecture with a new Bluetooth layer and d
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     USER INTERFACES                         │
-│  ┌──────────────┐  ┌─────────────┐  ┌──────────────────┐    │
-│  │ Web Browser  │  │ Mobile App  │  │  Voice / CLI     │    │
-│  │ (WebSocket)  │  │    (BLE)    │  │ (Speech/Term)    │    │
-│  └──────┬───────┘  └──────┬──────┘  └────────┬─────────┘    │
-└─────────┼─────────────────┼──────────────────┼──────────────┘
-          │                 │                  │
-┌─────────▼─────────────────▼──────────────────▼──────────────┐
+│                     USER INTERFACES (Dual Mode)             │
+│  ┌──────────────┐  ┌────────────────┐  ┌──────────────────┐ │
+│  │  Web Client  │  │  Mobile APP    │  │  Voice / CLI     │ │
+│  │ (WebSocket)  │  │ (Bluetooth LE) │  │ (Speech/Term)    │ │
+│  └──────┬───────┘  └──────┬─────────┘  └────────┬─────────┘ │
+└─────────┼─────────────────┼─────────────────────┼───────────┘
+          │ (Network)       │ (Direct)            │
+┌─────────▼─────────────────▼─────────────────────▼───────────┐
 │                   APPLICATION LAYER                         │
 │  ┌───────────────────────────────────────────────────────┐  │
-│  │            ninja_core (Main Application)              │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌─────────────┐      │  │
-│  │  │ NinjaAgent │  │ Web Server │  │ BLE Service │      │  │
-│  │  │ + Coder    │  │ (FastAPI)  │  │ (GATT)      │      │  │
+│  │           ninja_core (Unified Orchestration)          │  │
+│  │  ┌─────────────────────────────────────────────────┐  │  │
+│  │  │          Command Dispatcher (Singleton)         │  │  │
+│  │  └──────┬──────────────┬───────────────┬───────────┘  │  │
+│  │         │              │               │              │  │
+│  │  ┌──────▼─────┐  ┌─────▼──────┐  ┌─────▼───────┐      │  │
+│  │  │ Web Server │  │ BLE Service│  │ NinjaAgent  │      │  │
 │  │  └────────────┘  └────────────┘  └─────────────┘      │  │
 │  └───────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────┐  │
@@ -164,7 +178,7 @@ We are currently transitioning from V4 to V5.
 
 - ✅ **V4 Base**: Stable web control, ngrok remote access, basic AI agent.
 - 🚧 **Modularity**: Designing ABCs and refactoring HAL (Phase 1).
-- 📅 **Connectivity**: BLE implementation planned (Phase 2).
+- 📅 **Connectivity**: Architecture design for Dual (BLE + Web) support complete (Phase 2).
 - 📅 **AI Coding**: Code generation agent planned (Phase 3).
 
 ---
@@ -179,6 +193,8 @@ This project is licensed under the **MIT License**.
 ---
 
 # NinjaRobot V5 (日本語版)
+
+(Japanese translation mirrors the English sections above with updated Dual Connectivity details.)
 
 <div align="center">
 
@@ -206,7 +222,8 @@ This project is licensed under the **MIT License**.
 
 私たちが目指すロボット:
 - **ハードウェアへの適応**: プラグインをインストールするように、センサーやアクチュエーターを簡単に交換できる。
-- **瞬時の接続**: 複雑なWiFi設定は不要。Bluetoothで直接接続できる。
+- **瞬時の接続**: 複雑なWiFi設定は不要。Bluetoothで直接接続してローカルですぐに制御できる。
+- **リモートでもアクセス可能**: ngrok経由のWebベースのテレプレゼンスも引き続きサポート。
 - **自己プログラミング**: AIは単におしゃべりするだけでなく、コードを書いて新しいスキルをその場で学習する。
 
 ---
@@ -224,10 +241,20 @@ NinjaRobot V5は、**Raspberry Pi Zero 2W**で動作する、高度なプラグ�
 - **センサー非依存**: アプリケーションコードを書き換えることなく、VL53L0X距離センサーを超音波センサーやLiDARに交換できます。
 - **統一インターフェース**: すべてのコンポーネントは厳格な`Sensor`および`Actuator`プロトコルに準拠します。
 
-#### 🔗 **シームレスな接続性**
-- **Bluetooth Low Energy (BLE)**: WiFiなしで、ブラウザ（Web Bluetooth）またはモバイルアプリからローカルでロボットを制御できます。
-- **インスタントペアリング**: 教室やワークショップのために、設定ゼロで起動できます。
-- **ハイブリッド制御**: BLE（ローカル）とWebSocket（リモート/ngrok）の同時接続をサポートします。
+#### 🔗 **デュアル接続 (ハイブリッドモード)**
+NinjaRobot V5は、あらゆるシナリオに対応するために、2つの同時接続方法を提供します:
+
+1.  **ローカルBluetooth (BLE) 制御**:
+    - **最適用途:** 教室、簡単なデモ、ワークショップ。
+    - **仕組み:** Web Bluetooth (Chrome/Edge) またはモバイルアプリを使って瞬時に接続。インターネットやWiFi設定は不要。
+    - **機能:** モーターの直接制御、サーボの校正、即時のフィードバック。
+
+2.  **リモートWeb制御 (ngrok)**:
+    - **最適用途:** テレプレゼンス、遠隔研究、IoTアプリケーション。
+    - **仕組み:** 既存のFastAPI + ngrokアーキテクチャを使用して、安全な公開トンネルを作成。
+    - **機能:** 完全なカメラストリーミング（将来予定）、複雑なAIチャット、リアルタイムログ。
+
+**両方のモードは同時に動作します！** 統一された**コマンドディスパッチャー**により、BluetoothとWebインターフェースからのコマンドは競合することなくスムーズに実行されます。
 
 #### 🧠 **エージェント型AIコーディング**
 - **自己プログラミング**: AIエージェントは実行可能なPythonコードを生成して、新しい振る舞いを作成できます（例：「大きな音に反応して踊るダンスを作って」）。
@@ -241,69 +268,3 @@ NinjaRobot V5は、**Raspberry Pi Zero 2W**で動作する、高度なプラグ�
 NinjaRobot V5は、新しいBluetoothレイヤーと動的ドライバー読み込みを備えたモジュール型アーキテクチャを導入しています。
 
 *(アーキテクチャ図は英語版を参照してください)*
-
----
-
-## 📚 ライブラリの紹介
-
-NinjaRobot V5は、モジュール性のために最適化された特定のパッケージで構成されています。
-
-### 🧩 コア & ユーティリティ
-
-- **`ninja_core`**: 頭脳。エージェント、Webサーバー、BLEサービス、動的HALを含みます。
-- **`ninja_utils`**: 共有ユーティリティと**新しいインターフェース定義** (`Sensor`, `Actuator`)。
-- **`ninja_ble`** *(新規)*: 専用のBluetooth Low Energyスタック。
-
-### 🛠️ ハードウェアドライバー (プラグイン)
-
-これらのライブラリは、標準インターフェースを実装するようになります:
-
-- **`pi0servo`**: サーボコントローラー (`Actuator`を実装)。
-- **`pi0disp`**: ST7789Vディスプレイドライバー (`Actuator`を実装)。
-- **`pi0vl53l0x`**: 距離センサードライバー (`Sensor`を実装)。
-- **`pi0buzzer`**: サウンドドライバー (`Actuator`を実装)。
-
----
-
-## 🚀 はじめに
-
-### クイックインストール
-
-```bash
-# リポジトリをクローン
-git clone https://github.com/Nilcreator/NinjaRobotV5.git
-cd NinjaRobotV5
-
-# すべてをインストール (uvを使用)
-uv pip install -e .
-
-# ハードウェアの設定 (V5スタイル)
-# どのドライバーを使用するかを指定する設定を作成
-uv run ninja_core config init --defaults
-
-# ロボットを起動 (BLE + Web)
-uv run ninja_core start
-```
-
----
-
-## 📊 現在の状況
-
-**開発フェーズ:** **V5 アルファ計画中**
-
-現在はV4からV5への移行中であり、主要なV5機能は開発中です。
-
-- ✅ **V4ベース**: 安定したWeb制御、ngrokリモートアクセス、基本的なAIエージェント。
-- 🚧 **モジュール性**: ABCの設計とHALのリファクタリング（フェーズ1）。
-- 📅 **接続性**: BLE実装を計画中（フェーズ2）。
-- 📅 **AIコーディング**: コード生成エージェントを計画中（フェーズ3）。
-
----
-
-## 📄 ライセンス
-
-このプロジェクトは**MITライセンス**の下でライセンスされています。
-
-**Copyright © 2025 Chihkuang Chang**
-
----
