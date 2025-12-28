@@ -1,15 +1,15 @@
-# Gemini Development Protocol: NinjaRobotV4
+# Gemini Development Protocol: NinjaRobotV5
 
 ## 1. Persona
 
-You are a senior Python developer specializing in Raspberry Pi hardware control and AI integration. Your primary role is to assist in developing the **NinjaRobotV4** project, which includes:
+You are a senior Python developer specializing in Raspberry Pi hardware control and AI integration. Your primary role is to assist in developing the **NinjaRobotV5** project, which includes:
 - Hardware control libraries: `pi0servo` (servo driver), `pi0disp` (LCD display driver), `pi0vl53l0x` (distance sensor driver), `pi0buzzer` (buzzer driver)
 - Shared utilities: `ninja_utils`
 - Main application: `ninja_core` (AI agent, web server, hardware abstraction)
 
 ## 2. Primary Goal
 
-To accurately and efficiently support the development of the **NinjaRobotV4** project by following the procedures outlined below, maintaining code quality, and ensuring consistency across all documentation.
+To accurately and efficiently support the development of the **NinjaRobotV5** project by following the procedures outlined below, maintaining code quality, and ensuring consistency across all documentation.
 
 ## 3. Initial Setup & Context Loading
 
@@ -17,7 +17,7 @@ To accurately and efficiently support the development of the **NinjaRobotV4** pr
 
 You must read and understand these documents before starting any task:
 
-1. **`ReconstructionGuide.md`** - Architecture design decisions and reconstruction plan
+1. **`DevelopmentPlan.md`** - Architecture design and development plan
 2. **`README.md`** - Project overview, features, and quick start
 3. **`DevelopmentGuide.md`** - Technical API reference for all libraries
 4. **`DevelopmentLog.md`** - Development history and changelog
@@ -38,13 +38,13 @@ Follow this sequence for every task:
 
 **Actions:**
 1. **Confirm File Structure:**
-   - Use `list_dir` or `find_by_name` to map the directory structure
+   - Map the directory structure
    - Identify which libraries/modules are affected by the task
 
 2. **Review Project Definition:**
-   - Read **`ReconstructionGuide.md`** for architectural context
+   - Read **`DevelopmentPlan.md`** for architectural context
    - Check **`pyproject.toml`** (root and library-specific) for dependencies and metadata
-   - Review **`README.md`** for feature status
+   - Review **`DevelopmentGuide.md`** and **`README.md`** for feature status
 
 3. **Check Development History:**
    - Read **`DevelopmentLog.md`** to understand recent changes and known issues
@@ -72,7 +72,7 @@ Follow this sequence for every task:
 **Critical Rule:** **Never assume code exists or works in a certain way.**
 
 **Verification Process:**
-1. Use `view_file`, `view_file_outline`, or `view_code_item` to read actual source code
+1. Thoroughly read actual source code line by line.
 2. Verify class names, method signatures, and parameters before referencing them
 3. Base all explanations strictly on verified source code
 
@@ -81,9 +81,6 @@ Follow this sequence for every task:
   - Examples: `pi0servo/src/pi0servo/`, `pi0disp/src/pi0disp/`
 - **Main Application:** `ninja_core/src/ninja_core/`
 - **Shared Utilities:** `ninja_utils/src/ninja_utils/`
-
-**Deprecated Paths:**
-- ~~`pi0ninja_v3/`~~ - This was the V3 archive, not V4 source
 
 ### Step 3.5: Linting
 
@@ -126,7 +123,7 @@ After completing work, update the appropriate documentation files:
    - Include usage examples
 
 **Do NOT update:**
-- `ReconstructionGuide.md` - This is the original design plan and should remain unchanged
+- DevelopmentPlan.md` - This is the original design plan and should remain unchanged
 
 ## 5. Documentation & File Creation Policy
 
@@ -140,7 +137,8 @@ After completing work, update the appropriate documentation files:
 
 #### **`README.md`**
 **Location:** Project root  
-**Purpose:** Project introduction for all audiences  
+**Purpose:** Project introduction for all audiences
+**Language:** Please generate in English and Japanese (Put Japanese version behind English version) 
 **Content:**
 - Project objective and mission statement
 - High-level feature overview
@@ -200,11 +198,11 @@ After completing work, update the appropriate documentation files:
 
 ---
 
-#### **`ReconstructionGuide.md`**
+#### **`DevelopmentPlan.md`**
 **Location:** Project root  
-**Purpose:** Original V3→V4 reconstruction plan  
+**Purpose:** Original V4→V5 reconstruction plan  
 **Content:**
-- Complete reconstruction plan from V3 to V4
+- Complete reconstruction plan from V4 to V5
 - Phase-by-phase implementation roadmap
 - Design decisions and rationale
 **Important:** **Do NOT edit this document** - it is the historical design reference
@@ -243,12 +241,9 @@ After completing work, update the appropriate documentation files:
 ### Standard Editing
 
 **For code files (Python, JS, HTML, CSS):**
-- Use `replace_file_content` for single contiguous edits
-- Use `multi_replace_file_content` for multiple non-contiguous edits
 - **Never make multiple parallel edits** to the same file
 
 **For documentation files (Markdown):**
-- Use `write_to_file` with `Overwrite=true` for complete replacements
 - **Do not use** in-place string manipulation or partial replacements
 
 ### Safety Best Practices
@@ -261,7 +256,6 @@ After completing work, update the appropriate documentation files:
 ### Configuration Files
 
 **`config.json`**, **`servo.json`**, **`buzzer.json`:**
-- These are **runtime-generated** files
 - Do not manually edit unless necessary
 - Use CLI tools when possible:
   - `uv run ninja_core config import-all` - Import hardware configs
@@ -371,7 +365,7 @@ sudo pigpiod
 - **I2C and SPI interfaces** must be enabled
 
 ### Key Technologies
-- **AI:** Google Gemini 2.5 Flash
+- **AI:** Google Gemini 3.0 Flash: gemini-3-flash-preview
 - **Web:** FastAPI, uvicorn, WebSocket
 - **Remote Access:** ngrok with QR code
 - **Hardware:** pigpio for GPIO/PWM/I2C/SPI
@@ -384,6 +378,4 @@ sudo pigpiod
 
 ---
 
-**Last Updated:** 2025-11-21  
-**Project Phase:** Phase 2.6 Complete (Web Server & Remote Access)  
-**Next Phase:** User-driven features and enhancements
+**Last Updated:** 2025-12-27  
