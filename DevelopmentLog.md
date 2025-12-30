@@ -1,5 +1,22 @@
 # Development Log
 
+## 2025-12-30: V5 README Blockly Update
+- **Action**: Updated `README.md` to reflect Blockly Integration.
+- **Details**:
+    - Added "Visual Programming (Blockly)" as a key V5 feature.
+    - Updated System Architecture diagram to include "Blockly Editor" and "Code Sandbox".
+    - Updated "Current Status" to include Visual Programming in Phase 3.
+- **Related Files**: `README.md`
+
+## 2025-12-30: V5 Blockly Integration Plan
+- **Action**: Updated `DevelopmentPlan.md` to include Google Blockly Integration.
+- **Details**:
+    - Added "Visual Programming" as a key project pillar.
+    - Defined "Phase 3: Visual Programming & AI" to cover both Blockly and AI Code Agent.
+    - Outlined technical strategy: Frontend Blockly workspace + Backend `SafeExecutor` (shared with AI Agent).
+    - Updated File Structure to include `ninja_core/static/blockly/`.
+- **Related Files**: `DevelopmentPlan.md`
+
 ## 2025-12-28: V5 Connectivity Refinement
 - **Action**: Refined V5 Plan and README for Dual Connectivity.
 - **Details**:

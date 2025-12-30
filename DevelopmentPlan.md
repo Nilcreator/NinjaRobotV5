@@ -1,18 +1,19 @@
 # NinjaRobot V5 Development Plan
 
 **Status:** Draft
-**Version:** 0.3.0
-**Last Updated:** 2025-12-28
+**Version:** 0.4.0
+**Last Updated:** 2025-12-30
 **Objective:** Evolve NinjaRobot from a fixed V4 architecture to a modular, connected, and AI-adaptive V5 platform.
 
 ---
 
 ## 1. Project Vision
 
-NinjaRobot V5 aims to be the ultimate educational & research robotics platform by addressing three key pillars:
+NinjaRobot V5 aims to be the ultimate educational & research robotics platform by addressing four key pillars:
 1.  **Hyper-Modularity**: Transition from "hardcoded support" to a true "plugin-based" hardware architecture.
 2.  **Dual Connectivity (Hybrid Mode)**: Simultaneous support for **Local Bluetooth (BLE)** control (instant, low-latency) and **Remote Web/ngrok** control (telepresence).
-3.  **Adaptive AI Coding**: Elevate the AI agent to a "coding partner" capable of generating executable code.
+3.  **Visual Programming**: Integrated Google Blockly interface for drag-and-drop coding.
+4.  **Adaptive AI Coding**: Elevate the AI agent to a "coding partner" capable of generating executable code.
 
 ---
 
@@ -73,15 +74,29 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 
 **Architecture:**
 - **Command Dispatcher (Singleton):** The single source of truth for robot state.
-    - Receives commands from `WebServer` (WebSocket/HTTP).
-    - Receives commands from `BLEService` (GATT Writer).
-- **State Synchronization:**
-    - When a command updates state (e.g., servo moves), the Dispatcher broadcasts the new state to **both** active WebSocket clients AND connected BLE devices (via Notifications).
-- **Conflict Resolution:** "Last Command Wins" policy. If a remote user and local user issue conflicting commands, the most recent one is executed.
+- **State Synchronization:** Broadcasts updates to WebSocket clients and BLE notifications.
+- **Conflict Resolution:** "Last Command Wins" policy.
 
-### 3.3 `ninja_interfaces` & `ninja_coder`
+### 3.3 Visual Programming (Google Blockly Integration)
 
-(See Version 0.2.0 details - preserved)
+**Objective:** Enable visual, block-based programming directly from the Web Interface.
+
+**Integration Strategy:**
+- **Frontend (`ninja_core/static`):**
+    - Integrate `blockly_compressed.js`, `blocks_compressed.js`, `python_compressed.js`.
+    - **Custom Blocks:** Define blocks for Robot Actions (e.g., `servo_move`, `play_sound`, `show_face`, `check_distance`).
+    - **UI Layout:** Add a "Blockly Workspace" tab/section to `index.html`.
+- **Backend (`ninja_core`):**
+    - **Execution Endpoint:** `POST /api/blockly/execute` receives generated Python code.
+    - **Sandbox:** The code runs in a restricted scope (using the same `SafeExecutor` as the AI Coder) with access to the `dispatcher`.
+
+### 3.4 `ninja_interfaces` & `ninja_coder`
+
+**Objective:** Define contracts and Safe Execution Environment.
+
+**Functions:**
+- **`Sensor` / `Actuator` ABCs.**
+- **`SafeExecutor`:** A wrapper utilizing `exec()` with restricted globals. Used by **both** Blockly and AI Agent.
 
 ---
 
@@ -93,15 +108,18 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 3.  Rewrite `ninja_core.hal` to use dynamic loading.
 
 ### Phase 2: Dual Connectivity Implementation (Weeks 3-4)
-1.  **Architecture Update**: Refactor `ninja_core` to create a unified `CommandDispatcher`.
-2.  **BLE Stack**: Develop `ninja_ble`.
-3.  **Integration**: Spin up both `FastAPI` (uvicorn) and `BLEService` in the main application loop.
-4.  **Client**: Create a static "Ninja Client" web app that can connect via Web Bluetooth.
+1.  Refactor `ninja_core` to create a unified `CommandDispatcher`.
+2.  Develop `ninja_ble`.
+3.  Integrate BLE service and WebSocket server.
 
-### Phase 3: AI Code Agent (Weeks 5-6)
-1.  Implement `ninja_coder`.
-2.  Integrate "Code Generation" intent into `NinjaAgent`.
-3.  Safe execution sandbox.
+### Phase 3: Visual Programming & AI (Weeks 5-7)
+1.  **Blockly Integration:**
+    - Embed Blockly in Web UI.
+    - Create Custom Blocks for NinjaRobot API.
+    - Implement `SafeExecutor` backend.
+2.  **AI Integration:**
+    - Implement `ninja_coder` logic.
+    - Update `NinjaAgent` prompts for code generation.
 
 ---
 
@@ -121,22 +139,23 @@ NinjaRobotV5/
 │       ├── interfaces.py       # Sensor/Actuator ABCs
 │       └── ...
 │
-├── ninja_ble/                  # [NEW] Bluetooth Library
+├── ninja_ble/                  # Bluetooth Library
 │   └── src/ninja_ble/
 │       ├── gatt_server.py
 │       └── connection.py
 │
 ├── ninja_core/
 │   └── src/ninja_core/
-│       ├── core/               # [NEW] Core Logic
+│       ├── core/               # Core Logic
 │       │   ├── dispatcher.py   # Unified Command Dispatcher
-│       │   └── state.py        # Shared Robot State
+│       │   └── executor.py     # [NEW] SafeExecutor for Blockly/AI
 │       ├── hal/
 │       │   ├── loader.py
 │       │   └── manager.py
-│       ├── coder/
-│       │   ├── generator.py
-│       │   └── executor.py
+│       ├── static/
+│       │   ├── blockly/        # [NEW] Blockly Assets
+│       │   ├── css/
+│       │   └── js/
 │       ├── ninja_agent.py
 │       ├── web_server.py       
 │       └── ...
