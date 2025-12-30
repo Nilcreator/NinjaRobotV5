@@ -144,23 +144,53 @@ class Actuator(ABC):
 
 > **Explanation:** ABCs act as strict "blueprints" that all hardware drivers must follow. This ensures `ninja_core` can interact with *any* sensor or actuator using the same standard commands (e.g., `initialize()`, `get_data()`), enabling true plugin-based modularity where you can swap hardware without rewriting the main code.
 
-### 4.2 `ninja_ble` (NEW - Phase 2)
+### 4.2 Dual Connectivity Architecture (Phase 2)
 
-**Objective:** Enable direct, zero-setup local control via Bluetooth Low Energy.
+**Objective:** Enable simultaneous control via **Local BLE** (Priority: AI Chat) and **Remote Web**, managed by a strict dispatcher to handle concurrency.
 
-**Functions:**
-- **GATT Server:** Hosts `NinjaRobotService`.
-- **Characteristics:** `Command` (Write), `Status` (Notify), `Console` (Notify).
-- **Concurrency:** Operates alongside the Web Server via `CommandDispatcher`.
+#### A. System Diagram
+```mermaid
+graph TD
+    subgraph "Ninja Core"
+        Dispatcher[CommandDispatcher<br>(Singleton)]
+        HAL[Hardware Abstraction Layer]
+        Agent[Ninja Agent]
+    end
+    
+    subgraph "Connectors"
+        BLE[ninja_ble<br>GATT Server]
+        Web[Web Server<br>FastAPI]
+    end
 
-### 4.3 Connectivity Orchestration (Dual Mode - Phase 2)
+    BLE -->|JSON Command| Dispatcher
+    Web -->|JSON Command| Dispatcher
+    Dispatcher -->|Control| HAL
+    Dispatcher -->|Intent| Agent
+    Dispatcher -->|Broadcast| BLE
+    Dispatcher -->|Broadcast| Web
+```
 
-**Objective:** Seamlessly manage inputs from both BLE and Web/ngrok.
+#### B. `ninja_ble` Specification
+- **Library:** `bless` (AsyncIO compatible).
+- **Service Name:** `NinjaRobot Service`
+- **UUID:** `00000001-710e-4a5b-8d75-3e5b444bc3cf`
 
-**Architecture:**
-- **Refactor `ninja_core`:** Create `CommandDispatcher` singleton.
-- **State Synchronization:** Broadcasts updates to WebSocket clients and BLE notifications.
-- **Conflict Resolution:** "Last Command Wins" policy.
+| Characteristic | UUID | Type | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Command** | `...0002-...` | Write | JSON commands (Chat, HAL control). |
+| **Response** | `...0003-...` | Notify | AI responses (text), Status updates. |
+
+#### C. `CommandDispatcher` (The Brain)
+- **Role:** Central traffic controller. Decouples input source from execution.
+- **Protocol (JSON):**
+    - **Chat:** `{ "type": "chat", "text": "..." }`
+    - **Control:** `{ "type": "hal", "command": "execute", "payload": {...} }`
+- **Output Routing:** AI responses are routed to **both** BLE (Notify) and Web (WebSocket) to keep clients in sync.
+
+#### D. User Priorities
+1.  🔴 **AI Chat over BLE** (Text-based) - Highest Priority
+2.  🟡 **Basic Control** (Servos, Buzzer, Faces)
+3.  🟢 **Sensor Streaming** (Distance, Status)
 
 ### 4.4 Visual Programming (Google Blockly - Phase 3)
 

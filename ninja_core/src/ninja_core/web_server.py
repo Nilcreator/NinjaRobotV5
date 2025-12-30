@@ -60,6 +60,23 @@ async def lifespan(app: FastAPI):
     app.state.ninja = AppState()
     app.state.ninja.hal = HardwareAbstractionLayer(config)
     app.state.ninja.hal.initialize()
+
+    # Initialize Dispatcher
+    from .dispatcher import CommandDispatcher
+    dispatcher = CommandDispatcher(app.state.ninja.hal)
+    
+    # Initialize BLE Service (conditionally, could fail on non-Linux)
+    try:
+        from ninja_ble.service import NinjaBLEService
+        app.state.ninja.ble = NinjaBLEService(dispatcher)
+        asyncio.create_task(app.state.ninja.ble.start())
+        print("BLE Service started.")
+    except ImportError as e:
+        print(f"BLE modules not found, skipping BLE: {e}")
+        app.state.ninja.ble = None
+    except Exception as e:
+        print(f"Failed to start BLE Service: {e}")
+        app.state.ninja.ble = None
     
     # Initialize Controllers
     app.state.ninja.faces = AnimatedFaces(app.state.ninja.hal)
@@ -87,6 +104,10 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     print("Shutting down Web Server...")
+    # Stop BLE
+    if hasattr(app.state.ninja, 'ble') and app.state.ninja.ble:
+        await app.state.ninja.ble.stop()
+
     if app.state.ninja.faces:
         app.state.ninja.faces.stop()
     if app.state.ninja.distance_monitor:
