@@ -182,13 +182,14 @@ class Actuator(ABC):
 
 ## 5. Phase-by-Phase Roadmap
 
-### Phase 1: Modularity & Foundation (Weeks 1-2)
+### Phase 1: Modularity & Foundation (Weeks 1-2) ✅ COMPLETE
 - [x] Conduct comprehensive health check.
-- [ ] Create `ninja_utils/interfaces.py` with `Sensor`/`Actuator` ABCs.
-- [ ] Refactor `pi0buzzer` to threaded sound queue + ABC.
-- [ ] Refactor `pi0servo`, `pi0disp`, `pi0vl53l0x` to ABC.
-- [ ] Rewrite `ninja_core/hal.py` for dynamic loading.
-- [ ] Create `DistanceData` dataclass.
+- [x] Create `ninja_utils/interfaces.py` with `Sensor`/`Actuator` ABCs.
+- [x] Refactor `pi0buzzer` to threaded sound queue + ABC.
+- [x] Refactor `pi0servo`, `pi0disp`, `pi0vl53l0x` to ABC.
+- [x] Rewrite `ninja_core/hal.py` for dynamic loading.
+- [x] Create `DistanceData` dataclass.
+
 
 ### Phase 2: Dual Connectivity Implementation (Weeks 3-4)
 - [ ] Create `CommandDispatcher` singleton in `ninja_core`.

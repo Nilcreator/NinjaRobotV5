@@ -1,27 +1,88 @@
 """
-Hardware Abstraction Layer (HAL) for NinjaRobotV4.
+Hardware Abstraction Layer (HAL) for NinjaRobot V5.
 
 This module provides a single, unified interface to all hardware components,
 abstracting away the details of pin numbers and driver initialization. It is
 responsible for initializing all hardware from a central configuration object
 and providing a clean way to access and shut down the hardware.
+
+V5 Changes:
+- All drivers now implement Sensor/Actuator ABCs from ninja_utils.interfaces
+- Added initialize_driver() for future dynamic loading support
+- Buzzer now uses non-blocking threaded playback
 """
 
-import pigpio
+import importlib
 import logging
+from typing import Optional
+
+import pigpio
+
+from ninja_utils import Actuator, Sensor
 from .config import NinjaConfig
 
-# Import driver classes from our hardware libraries
-from pi0servo.core.multi_servo import MultiServo
-from pi0buzzer.driver import MusicBuzzer
-from pi0disp.disp.st7789v import ST7789V
-from pi0vl53l0x.driver import VL53L0X
+# --- Driver Registry ---
+# Maps component names to their module paths and class names.
+# This enables future dynamic loading from config.json
+DRIVER_REGISTRY = {
+    "servos": {
+        "module": "pi0servo.core.multi_servo",
+        "class": "MultiServo",
+    },
+    "buzzer": {
+        "module": "pi0buzzer.driver",
+        "class": "MusicBuzzer",
+    },
+    "display": {
+        "module": "pi0disp.disp.st7789v",
+        "class": "ST7789V",
+    },
+    "distance_sensor": {
+        "module": "pi0vl53l0x.driver",
+        "class": "VL53L0X",
+    },
+}
 
 log = logging.getLogger(__name__)
 
 
+def load_driver_class(component_name: str) -> type:
+    """Dynamically load a driver class from the registry.
+    
+    Args:
+        component_name: The name of the component (e.g., "servos", "buzzer").
+    
+    Returns:
+        The driver class.
+    
+    Raises:
+        KeyError: If the component is not in the registry.
+        ImportError: If the module cannot be imported.
+    """
+    if component_name not in DRIVER_REGISTRY:
+        raise KeyError(f"Unknown component: {component_name}")
+    
+    registry_entry = DRIVER_REGISTRY[component_name]
+    module = importlib.import_module(registry_entry["module"])
+    driver_class = getattr(module, registry_entry["class"])
+    
+    log.debug(
+        "Loaded driver class %s.%s for component '%s'",
+        registry_entry["module"],
+        registry_entry["class"],
+        component_name,
+    )
+    return driver_class
+
+
 class HardwareAbstractionLayer:
-    """A class to initialize, manage, and access all robot hardware."""
+    """A class to initialize, manage, and access all robot hardware.
+    
+    All hardware drivers now implement the Sensor or Actuator ABC from
+    ninja_utils.interfaces, providing a consistent interface for:
+    - Sensors: initialize(), get_data(), close()
+    - Actuators: initialize(), execute(command), off()
+    """
 
     def __init__(self, config: NinjaConfig):
         """
@@ -34,14 +95,19 @@ class HardwareAbstractionLayer:
             config: The NinjaConfig object with all hardware settings.
         """
         self.config = config
-        self.pi: pigpio.pi | None = None
-        self.servos: MultiServo | None = None
-        self.buzzer: MusicBuzzer | None = None
-        self.display: ST7789V | None = None
-        self.distance_sensor: VL53L0X | None = None
+        self.pi: Optional[pigpio.pi] = None
+        
+        # Actuators (implement Actuator ABC)
+        self.servos: Optional[Actuator] = None
+        self.buzzer: Optional[Actuator] = None
+        self.display: Optional[Actuator] = None
+        
+        # Sensors (implement Sensor ABC)
+        self.distance_sensor: Optional[Sensor] = None
+        
         log.info("Hardware Abstraction Layer created.")
 
-    def initialize(self, components: list[str] = None):
+    def initialize(self, components: Optional[list[str]] = None):
         """
         Connects to the pigpio daemon and initializes all hardware components
         based on the provided configuration.
@@ -64,81 +130,105 @@ class HardwareAbstractionLayer:
 
         # --- Filter components if specified ---
         if components is None:
-            # Default to all available components
             components = ["servos", "buzzer", "display", "sensors"]
 
         # --- Initialize Servos ---
-        if "servos" in components and self.config.servos and self.config.servos.calibration:
-            try:
-                # Get a list of integer pins from the calibration data keys
-                pin_list = [
-                    int(pin_str) for pin_str in self.config.servos.calibration.keys()
-                ]
-
-                if pin_list:
-                    log.info(f"Found pins {pin_list} in config. Initializing MultiServo.")
-                    self.servos = MultiServo(
-                        pi=self.pi,
-                        pins=pin_list,
-                        conf_file="servo.json",
-                    )
-                    log.info("MultiServo controller initialized using 'servo.json'.")
-                else:
-                    log.info(
-                        "No servo calibration data found. Skipping servo initialization."
-                    )
-            except Exception as e:
-                log.error(f"Failed to initialize Servos: {e}")
-                log.warning("Continuing without Servos.")
-                self.servos = None
-        elif "servos" in components:
-            log.info("No servo calibration data found or skipped.")
+        if "servos" in components:
+            self._init_servos()
 
         # --- Initialize Buzzer ---
-        if "buzzer" in components and self.config.buzzer and self.config.buzzer.pin:
-            try:
-                self.buzzer = MusicBuzzer(pin=self.config.buzzer.pin, pi=self.pi)
-                log.info(f"Buzzer initialized on pin {self.config.buzzer.pin}.")
-            except Exception as e:
-                log.error(f"Failed to initialize Buzzer: {e}")
-                log.warning("Continuing without Buzzer.")
-                self.buzzer = None
-        elif "buzzer" in components:
-            log.info("No buzzer pin configured or skipped.")
+        if "buzzer" in components:
+            self._init_buzzer()
 
         # --- Initialize Display ---
-        if "display" in components and self.config.display and self.config.display.dc is not None:
-            try:
-                log.info("Initializing display...")
-                self.display = ST7789V(
-                    pi=self.pi,
-                    channel=0,  # SPI channel 0
-                    dc_pin=self.config.display.dc,
-                    rst_pin=self.config.display.rst,
-                    backlight_pin=self.config.display.blk,
-                )
-                log.info("Display initialized.")
-            except Exception as e:
-                log.error(f"Failed to initialize Display: {e}")
-                log.warning("Continuing without Display.")
-                self.display = None
-        elif "display" in components:
-            log.info("No display pins configured or skipped.")
+        if "display" in components:
+            self._init_display()
 
         # --- Initialize Distance Sensor ---
-        if "sensors" in components and self.config.sensors:
-            try:
-                log.info("Initializing distance sensor...")
-                self.distance_sensor = VL53L0X(pi=self.pi)
-                log.info("Distance sensor initialized.")
-            except Exception as e:
-                log.error(f"Failed to initialize distance sensor: {e}")
-                log.warning("Continuing without distance sensor. Obstacle avoidance will be disabled.")
-                self.distance_sensor = None
-        elif "sensors" in components:
-            log.info("No sensor config found. Skipping distance sensor.")
+        if "sensors" in components:
+            self._init_distance_sensor()
 
         log.info("Hardware initialization process complete.")
+
+    def _init_servos(self) -> None:
+        """Initialize the servo controller."""
+        if not self.config.servos or not self.config.servos.calibration:
+            log.info("No servo calibration data found. Skipping servo initialization.")
+            return
+
+        try:
+            pin_list = [int(pin_str) for pin_str in self.config.servos.calibration.keys()]
+            if not pin_list:
+                log.info("No servo pins found in config. Skipping.")
+                return
+
+            log.info(f"Initializing MultiServo with pins {pin_list}...")
+            MultiServo = load_driver_class("servos")
+            self.servos = MultiServo(
+                pi=self.pi,
+                pins=pin_list,
+                conf_file="servo.json",
+            )
+            log.info("MultiServo controller initialized.")
+        except Exception as e:
+            log.error(f"Failed to initialize Servos: {e}")
+            log.warning("Continuing without Servos.")
+            self.servos = None
+
+    def _init_buzzer(self) -> None:
+        """Initialize the buzzer (non-blocking threaded driver)."""
+        if not self.config.buzzer or not self.config.buzzer.pin:
+            log.info("No buzzer pin configured. Skipping.")
+            return
+
+        try:
+            MusicBuzzer = load_driver_class("buzzer")
+            self.buzzer = MusicBuzzer(pin=self.config.buzzer.pin, pi=self.pi)
+            # V5: Call initialize() to start the background worker thread
+            self.buzzer.initialize()
+            log.info(f"Buzzer initialized on pin {self.config.buzzer.pin} (non-blocking mode).")
+        except Exception as e:
+            log.error(f"Failed to initialize Buzzer: {e}")
+            log.warning("Continuing without Buzzer.")
+            self.buzzer = None
+
+    def _init_display(self) -> None:
+        """Initialize the display."""
+        if not self.config.display or self.config.display.dc is None:
+            log.info("No display pins configured. Skipping.")
+            return
+
+        try:
+            log.info("Initializing display...")
+            ST7789V = load_driver_class("display")
+            self.display = ST7789V(
+                pi=self.pi,
+                channel=0,
+                dc_pin=self.config.display.dc,
+                rst_pin=self.config.display.rst,
+                backlight_pin=self.config.display.blk,
+            )
+            log.info("Display initialized.")
+        except Exception as e:
+            log.error(f"Failed to initialize Display: {e}")
+            log.warning("Continuing without Display.")
+            self.display = None
+
+    def _init_distance_sensor(self) -> None:
+        """Initialize the distance sensor."""
+        if not self.config.sensors:
+            log.info("No sensor config found. Skipping distance sensor.")
+            return
+
+        try:
+            log.info("Initializing distance sensor...")
+            VL53L0X = load_driver_class("distance_sensor")
+            self.distance_sensor = VL53L0X(pi=self.pi)
+            log.info("Distance sensor initialized.")
+        except Exception as e:
+            log.error(f"Failed to initialize distance sensor: {e}")
+            log.warning("Continuing without distance sensor. Obstacle avoidance will be disabled.")
+            self.distance_sensor = None
 
     def shutdown(self):
         """
@@ -147,6 +237,7 @@ class HardwareAbstractionLayer:
         """
         log.info("Shutting down hardware components...")
 
+        # Use ABC off() method for actuators
         if self.servos:
             self.servos.off()
             log.info("All servos turned off.")
@@ -156,9 +247,11 @@ class HardwareAbstractionLayer:
             log.info("Buzzer turned off.")
 
         if self.display:
+            self.display.off()  # Uses ABC method
             self.display.close()
             log.info("Display closed.")
 
+        # Use ABC close() method for sensors
         if self.distance_sensor:
             self.distance_sensor.close()
             log.info("Distance sensor closed.")

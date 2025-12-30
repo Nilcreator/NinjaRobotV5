@@ -242,8 +242,12 @@ The Web Server provides a user-friendly interface for controlling the robot from
 3.  **Test Web Features:**
     - **AI Chat & Voice Input:**
         - **Text Chat:** Type a message in the input box and click **Send**.
-        - **Voice Input:** Select your language (English, 日本語, 繁體中文, 简体中文), click the **Microphone** icon, speak your command, and the text will appear in the input box.
-        - **Multilingual Support:** The robot will detect the selected language and respond in the same language (including distinguishing between Traditional and Simplified Chinese).
+        - **Voice Input:** Select your language (English, 日本語, 繁體中文, 简体中文), click the  **`ninja_agent.py`** - AI Agent
+  - Google Gemini integration for NLP
+  - Semantic understanding and intent mapping
+  - Auto-emotion generation
+  - Action chaining (Movement, Faces, Sounds)
+  - Multilingual support (EN/JP/ZH-TW/ZH-CN)he robot will detect the selected language and respond in the same language (including distinguishing between Traditional and Simplified Chinese).
     - **Servo Movements:** Select a movement from the dropdown and click **Execute**.
     - **Facial Expressions:** Select an expression and click **Show**.
     - **Sounds:** Select an emotion sound and click **Play**.

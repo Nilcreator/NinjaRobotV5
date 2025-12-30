@@ -7,15 +7,20 @@ ST7789V Display Driver for Raspberry Pi.
 This module provides a high-performance driver for ST7789V-based displays,
 optimized for Raspberry Pi environments. It leverages the `performance_core`
 module to achieve high frame rates with low CPU usage.
+
+V5 Changes:
+- Implements Actuator ABC from ninja_utils.interfaces
+- Added initialize() and execute() methods for standardized interface
 """
 
 import time
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pigpio
 from PIL import Image
 
+from ninja_utils import Actuator
 from ..utils.performance_core import create_optimizer_pack
 
 # --- ST7789V Commands ---
@@ -33,13 +38,16 @@ CMD_MADCTL = 0x36
 CMD_COLMOD = 0x3A
 
 
-class ST7789V:
+class ST7789V(Actuator):
     """
-    An optimized driver for ST7789V-based SPI displays.
+    An optimized driver for ST7789V-based SPI displays implementing the Actuator interface.
 
     This class manages low-level communication with the display controller,
     providing methods for initialization, configuration, and high-performance
     image rendering using techniques like partial updates and memory pooling.
+    
+    Note: Display initialization uses blocking time.sleep() calls during hardware
+    reset. This is acceptable as it only occurs once at startup.
     """
 
     def __init__(
@@ -264,3 +272,41 @@ class ST7789V:
         """Wakes the display from sleep mode."""
         self._write_command(CMD_SLPOUT)
         self.pi.write(self.backlight_pin, 1)
+
+    # --- Actuator Interface Methods ---
+
+    def initialize(self) -> None:
+        """Initialize the display (Actuator interface).
+        
+        Note: The display is already initialized in __init__, so this method
+        simply ensures the display is awake and ready.
+        """
+        self.wake()
+
+    def execute(self, command: dict[str, Any]) -> None:
+        """Execute a display command (Actuator interface).
+        
+        Args:
+            command: A dictionary containing one of:
+                - "image" (PIL.Image): An image to display.
+                - "clear" (bool): If True, clear the display.
+                - "backlight" (bool): Turn backlight on/off.
+        
+        Example:
+            display.execute({"image": my_image})
+            display.execute({"clear": True})
+            display.execute({"backlight": False})
+        """
+        if "image" in command:
+            self.display(command["image"])
+        elif command.get("clear"):
+            # Clear by displaying a black image
+            black_image = Image.new("RGB", (self.width, self.height), (0, 0, 0))
+            self.display(black_image)
+        elif "backlight" in command:
+            self.pi.write(self.backlight_pin, 1 if command["backlight"] else 0)
+
+    def off(self) -> None:
+        """Turn off the display (Actuator interface)."""
+        self.dispoff()
+

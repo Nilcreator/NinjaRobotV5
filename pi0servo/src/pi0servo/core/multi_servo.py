@@ -1,20 +1,66 @@
 #
 # (c) 2025 Yoichi Tanibayashi
 #
-"""multi_servo.py"""
+"""multi_servo.py
+
+V5 Changes:
+- Implements Actuator ABC from ninja_utils.interfaces
+- Added initialize() and execute() methods for standardized interface
+"""
 import time
+from typing import Any
 
+from ninja_utils import Actuator, get_logger
 from .calibrable_servo import CalibrableServo
-from ninja_utils.my_logger import get_logger
 
 
-class MultiServo:
+class MultiServo(Actuator):
     """
-    複数のサーボモーターを制御する。
+    Multi-servo controller implementing the Actuator interface.
+    
+    Controls multiple servo motors simultaneously with support for
+    synchronized movements and calibration.
     """
 
     DEF_MOVE_SEC = 0.2  # sec
     DEF_STEP_N = 40
+
+    def initialize(self) -> None:
+        """Initialize the servos (Actuator interface).
+        
+        Note: Servos are already initialized in __init__, so this method
+        centers all servos as a safe default state.
+        """
+        self.move_all_angles([0] * self.servo_n)
+
+    def execute(self, command: dict[str, Any]) -> None:
+        """Execute a servo command (Actuator interface).
+        
+        Args:
+            command: A dictionary containing one of:
+                - "angles" (list[float]): Target angles for all servos.
+                - "pin" (int) + "angle" (float): Move a single servo.
+                - "sync" (bool): If True, use synchronized smooth movement.
+        
+        Example:
+            servo.execute({"angles": [0, 45, -30, 0, 0, 0, 0, 0]})
+            servo.execute({"pin": 20, "angle": 45})
+            servo.execute({"angles": [0, 0, 0, 0, 0, 0, 0, 0], "sync": True})
+        """
+        if "angles" in command:
+            angles = command["angles"]
+            if command.get("sync", False):
+                self.move_all_angles_sync(angles)
+            else:
+                self.move_all_angles(angles)
+        elif "pin" in command and "angle" in command:
+            pin = command["pin"]
+            angle = command["angle"]
+            # Find the servo index for the given pin
+            if pin in self.pins:
+                idx = self.pins.index(pin)
+                self.servo[idx].move_angle(angle)
+
 
     def __init__(
         self,
@@ -41,7 +87,7 @@ class MultiServo:
             デバッグモードを有効にするかどうかのフラグ。
         """
         self._debug = debug
-        self.__log = get_logger(self.__class__.__name__, self._debug)
+        self.__log = get_logger(self.__class__.__name__)
         self.__log.debug(
             "pins=%s, first_move=%s, conf_file=%s",
             pins, first_move, conf_file

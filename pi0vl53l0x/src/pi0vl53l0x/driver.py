@@ -1,21 +1,30 @@
 #
 # (c) 2025 Yoichi Tanibayashi
 #
-"""Python driver for the VL53L0X distance sensor."""
+"""Python driver for the VL53L0X distance sensor.
+
+V5 Changes:
+- Implements Sensor ABC from ninja_utils.interfaces
+- Added get_data() method for standardized output
+"""
 
 import time
 import pigpio
 import numpy as np
 from pathlib import Path
+from typing import Any
 
-from ninja_utils.my_logger import get_logger
+from ninja_utils import Sensor, get_logger
 from .config_manager import load_config
 from . import constants as C
 
 
-class VL53L0X:
+class VL53L0X(Sensor):
     """
-    VL53L0X driver.
+    VL53L0X distance sensor driver implementing the Sensor interface.
+    
+    This driver provides distance measurements using the VL53L0X Time-of-Flight
+    laser ranging sensor via I2C communication.
     """
 
     def __init__(self, pi: pigpio.pi, i2c_bus: int = 1, i2c_address: int = 0x29, debug: bool = False, config_file_path: Path | None = None):
@@ -25,7 +34,7 @@ class VL53L0X:
         self.pi = pi
         self.i2c_bus = i2c_bus
         self.i2c_address = i2c_address
-        self.__log = get_logger(self.__class__.__name__, debug)
+        self.__log = get_logger(self.__class__.__name__)
         self.__log.debug(
             "Open VL53L0X at i2c_bus=%s, i2c_address=%s",
             self.i2c_bus,
@@ -532,6 +541,35 @@ class VL53L0X:
         self.write_byte(C.SYSTEM_INTERRUPT_CLEAR, C.VALUE_01)
 
         return range_mm - self.offset_mm
+
+    def get_data(self) -> dict[str, Any]:
+        """Get sensor data in standardized format (Sensor interface).
+        
+        Returns:
+            A dictionary containing:
+                - distance_mm (int): The measured distance in millimeters.
+                - is_valid (bool): Whether the measurement is valid.
+                - raw_value (int): The raw sensor value before offset.
+                - timestamp (float): The measurement timestamp.
+        """
+        try:
+            raw_distance = self.get_range() + self.offset_mm  # Get raw before offset
+            distance = raw_distance - self.offset_mm
+            return {
+                "distance_mm": distance,
+                "is_valid": 0 < distance < 8190,  # VL53L0X valid range
+                "raw_value": raw_distance,
+                "timestamp": time.time(),
+            }
+        except Exception as e:
+            self.__log.error("Failed to get distance: %s", e)
+            return {
+                "distance_mm": -1,
+                "is_valid": False,
+                "raw_value": None,
+                "timestamp": time.time(),
+            }
+
 
     def set_offset(self, offset_mm: int) -> None:
         """
