@@ -42,6 +42,7 @@ You must map the project state using these files before beginning any task:
 5.  **Plan**: Make a complete phased plan for user to approve before starting the task.
 6.  **Edit**: modifying code.
 7.  **Lint**: `uv run ruff check <file>`.
+8.  **Documentation**: Update `DevelopmentLog.md` and any documents that may be affected by the change. 
 
 ## 4. Documentation Policy
 
