@@ -1,5 +1,14 @@
 # Development Log
 
+## 2025-12-30: Phase 1 Integration Fixes
+- **Action**: Fixed issues discovered during hardware testing.
+- **Details**:
+    - **pi0buzzer CLI**: Added `initialize()` calls to `beep`, `init`, and `playmusic` commands.
+    - **HAL Logging**: Added debug logging with helpful tips when servo/buzzer initialization is skipped.
+    - **Walkthrough**: Added missing calibration and config import steps (2a-2c).
+- **Root Cause**: HAL requires `config.json` to have data imported from `buzzer.json` and `servo.json`.
+- **Related Files**: `pi0buzzer/__main__.py`, `ninja_core/hal.py`, `walkthrough.md`
+
 ## 2025-12-30: Phase 1 Modularity & Foundation - COMPLETE
 - **Action**: Implemented all Phase 1 tasks for V5 modular architecture.
 - **Details**:

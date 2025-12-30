@@ -152,8 +152,14 @@ class HardwareAbstractionLayer:
 
     def _init_servos(self) -> None:
         """Initialize the servo controller."""
+        # Debug: Show what config values we're checking
+        has_servos_config = bool(self.config.servos)
+        has_calibration = bool(self.config.servos.calibration) if has_servos_config else False
+        log.debug(f"Servo config check: servos={has_servos_config}, calibration={has_calibration}")
+        
         if not self.config.servos or not self.config.servos.calibration:
             log.info("No servo calibration data found. Skipping servo initialization.")
+            log.info("Tip: Run 'uv run ninja_core config import' to import servo.json")
             return
 
         try:
@@ -177,8 +183,14 @@ class HardwareAbstractionLayer:
 
     def _init_buzzer(self) -> None:
         """Initialize the buzzer (non-blocking threaded driver)."""
+        # Debug: Show what config values we're checking
+        has_buzzer_config = bool(self.config.buzzer)
+        buzzer_pin = self.config.buzzer.pin if has_buzzer_config else None
+        log.debug(f"Buzzer config check: buzzer={has_buzzer_config}, pin={buzzer_pin}")
+        
         if not self.config.buzzer or not self.config.buzzer.pin:
             log.info("No buzzer pin configured. Skipping.")
+            log.info("Tip: Run 'uv run ninja_core config import' to import buzzer.json")
             return
 
         try:
