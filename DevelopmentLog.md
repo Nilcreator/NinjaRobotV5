@@ -1,5 +1,10 @@
 # Development Log
 
+## 2025-12-30: Config Import CLI Fix
+- **Action**: Added `uv run ninja_core config import` command.
+- **Details**: The original command was `import-all`. Added `import` as an alias for convenience.
+- **Related Files**: `ninja_core/__main__.py`
+
 ## 2025-12-30: Phase 1 Integration Fixes
 - **Action**: Fixed issues discovered during hardware testing.
 - **Details**:

@@ -27,15 +27,19 @@ def config():
 
 
 @config.command("import-all")
-def import_all():
+@click.pass_context
+def import_all(ctx):
     """
-
     Imports settings from hardware files (e.g., servo.json) into the main
-
     config.json, or applies defaults if files are missing.
-
     """
+    import_and_update_config()
 
+
+# Alias: 'import' -> 'import-all' for convenience
+@config.command("import")
+def import_config():
+    """Alias for 'import-all'. Imports servo.json and buzzer.json into config.json."""
     import_and_update_config()
 
 
