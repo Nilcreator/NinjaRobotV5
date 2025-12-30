@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Plan
 
-**Status:** Draft
-**Version:** 0.6.0
+**Status:** Approved
+**Version:** 1.0.0
 **Last Updated:** 2025-12-30
 **Objective:** Evolve NinjaRobot from a fixed V4 architecture to a modular, connected, and AI-adaptive V5 platform.
 
@@ -17,64 +17,134 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 
 ---
 
-## 2. Optimization of Existing Code & Libraries
+## 2. Health Check Findings
 
-### 2.1 Hardware Abstraction Layer (`ninja_core/hal.py`)
+A comprehensive line-by-line code review was conducted on 2025-12-30. The following issues were identified:
 
-**Current State:**
-- **Tight Coupling:** Explicitly imports drivers (`pi0servo`, `pi0buzzer`, etc.).
-- **Initialization Logic:** Hardcoded `if/elif` blocks.
+### 2.1 `ninja_utils`
+| File | Finding | V5 Action |
+|---|---|---|
+| `my_logger.py` | Basic logger. | None (works as-is). |
+| **MISSING** | No ABCs for hardware interfaces. | **Create `interfaces.py` with `Sensor`/`Actuator` ABCs.** |
 
-**Optimization Plan (Phase 1):**
-1.  **Dynamic Loading:** Use `importlib` for driver loading based on `config.json` class paths.
-2.  **Dependency Injection:** Pass generic `IOManager` to drivers.
-3.  **Interface Standardization:** Enforce `Sensor`/`Actuator` protocols.
+### 2.2 `pi0buzzer`
+| File | Finding | V5 Action |
+|---|---|---|
+| `driver.py` L31 | **Blocking `time.sleep()`** in `play_sound()`. | **Refactor to threaded sound queue.** |
+| `driver.py` L22 | Hardcoded `"buzzer.json"` path. | **Inject config via constructor.** |
+| **MISSING** | No ABC inheritance. | **Implement `Actuator` interface.** |
 
-### 2.2 VL53L0X Driver (`pi0vl53l0x/driver.py`)
+### 2.3 `pi0servo`
+| File | Finding | V5 Action |
+|---|---|---|
+| `multi_servo.py` L~190 | Blocking `time.sleep()` in `move_angle_sync()`. | **Use existing `ThreadMultiServo` in core.** |
+| `calibrable_servo.py` | Hardcoded `"servo.json"` path. | **Inject config via constructor.** |
+| **MISSING** | No ABC inheritance. | **Implement `Actuator` interface.** |
 
-**Current State:** Blocking calls (`time.sleep`), raw integer return types.
+### 2.4 `pi0disp`
+| File | Finding | V5 Action |
+|---|---|---|
+| `st7789v.py` L~80 | Blocking `time.sleep()` during init (acceptable). | **Document.** |
+| **MISSING** | No ABC inheritance. | **Implement `Actuator` interface.** |
 
-**Optimization Plan (Phase 1):**
-1.  **Non-Blocking I/O:** Refactor `get_range` to `async` implementation or internal threading.
-2.  **Standardized Output:** Return `DistanceData` dataclass.
-3.  **Error Handling:** Use explicit exceptions instead of generic ones.
+### 2.5 `pi0vl53l0x`
+| File | Finding | V5 Action |
+|---|---|---|
+| `driver.py` L~360 | Blocking `time.sleep()` in `get_range()` polling. | **Already wrapped by `perception.py` (threaded). No change needed.** |
+| `driver.py` | Returns raw `int`. | **Create `DistanceData` dataclass.** |
+| **MISSING** | No ABC inheritance. | **Implement `Sensor` interface.** |
 
-### 2.3 Servo Driver (`pi0servo/core/piservo.py`)
-
-**Current State:** Good basics, but calibration logic is separated and mocking is missing.
-
-**Optimization Plan (Phase 1):**
-1.  **Unified Configuration:** Integrate calibration directly into `MultiServo`.
-2.  **Mocking Support:** Add `MockServo` for dev-without-hardware.
-
-### 2.4 Display Driver (`pi0disp/disp/st7789v.py`)
-
-**Current State:** Blocking SPI transfers.
-
-**Optimization Plan (Phase 1):**
-1.  **Async Rendering:** Threaded SPI writes.
-2.  **Frame Dropping:** Logic to prevent lag during heavy load.
-
-### 2.5 Buzzer Driver (`pi0buzzer/driver.py`)
-
-**Current State:** Blocking `time.sleep` in `play_sound` and `play_song`. Hardcoded "buzzer.json" path.
-
-**Optimization Plan (Phase 1):**
-1.  **Async/Threaded Playback:** Implement non-blocking queue-based playback.
-2.  **Config Injection:** Remove hardcoded file paths; accept config dict during init.
-3.  **Standardization:** Inherit from `Actuator` interface.
-
-### 2.6 General Codebase Health
-
-**Optimization Plan (Phase 1):**
-1.  **Unified Logging:** Replace `print()` statements with `ninja_utils.my_logger` across all libraries.
-2.  **Config Management:** Centralize configuration loading in `ninja_utils` or `ninja_core` to avoid scattered JSON files.
+### 2.6 `ninja_core`
+| File | Finding | V5 Action |
+|---|---|---|
+| `hal.py` L14-17 | **Hardcoded driver imports.** | **Use `importlib` for dynamic loading.** |
+| `hal.py` L52-100 | Hardcoded `if/elif` init logic. | **Replace with plugin loop from config.** |
+| `perception.py` | Uses `threading` for background loop. | **Good! Keep as-is.** |
+| `ninja_agent.py` | Uses async Gemini API. | **Good! Keep as-is.** |
 
 ---
 
-## 3. New Code & Library Development
+## 3. Optimization of Existing Code & Libraries
 
-### 3.1 `ninja_ble` (New Library for Local Connectivity)
+### 3.1 Hardware Abstraction Layer (`ninja_core/hal.py`)
+
+**Current State:**
+- **Tight Coupling:** Explicitly imports drivers (`from pi0servo...`, `from pi0buzzer...`).
+- **Initialization Logic:** Hardcoded `if/elif` blocks for each component.
+
+**Optimization Plan (Phase 1):**
+1.  **Dynamic Loading:** Use `importlib.import_module()` to load drivers based on class paths in `config.json`.
+2.  **Dependency Injection:** Pass a shared `pigpio.pi()` instance to drivers.
+3.  **Interface Validation:** Verify loaded drivers implement `Sensor` or `Actuator` ABCs.
+
+### 3.2 Buzzer Driver (`pi0buzzer/driver.py`)
+
+**Current State:** Blocking `time.sleep()` in `play_sound()` and `play_song()`.
+
+**Optimization Plan (Phase 1):**
+1.  **Threaded Sound Queue:** Implement a background worker thread that processes sounds from a queue.
+2.  **Non-Blocking API:** `play_sound()` returns immediately after adding to the queue.
+3.  **Config Injection:** Remove hardcoded `"buzzer.json"` path.
+4.  **ABC Implementation:** Inherit from `Actuator` interface.
+
+### 3.3 Servo Driver (`pi0servo`)
+
+**Current State:** `MultiServo.move_angle_sync()` uses blocking `time.sleep()`.
+
+**Optimization Plan (Phase 1):**
+1.  **Use `ThreadMultiServo`:** The helper already exists in `pi0servo/helper/`. Use it in `ninja_core`.
+2.  **Config Injection:** Remove hardcoded `"servo.json"` path.
+3.  **ABC Implementation:** Inherit from `Actuator` interface.
+
+### 3.4 Display Driver (`pi0disp/disp/st7789v.py`)
+
+**Current State:** Synchronous SPI writes. `time.sleep()` during init is acceptable.
+
+**Optimization Plan (Phase 1):**
+1.  **ABC Implementation:** Inherit from `Actuator` interface.
+2.  **Document Blocking:** Add docstring noting init blocking behavior.
+
+### 3.5 Distance Sensor Driver (`pi0vl53l0x/driver.py`)
+
+**Current State:** Blocking I2C polling in `get_range()`, but already wrapped by `perception.py`.
+
+**Optimization Plan (Phase 1):**
+1.  **No Driver Change Needed:** `perception.py` already runs in a background thread.
+2.  **`DistanceData` Dataclass:** Create a standardized output format.
+3.  **ABC Implementation:** Inherit from `Sensor` interface.
+
+---
+
+## 4. New Code & Library Development
+
+### 4.1 `ninja_utils/interfaces.py` (NEW)
+
+**Objective:** Define strict "contracts" (ABCs) for all hardware drivers.
+
+**Contents:**
+```python
+from abc import ABC, abstractmethod
+
+class Sensor(ABC):
+    @abstractmethod
+    def initialize(self) -> None: ...
+    @abstractmethod
+    def get_data(self) -> dict: ...
+    @abstractmethod
+    def close(self) -> None: ...
+
+class Actuator(ABC):
+    @abstractmethod
+    def initialize(self) -> None: ...
+    @abstractmethod
+    def execute(self, command: dict) -> None: ...
+    @abstractmethod
+    def off(self) -> None: ...
+```
+
+> **Explanation:** ABCs act as strict "blueprints" that all hardware drivers must follow. This ensures `ninja_core` can interact with *any* sensor or actuator using the same standard commands (e.g., `initialize()`, `get_data()`), enabling true plugin-based modularity where you can swap hardware without rewriting the main code.
+
+### 4.2 `ninja_ble` (NEW - Phase 2)
 
 **Objective:** Enable direct, zero-setup local control via Bluetooth Low Energy.
 
@@ -83,7 +153,7 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 - **Characteristics:** `Command` (Write), `Status` (Notify), `Console` (Notify).
 - **Concurrency:** Operates alongside the Web Server via `CommandDispatcher`.
 
-### 3.2 Connectivity Orchestration (Dual Mode)
+### 4.3 Connectivity Orchestration (Dual Mode - Phase 2)
 
 **Objective:** Seamlessly manage inputs from both BLE and Web/ngrok.
 
@@ -92,90 +162,78 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 - **State Synchronization:** Broadcasts updates to WebSocket clients and BLE notifications.
 - **Conflict Resolution:** "Last Command Wins" policy.
 
-### 3.3 Visual Programming (Google Blockly Integration)
+### 4.4 Visual Programming (Google Blockly - Phase 3)
 
 **Objective:** Enable visual, block-based programming directly from the Web Interface.
 
 **Integration Strategy:**
-- **Frontend (`ninja_core/static`):**
-    - Integrate `blockly` assets.
-    - **Custom Blocks:** Define blocks for Robot Actions (`servo_move`, `play_sound`, etc.).
-    - **UI Layout:** Add a "Blockly Workspace" tab to `index.html`.
-- **Backend (`ninja_core`):**
-    - **Execution Endpoint:** `POST /api/blockly/execute`.
-    - **Sandbox:** Runs code in `SafeExecutor`.
+- **Frontend (`ninja_core/static`):** Integrate `blockly` JS assets. Define custom blocks for robot actions.
+- **Backend (`ninja_core`):** `POST /api/blockly/execute` endpoint. Runs code in `SafeExecutor`.
 
-### 3.4 `ninja_interfaces` & `ninja_coder`
+### 4.5 `ninja_coder` (Phase 3)
 
-**Objective:** Define contracts and Safe Execution Environment.
+**Objective:** AI Agent capability to write and execute code.
 
 **Functions:**
-- **`Sensor` / `Actuator` ABCs (Abstract Base Classes):**
-    > **Explanation:** ABCs act as strict "blueprints" or "contracts" that all hardware drivers must follow. This ensures that `ninja_core` can interact with *any* sensor (LiDAR, Ultrasonic, Time-of-Flight) using the exact same standard commands (e.g., `initialize()`, `get_data()`), enabling true plugin-based modularity where you can swap hardware without rewriting the main code.
 - **`SafeExecutor`:** A wrapper utilizing `exec()` with restricted globals. Used by **both** Blockly and AI Agent.
-- **`NinjaCoder`:** AI Agent capability to write code for the Executor.
+- **`NinjaCoder`:** AI Agent generates Python code for the Executor.
 
 ---
 
-## 4. Phase-by-Phase Roadmap
+## 5. Phase-by-Phase Roadmap
 
 ### Phase 1: Modularity & Foundation (Weeks 1-2)
-1.  Create `ninja_interfaces` with ABCs.
-2.  Refactor `pi0vl53l0x`, `pi0servo`, `pi0disp`, `pi0buzzer` to inherit from ABCs and fix blocking I/O.
-3.  Rewrite `ninja_core.hal` to use dynamic loading.
-4.  Standardize logging and config.
+- [x] Conduct comprehensive health check.
+- [ ] Create `ninja_utils/interfaces.py` with `Sensor`/`Actuator` ABCs.
+- [ ] Refactor `pi0buzzer` to threaded sound queue + ABC.
+- [ ] Refactor `pi0servo`, `pi0disp`, `pi0vl53l0x` to ABC.
+- [ ] Rewrite `ninja_core/hal.py` for dynamic loading.
+- [ ] Create `DistanceData` dataclass.
 
 ### Phase 2: Dual Connectivity Implementation (Weeks 3-4)
-1.  Refactor `ninja_core` to create a unified `CommandDispatcher`.
-2.  Develop `ninja_ble`.
-3.  Integrate BLE service and WebSocket server.
+- [ ] Create `CommandDispatcher` singleton in `ninja_core`.
+- [ ] Develop `ninja_ble` library.
+- [ ] Integrate BLE service with WebSocket server.
 
 ### Phase 3: Visual Programming & AI (Weeks 5-7)
-1.  **Blockly Integration:** Frontend workspace + Backend `SafeExecutor`.
-2.  **AI Integration:** Implement `ninja_coder` logic and update `NinjaAgent`.
+- [ ] Integrate Google Blockly into frontend.
+- [ ] Implement `SafeExecutor` backend.
+- [ ] Implement `ninja_coder` AI code generation.
 
 ---
 
-## 5. Ideal V5 Project File Structure
+## 6. Ideal V5 Project File Structure
 
 ```text
 NinjaRobotV5/
 ├── pyproject.toml
 ├── config.json
-├── driver_config/
-│   ├── servo.json
-│   ├── buzzer.json
-│   └── sensors.json
 │
 ├── ninja_utils/
 │   └── src/ninja_utils/
-│       ├── interfaces.py       # Sensor/Actuator ABCs
-│       ├── logger_config.py    # Unified Logging
+│       ├── interfaces.py       # Sensor/Actuator ABCs (NEW)
+│       ├── my_logger.py
 │       └── ...
 │
-├── ninja_ble/                  # Bluetooth Library
+├── ninja_ble/                  # Bluetooth Library (Phase 2)
 │   └── src/ninja_ble/
 │       ├── gatt_server.py
 │       └── connection.py
 │
 ├── ninja_core/
 │   └── src/ninja_core/
-│       ├── core/               # Core Logic
+│       ├── core/               # Core Logic (Phase 2/3)
 │       │   ├── dispatcher.py   # Unified Command Dispatcher
 │       │   └── executor.py     # SafeExecutor for Blockly/AI
-│       ├── hal/
-│       │   ├── loader.py
-│       │   └── manager.py
+│       ├── hal.py              # Refactored for dynamic loading
 │       ├── static/
-│       │   ├── blockly/        # Blockly Assets
-│       │   ├── css/
-│       │   └── js/
+│       │   └── blockly/        # Blockly Assets (Phase 3)
 │       ├── ninja_agent.py
 │       ├── web_server.py       
 │       └── ...
 │
-├── pi0servo/
-├── pi0disp/
-├── pi0vl53l0x/
-└── pi0buzzer/
+├── pi0servo/                   # Implements Actuator ABC
+├── pi0disp/                    # Implements Actuator ABC
+├── pi0vl53l0x/                 # Implements Sensor ABC
+└── pi0buzzer/                  # Implements Actuator ABC (Threaded)
 ```
