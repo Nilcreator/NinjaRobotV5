@@ -25,12 +25,6 @@ CHAR_COMMAND_UUID = "00000002-710e-4a5b-8d75-3e5b444bc3cf"
 CHAR_RESPONSE_UUID = "00000003-710e-4a5b-8d75-3e5b444bc3cf"
 
 
-def read_request(characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
-    """Handle read requests. Returns current characteristic value."""
-    log.debug(f"Read request for {characteristic.uuid}")
-    return characteristic.value or bytearray()
-
-
 class NinjaBLEService:
     """BLE GATT Server for NinjaRobot V5."""
 
@@ -42,18 +36,23 @@ class NinjaBLEService:
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
 
-    def _write_request(
+    def _on_read(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
+        """Handle read requests. Returns current characteristic value."""
+        log.debug(f"Read request for {characteristic.uuid}")
+        return characteristic.value if characteristic.value else bytearray(b"{}")
+
+    def _on_write(
         self,
         characteristic: BlessGATTCharacteristic,
         value: Any,
         **kwargs,
     ):
-        """
-        Handle write requests to characteristics.
-        This is called by bless when a client writes to a characteristic.
-        """
+        """Handle write requests to characteristics."""
+        log.debug(f"Write to {characteristic.uuid}: {value}")
+
         # Only process writes to the Command characteristic
-        if str(characteristic.uuid).lower() == CHAR_COMMAND_UUID.lower():
+        char_uuid = str(characteristic.uuid).lower()
+        if CHAR_COMMAND_UUID.lower() in char_uuid:
             try:
                 # Decode payload
                 if isinstance(value, (bytes, bytearray)):
@@ -78,12 +77,12 @@ class NinjaBLEService:
         """Start the GATT Server."""
         log.info("Starting BLE Service...")
 
-        # Create server with callbacks
-        self._server = BlessServer(
-            name=SERVICE_NAME,
-            read_request_func=read_request,
-            write_request_func=self._write_request,
-        )
+        # Create server
+        self._server = BlessServer(name=SERVICE_NAME)
+
+        # Set callbacks AFTER creation (required by bless API)
+        self._server.read_request_func = self._on_read
+        self._server.write_request_func = self._on_write
 
         # Add Service
         await self._server.add_new_service(SERVICE_UUID)
@@ -100,7 +99,7 @@ class NinjaBLEService:
             value=bytearray(b""),
         )
 
-        # Add Response Characteristic (Notify)
+        # Add Response Characteristic (Notify + Read)
         await self._server.add_new_characteristic(
             SERVICE_UUID,
             CHAR_RESPONSE_UUID,
