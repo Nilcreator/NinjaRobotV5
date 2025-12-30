@@ -64,6 +64,7 @@ async def lifespan(app: FastAPI):
     # Initialize Dispatcher
     from .dispatcher import CommandDispatcher
     dispatcher = CommandDispatcher(app.state.ninja.hal)
+    app.state.ninja.dispatcher = dispatcher  # Store for later use
     
     # Initialize BLE Service (conditionally, could fail on non-Linux)
     try:
@@ -85,12 +86,13 @@ async def lifespan(app: FastAPI):
     
     # Initialize Distance Monitor
     app.state.ninja.distance_monitor = DistanceMonitor(app.state.ninja.hal)
-    app.state.ninja.distance_monitor.start_continuous(interval=0.05) # Slightly slower for web to save resources? Keep 0.05
+    app.state.ninja.distance_monitor.start_continuous(interval=0.05)
 
-    # Initialize Agent
+    # Initialize Agent and attach to Dispatcher
     try:
         app.state.ninja.agent = NinjaAgent(config)
-        print("Ninja AI Agent initialized.")
+        dispatcher.attach_agent(app.state.ninja.agent)
+        print("Ninja AI Agent initialized and attached to Dispatcher.")
     except MissingAPIKeyError:
         print("WARNING: Gemini API Key not found. AI Agent will be disabled.")
         print("Run 'ninja_core config set-key gemini <KEY>' or use the web interface to set it.")
