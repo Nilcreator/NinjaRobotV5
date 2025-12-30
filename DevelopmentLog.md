@@ -1,5 +1,14 @@
 # Development Log
 
+## 2025-12-30: V5 Health Check & Plan Refinement
+- **Action**: Conducted comprehensive codebase health check and refined `DevelopmentPlan.md`.
+- **Details**:
+    - Analyzed `pi0buzzer` and identified blocking I/O and hardcoded config paths.
+    - Updated plan to include `pi0buzzer` refactoring (Async/Threaded).
+    - Added "General Codebase Health" section to plan (Unified Logging, Centralized Config).
+    - Confirmed `hal.py` coupling and reinforced need for dynamic loading.
+- **Related Files**: `DevelopmentPlan.md`
+
 ## 2025-12-30: V5 README Blockly Update
 - **Action**: Updated `README.md` to reflect Blockly Integration.
 - **Details**:
@@ -22,7 +31,7 @@
 - **Details**:
     - Architected the coexistence of Bluetooth (local) and ngrok (remote) via a unified `CommandDispatcher`.
     - Updated `DevelopmentPlan.md` and `README.md` to explicitely describe the "Dual Connectivity (Hybrid Mode)".
-    - Defined shared state synchronization strategy.
+    - Defined shared state synchronization synchronization strategy.
 - **Related Files**: `README.md`, `DevelopmentPlan.md`
 
 ## 2025-12-28: V5 README Update
