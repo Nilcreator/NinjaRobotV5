@@ -4,6 +4,7 @@ pyproject.toml
 src/ninja_core/__init__.py
 src/ninja_core/__main__.py
 src/ninja_core/config.py
+src/ninja_core/dispatcher.py
 src/ninja_core/facial_expressions.py
 src/ninja_core/hal.py
 src/ninja_core/movement_cli.py

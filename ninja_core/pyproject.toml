@@ -20,6 +20,7 @@ dependencies = [
     "Pillow",
     "click",
     "pydantic",
+    "ninja-ble",
 ]
 
 [project.optional-dependencies]

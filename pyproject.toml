@@ -46,6 +46,7 @@ dependencies = [
     "pi0disp",
     "pi0servo",
     "ninja_core",
+    "ninja_ble",
 ]
 
 [tool.uv.sources]
@@ -55,6 +56,7 @@ pi0vl53l0x = { path = "./pi0vl53l0x", editable = true }
 pi0disp = { path = "./pi0disp", editable = true }
 pi0servo = { path = "./pi0servo", editable = true }
 ninja_core = { path = "./ninja_core", editable = true }
+ninja_ble = { path = "./ninja_ble", editable = true }
 
 [project.optional-dependencies]
 dev = ["ruff"]

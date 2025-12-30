@@ -2,7 +2,7 @@
 name = "ninja-ble"
 version = "0.1.0"
 description = "Bluetooth Low Energy control service for NinjaRobot V5"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = [
     "bless>=0.2.6",
     "ninja-core>=0.1.0",
