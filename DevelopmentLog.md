@@ -1,5 +1,17 @@
 # Development Log
 
+## 2025-12-31: Phase 2 Dual Connectivity - COMPLETE
+- **Action**: Implemented BLE integration with AI chat support.
+- **Details**:
+    - Created `ninja_ble` library with GATT server using `bless`.
+    - Implemented `CommandDispatcher` singleton in `ninja_core` for routing commands.
+    - Integrated BLE with Web Server for dual connectivity.
+    - AI Agent responses now broadcast via BLE notifications.
+    - Fixed `bleak` version compatibility (pinned to `<1.0.0`).
+    - Fixed callback registration using `server.write_request_func` property.
+- **Verification**: AI Chat tested successfully via nRF Connect on iOS.
+- **Related Files**: `ninja_ble/service.py`, `ninja_core/dispatcher.py`, `ninja_core/web_server.py`
+
 ## 2025-12-30: Phase 1 Documentation Update
 - **Action**: Updated all documentation to reflect Phase 1 completion.
 - **Details**:

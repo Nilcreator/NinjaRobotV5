@@ -222,10 +222,12 @@ graph TD
 - [x] **Hardware verification on Raspberry Pi Zero 2W.**
 
 
-### Phase 2: Dual Connectivity Implementation (Weeks 3-4)
-- [ ] Create `CommandDispatcher` singleton in `ninja_core`.
-- [ ] Develop `ninja_ble` library.
-- [ ] Integrate BLE service with WebSocket server.
+### Phase 2: Dual Connectivity Implementation ✅ VERIFIED (2025-12-31)
+- [x] Create `CommandDispatcher` singleton in `ninja_core`.
+- [x] Develop `ninja_ble` library (GATT Server with `bless`).
+- [x] Integrate BLE service with Web Server.
+- [x] Route AI Agent responses through Dispatcher to BLE notifications.
+- [x] **AI Chat via Bluetooth verified on Raspberry Pi Zero 2W.**
 
 ### Phase 3: Visual Programming & AI (Weeks 5-7)
 - [ ] Integrate Google Blockly into frontend.

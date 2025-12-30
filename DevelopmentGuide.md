@@ -43,6 +43,7 @@ uv run ninja_core config import
    - [3.4 pi0disp](#34-pi0disp)
    - [3.5 pi0servo](#35-pi0servo)
    - [3.6 ninja_core](#36-ninja_core)
+   - [3.7 ninja_ble](#37-ninja_ble)
 4. [Configuration System](#4-configuration-system)
 5. [Testing & Debugging](#5-testing--debugging)
 6. [Contributing Guidelines](#6-contributing-guidelines)
@@ -54,7 +55,7 @@ uv run ninja_core config import
 
 ### 1.1 Overall Structure
 
-NinjaRobotV4 follows a **layered monorepo architecture** with 6 independent Python packages:
+NinjaRobot V5 follows a **layered monorepo architecture** with 7 independent Python packages:
 
 ```
 NinjaRobotV4/
@@ -1640,6 +1641,38 @@ uv run ninja_core server
 **`config set-key <service> <key>`**
 - Sets an API key
 - **Example:** `uv run ninja_core config set-key gemini AIzaSy...`
+
+---
+
+### 3.7 ninja_ble
+
+**Purpose:** Bluetooth Low Energy GATT server for wireless control and AI chat.
+
+**Key Components:**
+- `service.py`: BLE GATT server using `bless` library
+
+**BLE Service:**
+| Item | Value |
+|---|---|
+| Service Name | `NinjaRobot` |
+| Service UUID | `00000001-710e-4a5b-8d75-3e5b444bc3cf` |
+
+**Characteristics:**
+| Name | UUID Suffix | Properties | Purpose |
+|---|---|---|---|
+| Command | `...0002-...` | Write | Receive JSON commands |
+| Response | `...0003-...` | Read, Notify | Send AI responses |
+
+**JSON Protocol:**
+```json
+// Chat Command (Write)
+{"type": "chat", "text": "Hello Ninja!"}
+
+// HAL Command (Write)
+{"type": "hal", "command": "execute", "payload": {"servos": {"angles": [...]}}}
+```
+
+**Dependencies:** `bless>=0.2.6`, `bleak>=0.21.0,<1.0.0`, `dbus-fast>=1.86.0`
 
 ---
 

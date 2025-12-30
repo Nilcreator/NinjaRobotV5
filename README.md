@@ -126,7 +126,7 @@ NinjaRobot V5 consists of specific packages optimized for modularity.
 
 - **`ninja_core`**: The brain. Contains the Agent, Web Server, BLE Service, and Dynamic HAL.
 - **`ninja_utils`**: Shared utilities and **new Interface Definitions** (`Sensor`, `Actuator`).
-- **`ninja_ble`** *(New)*: Dedicated Bluetooth Low Energy stack.
+- **`ninja_ble`** *(New - Phase 2)*: Bluetooth Low Energy GATT server for wireless control.
 
 ### 🛠️ Hardware Drivers (Plugins)
 
@@ -168,14 +168,14 @@ uv run ninja_core start
 
 ## 📊 Current Status
 
-**Development Phase:** **V5 Phase 1 Complete ✅**
+**Development Phase:** **V5 Phase 2 Complete ✅**
 
-Phase 1 (Modularity & Foundation) has been implemented and verified on Raspberry Pi Zero 2W.
+Phase 2 (Dual Connectivity) has been implemented and verified on Raspberry Pi Zero 2W.
 
 - ✅ **V4 Base**: Stable web control, ngrok remote access, basic AI agent.
 - ✅ **Health Check**: Comprehensive codebase review completed (2025-12-30).
 - ✅ **Modularity (Phase 1)**: ABCs created, HAL refactored, all drivers updated. **VERIFIED.**
-- 📅 **Connectivity (Phase 2)**: BLE integration planned.
+- ✅ **Connectivity (Phase 2)**: BLE integration complete. AI Chat via Bluetooth working! **VERIFIED (2025-12-31)**
 - 📅 **Visual Programming (Phase 3)**: Google Blockly integration planned.
 - 📅 **AI Coding (Phase 3)**: Code generation agent planned.
 
@@ -308,14 +308,14 @@ uv run ninja_core start
 
 ## 📊 現在の状況
 
-**開発フェーズ:** **V5 フェーズ1 完了 ✅**
+**開発フェーズ:** **V5 フェーズ2 完了 ✅**
 
-フェーズ1（モジュール性と基盤）は、Raspberry Pi Zero 2Wで実装および検証が完了しました。
+フェーズ2（デュアル接続）は、Raspberry Pi Zero 2Wで実装および検証が完了しました。
 
 - ✅ **V4ベース**: 安定したWeb制御、ngrokリモートアクセス、基本的なAIエージェント。
 - ✅ **ヘルスチェック**: 包括的なコードベースレビュー完了 (2025-12-30)。
 - ✅ **モジュール性（フェーズ1)**: ABC作成、HALリファクタリング、全ドライバー更新完了。**検証済み。**
-- 📅 **接続性（フェーズ2)**: BLE統合を計画中。
+- ✅ **接続性（フェーズ2)**: BLE統合完了。Bluetooth経由のAIチャット動作確認済み！**(2025-12-31検証済み)**
 - 📅 **ビジュアルプログラミング（フェーズ3)**: Google Blockly統合を計画中。
 - 📅 **AIコーディング（フェーズ3)**: コード生成エージェントを計画中。
 
