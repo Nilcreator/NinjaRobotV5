@@ -5,6 +5,8 @@ description = "Bluetooth Low Energy control service for NinjaRobot V5"
 requires-python = ">=3.9"
 dependencies = [
     "bless>=0.2.6",
+    "bleak>=0.21.0,<1.0.0",
+    "dbus-fast>=1.86.0",
     "ninja-core>=0.1.0",
 ]
 
