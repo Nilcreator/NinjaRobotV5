@@ -1,5 +1,12 @@
 # Development Log
 
+## 2025-12-30: V5 ABC Explanation
+- **Action**: Added explanation of ABCs (Abstract Base Classes) to `DevelopmentPlan.md`.
+- **Details**:
+    - Clarified that ABCs serve as "blueprints" or "contracts" for hardware drivers.
+    - Explained how this enables plugin-based modularity by allowing `ninja_core` to interact with generic interfaces rather than specific implementations.
+- **Related Files**: `DevelopmentPlan.md`
+
 ## 2025-12-30: V5 Health Check & Plan Refinement
 - **Action**: Conducted comprehensive codebase health check and refined `DevelopmentPlan.md`.
 - **Details**:

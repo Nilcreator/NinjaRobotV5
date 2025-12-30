@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Plan
 
 **Status:** Draft
-**Version:** 0.5.0
+**Version:** 0.6.0
 **Last Updated:** 2025-12-30
 **Objective:** Evolve NinjaRobot from a fixed V4 architecture to a modular, connected, and AI-adaptive V5 platform.
 
@@ -110,7 +110,8 @@ NinjaRobot V5 aims to be the ultimate educational & research robotics platform b
 **Objective:** Define contracts and Safe Execution Environment.
 
 **Functions:**
-- **`Sensor` / `Actuator` ABCs.**
+- **`Sensor` / `Actuator` ABCs (Abstract Base Classes):**
+    > **Explanation:** ABCs act as strict "blueprints" or "contracts" that all hardware drivers must follow. This ensures that `ninja_core` can interact with *any* sensor (LiDAR, Ultrasonic, Time-of-Flight) using the exact same standard commands (e.g., `initialize()`, `get_data()`), enabling true plugin-based modularity where you can swap hardware without rewriting the main code.
 - **`SafeExecutor`:** A wrapper utilizing `exec()` with restricted globals. Used by **both** Blockly and AI Agent.
 - **`NinjaCoder`:** AI Agent capability to write code for the Executor.
 
