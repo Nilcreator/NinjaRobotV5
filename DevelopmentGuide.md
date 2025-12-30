@@ -11,9 +11,9 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 ## V5 Changes Summary
 
 > [!IMPORTANT]
-> V5 introduces a modular, plugin-based architecture. All hardware drivers now implement standardized interfaces.
+> V5 introduces a modular, plugin-based architecture with dual connectivity (BLE + Web).
 
-### Key Changes (Phase 1):
+### Key Changes (Phase 1 - Modularity):
 | Component | Change |
 |---|---|
 | `ninja_utils` | Added `Sensor`, `Actuator` ABCs and `DistanceData` dataclass |
@@ -22,6 +22,13 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `pi0disp` | Added `execute()` command API, implements `Actuator` |
 | `pi0servo` | Added `execute()` for batch control, implements `Actuator` |
 | `ninja_core/hal.py` | **Dynamic driver loading** via `importlib` |
+
+### Key Changes (Phase 2 - Dual Connectivity):
+| Component | Change |
+|---|---|
+| `ninja_ble` | **NEW** - BLE GATT server for wireless control |
+| `ninja_core/dispatcher.py` | **NEW** - Central command router for BLE/Web |
+| `ninja_core/web_server.py` | Integrated Dispatcher, launches BLE on startup |
 
 ### Required Setup:
 ```bash
@@ -58,7 +65,7 @@ uv run ninja_core config import
 NinjaRobot V5 follows a **layered monorepo architecture** with 7 independent Python packages:
 
 ```
-NinjaRobotV4/
+NinjaRobotV5/
 ├── pyproject.toml              # Root project configuration (unified install)
 ├── config.json                 # Runtime configuration (generated)
 ├── servo.json                  # Servo calibration data (generated)
@@ -67,96 +74,83 @@ NinjaRobotV4/
 ├── README.md                   # Project introduction
 ├── InstallationGuide.md        # End-user installation guide
 ├── DevelopmentGuide.md         # This document
+├── DevelopmentPlan.md          # V5 roadmap and architecture
 ├── DevelopmentLog.md           # Development history
-├── ReconstructionGuide.md      # Architecture design decisions
 │
 ├── ninja_utils/                # Shared utilities library
 │   ├── pyproject.toml
-│   ├── LICENSE
 │   ├── README.md
 │   └── src/ninja_utils/
 │       ├── __init__.py
 │       ├── my_logger.py        # Centralized logging
-│       └── keyboard.py         # Non-blocking keyboard input
+│       ├── keyboard.py         # Non-blocking keyboard input
+│       └── interfaces.py       # Sensor/Actuator ABCs (V5)
+│
+├── ninja_ble/                  # BLE control library (V5 Phase 2)
+│   ├── pyproject.toml
+│   ├── README.md
+│   └── src/ninja_ble/
+│       ├── __init__.py
+│       └── service.py          # GATT server (bless)
 │
 ├── pi0buzzer/                  # Buzzer control library
 │   ├── pyproject.toml
-│   ├── LICENSE
 │   ├── README.md
 │   └── src/pi0buzzer/
 │       ├── __init__.py
 │       ├── __main__.py         # CLI entry point
-│       └── driver.py           # Buzzer and MusicBuzzer classes
+│       └── driver.py           # Buzzer, MusicBuzzer (Actuator ABC)
 │
 ├── pi0vl53l0x/                 # VL53L0X distance sensor library
 │   ├── pyproject.toml
-│   ├── LICENSE
 │   ├── README.md
 │   └── src/pi0vl53l0x/
 │       ├── __init__.py
 │       ├── __main__.py         # CLI entry point
 │       ├── constants.py        # Sensor register addresses
-│       ├── driver.py           # VL53L0X driver class
+│       ├── driver.py           # VL53L0X (Sensor ABC)
 │       └── config_manager.py   # Configuration I/O
 │
 ├── pi0disp/                    # ST7789V display library
 │   ├── pyproject.toml
-│   ├── LICENSE
 │   ├── README.md
 │   └── src/pi0disp/
 │       ├── __init__.py
 │       ├── __main__.py         # CLI entry point
-│       ├── disp/
-│       │   └── st7789v.py      # ST7789V driver class
+│       ├── disp/st7789v.py     # ST7789V (Actuator ABC)
 │       ├── fonts/              # Bundled Noto fonts
-│       ├── utils/
-│       │   ├── performance_core.py  # Optimization classes
-│       │   └── image_processor.py   # Image utilities
-│       └── commands/
-│           ├── ball_anime.py   # Demo animation
-│           └── image.py        # Image display command
+│       ├── utils/              # Image processing
+│       └── commands/           # Demo commands
 │
 ├── pi0servo/                   # Servo motor control library
 │   ├── pyproject.toml
-│   ├── LICENSE
 │   ├── README.md
 │   └── src/pi0servo/
 │       ├── __init__.py
 │       ├── __main__.py         # CLI entry point
-│       ├── core/
-│       │   ├── piservo.py      # Base PiServo class
-│       │   ├── calibrable_servo.py  # CalibrableServo class
-│       │   └── multi_servo.py  # MultiServo class
-│       ├── helper/
-│       │   ├── thread_worker.py      # Thread worker
-│       │   └── thread_multi_servo.py # Async wrapper
-│       ├── utils/
-│       │   └── servo_config_manager.py  # Config I/O
-│       └── command/
-│           ├── cmd_calib.py    # Calibration TUI
-│           └── cmd_servo.py    # Single servo control
+│       ├── core/               # PiServo, CalibrableServo, MultiServo
+│       ├── helper/             # Thread workers
+│       ├── utils/              # Config manager
+│       └── command/            # CLI commands
 │
 └── ninja_core/                 # Main application
     ├── pyproject.toml
-    ├── LICENSE
     ├── README.md
     └── src/ninja_core/
         ├── __init__.py
         ├── __main__.py         # CLI entry point
         ├── config.py           # Centralized configuration
-        ├── hal.py              # Hardware Abstraction Layer (supports partial init)
+        ├── hal.py              # Hardware Abstraction Layer (dynamic loading)
+        ├── dispatcher.py       # Command router (V5 Phase 2)
         ├── ninja_agent.py      # AI agent (Gemini)
         ├── movement_controller.py  # Motion system
         ├── movement_cli.py     # Movement recording tool
         ├── facial_expressions.py   # Visual emotions
         ├── robot_sound.py      # Auditory feedback
         ├── perception.py       # Distance monitoring
-        ├── web_server.py       # FastAPI web server (includes /api/system/shutdown)
-        ├── static/
-        │   ├── style.css       # Web UI styles
-        │   └── main.js         # Web UI logic
-        └── templates/
-            └── index.html      # Web UI template
+        ├── web_server.py       # FastAPI server (BLE + Web)
+        ├── static/             # Web UI assets
+        └── templates/          # HTML templates
 ```
 
 ### 1.2 Design Principles
@@ -166,22 +160,25 @@ NinjaRobotV4/
 3. **Configuration over Code**: Hardware settings live in `config.json`, not hardcoded
 4. **Fail-Safe Defaults**: Libraries provide sensible defaults if configuration is missing
 5. **Testability**: Libraries can be imported and tested without full hardware
+6. **Dual Connectivity**: Commands can arrive via BLE or Web, routed through Dispatcher
 
 ### 1.3 Dependency Graph
 
 ```
 ninja_core
-    ├─→ ninja_utils
-    ├─→ pi0buzzer → ninja_utils (optional logger)
-    ├─→ pi0vl53l0x → ninja_utils (logger)
-    ├─→ pi0disp → ninja_utils (logger)
-    ├─→ pi0servo → ninja_utils (logger, keyboard)
+    ├─→ ninja_utils (interfaces, logging)
+    ├─→ ninja_ble → bless, bleak (BLE backend)
+    ├─→ pi0buzzer → pigpio, ninja_utils
+    ├─→ pi0vl53l0x → ninja_utils
+    ├─→ pi0disp → PIL, numpy, ninja_utils
+    ├─→ pi0servo → pigpio, ninja_utils
     ├─→ fastapi, uvicorn, pyngrok
     └─→ google-generativeai, googlesearch-python
 ```
 
 **Key External Dependencies:**
 - `pigpio` - GPIO control daemon (system-level)
+- `bless` / `bleak` - BLE GATT server/client (V5)
 - `pydantic` - Configuration validation
 - `Pillow` - Image processing
 - `numpy` - Numerical operations
@@ -1092,7 +1089,49 @@ set_api_key("gemini", "AIzaSy...")
 
 ---
 
-#### 3.6.2 `hal.py`
+---
+
+#### 3.6.2 `dispatcher.py` (New Phase 2)
+
+**Module:** `ninja_core.dispatcher`
+
+**Purpose:** The central nervous system for routing commands from multiple sources (Web, BLE) to appropriate handlers (HAL, Agent).
+
+##### Class: `CommandDispatcher` (Singleton)
+
+**Constructor:**
+`__init__(self, hal: Optional[HardwareAbstractionLayer] = None)`
+
+**Methods:**
+
+**`register_listener(self, callback: Callable[[dict], Any]) -> None`**
+- Registers a callback to receive broadcast messages (e.g., AI responses).
+- Used by `NinjaBLEService` and `WebSocketManager`.
+
+**`attach_agent(self, agent: Any) -> None`**
+- Connects the `NinjaAgent` instance for AI command processing.
+
+**`async handle_command(self, source: str, command: dict) -> dict`**
+- Main entry point for all commands.
+- **Parameters:**
+    - `source`: "ble" or "web"
+    - `command`: JSON dictionary (e.g., `{"type": "chat", ...}`)
+- **Returns:** JSON-compatible result dictionary.
+
+**Supported Command Types:**
+1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
+2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
+3. **`ping`** -> Returns pong.
+
+**Usage:**
+```python
+dispatcher = CommandDispatcher(hal)
+result = await dispatcher.handle_command("ble", {"type": "chat", "text": "Hi"})
+```
+
+---
+
+#### 3.6.3 `hal.py`
 
 **Module:** `ninja_core.hal`
 
@@ -1147,7 +1186,7 @@ hal.shutdown()
 
 ---
 
-#### 3.6.3 `ninja_agent.py`
+#### 3.6.4 `ninja_agent.py`
 
 **Module:** `ninja_core.ninja_agent`
 
@@ -1231,7 +1270,7 @@ asyncio.run(main())
 
 ---
 
-#### 3.6.4 `movement_controller.py`
+#### 3.6.5 `movement_controller.py`
 
 **Module:** `ninja_core.movement_controller`
 
@@ -1297,7 +1336,7 @@ except EmergencyStop:
 
 ---
 
-#### 3.6.5 `facial_expressions.py`
+#### 3.6.6 `facial_expressions.py`
 
 **Module:** `ninja_core.facial_expressions`
 
@@ -1361,7 +1400,7 @@ faces.stop()
 
 ---
 
-#### 3.6.6 `robot_sound.py`
+#### 3.6.7 `robot_sound.py`
 
 **Module:** `ninja_core.robot_sound`
 
@@ -1407,7 +1446,7 @@ sound.play("thinking")
 
 ---
 
-#### 3.6.7 `perception.py`
+#### 3.6.8 `perception.py`
 
 **Module:** `ninja_core.perception`
 
@@ -1470,7 +1509,7 @@ monitor.stop_continuous()
 
 ---
 
-#### 3.6.8 `web_server.py`
+#### 3.6.9 `web_server.py`
 
 **Module:** `ninja_core.web_server`
 
@@ -1596,7 +1635,7 @@ uv run ninja_core server
 
 ---
 
-#### 3.6.9 Frontend Files
+#### 3.6.10 Frontend Files
 
 **`templates/index.html`**
 - Main web UI template (Jinja2)
@@ -1646,33 +1685,101 @@ uv run ninja_core server
 
 ### 3.7 ninja_ble
 
-**Purpose:** Bluetooth Low Energy GATT server for wireless control and AI chat.
+**Purpose:** Bluetooth Low Energy GATT server for wireless control and AI chat. Enables direct, zero-network-setup communication with the robot.
 
-**Key Components:**
-- `service.py`: BLE GATT server using `bless` library
+#### 3.7.1 Architecture
 
-**BLE Service:**
-| Item | Value |
-|---|---|
-| Service Name | `NinjaRobot` |
-| Service UUID | `00000001-710e-4a5b-8d75-3e5b444bc3cf` |
-
-**Characteristics:**
-| Name | UUID Suffix | Properties | Purpose |
-|---|---|---|---|
-| Command | `...0002-...` | Write | Receive JSON commands |
-| Response | `...0003-...` | Read, Notify | Send AI responses |
-
-**JSON Protocol:**
-```json
-// Chat Command (Write)
-{"type": "chat", "text": "Hello Ninja!"}
-
-// HAL Command (Write)
-{"type": "hal", "command": "execute", "payload": {"servos": {"angles": [...]}}}
+```
+┌─────────────────┐     JSON Command      ┌──────────────────┐
+│  Mobile Device  │ ──────────────────▶   │  NinjaBLEService │
+│  (nRF Connect)  │                       │  (GATT Server)   │
+│                 │ ◀──────────────────   │                  │
+└─────────────────┘     JSON Notify       └────────┬─────────┘
+                                                   │
+                                                   ▼
+                                          ┌──────────────────┐
+                                          │ CommandDispatcher│
+                                          │   (ninja_core)   │
+                                          └────────┬─────────┘
+                                                   │
+                              ┌────────────────────┼────────────────────┐
+                              ▼                    ▼                    ▼
+                         ┌────────┐          ┌──────────┐         ┌─────────┐
+                         │  HAL   │          │  Agent   │         │   Web   │
+                         │        │          │ (Gemini) │         │ Clients │
+                         └────────┘          └──────────┘         └─────────┘
 ```
 
-**Dependencies:** `bless>=0.2.6`, `bleak>=0.21.0,<1.0.0`, `dbus-fast>=1.86.0`
+#### 3.7.2 BLE Service Specification
+
+| Item | Value |
+|---|---|
+| **Service Name** | `NinjaRobot` |
+| **Service UUID** | `00000001-710e-4a5b-8d75-3e5b444bc3cf` |
+
+**Characteristics:**
+| Name | UUID | Properties | Description |
+|---|---|---|---|
+| Command | `00000002-710e-4a5b-8d75-3e5b444bc3cf` | Write, WriteWithoutResponse | Receives JSON commands |
+| Response | `00000003-710e-4a5b-8d75-3e5b444bc3cf` | Read, Notify | Sends JSON responses (AI, status) |
+
+#### 3.7.3 JSON Protocol
+
+**Chat Command (AI Chat):**
+```json
+{"type": "chat", "text": "Tell me a joke"}
+```
+
+**Chat Response (AI Response):**
+```json
+{"type": "chat", "sender": "ninja", "text": "Why did the robot go on vacation?..."}
+```
+
+**HAL Command (Hardware Control):**
+```json
+{"type": "hal", "command": "execute", "payload": {"servos": {"angles": [0,0,0,0,0,0,0,0]}}}
+{"type": "hal", "command": "execute", "payload": {"buzzer": {"frequency": 440, "duration": 0.5}}}
+```
+
+#### 3.7.4 Key Classes
+
+**`NinjaBLEService`** (`service.py`)
+```python
+class NinjaBLEService:
+    def __init__(self, dispatcher: CommandDispatcher): ...
+    async def start(self): ...          # Start GATT server & advertising
+    async def stop(self): ...           # Stop server
+    async def on_broadcast(self, message: dict): ...  # Send BLE notification
+```
+
+**Usage (from `web_server.py`):**
+```python
+from ninja_ble.service import NinjaBLEService
+from ninja_core.dispatcher import CommandDispatcher
+
+dispatcher = CommandDispatcher(hal)
+ble_service = NinjaBLEService(dispatcher)
+asyncio.create_task(ble_service.start())
+```
+
+#### 3.7.5 Dependencies
+
+| Package | Version | Purpose |
+|---|---|---|
+| `bless` | ≥0.2.6 | BLE GATT server |
+| `bleak` | ≥0.21.0, <1.0.0 | BLE backend |
+| `dbus-fast` | ≥1.86.0 | BlueZ D-Bus (Linux) |
+
+#### 3.7.6 Testing with nRF Connect
+
+1. Start server: `uv run ninja_core server`
+2. Open nRF Connect → Scan → Connect to "NinjaRobot"
+3. Subscribe to Response characteristic (`...0003`)
+4. Write to Command characteristic (`...0002`):
+   ```json
+   {"type": "chat", "text": "Hello!"}
+   ```
+5. Verify notification received with AI response
 
 ---
 
