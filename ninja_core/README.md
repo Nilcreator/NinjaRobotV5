@@ -1,6 +1,6 @@
 # Ninja Core
 
-This package contains the main application logic for the NinjaRobotV4. It integrates all the individual hardware libraries (`pi0servo`, `pi0buzzer`, etc.) into a cohesive system managed by a central configuration and a Hardware Abstraction Layer (HAL).
+This package contains the main application logic for NinjaRobot V5. It integrates all the individual hardware libraries (`pi0servo`, `pi0buzzer`, etc.) into a cohesive system managed by a central configuration and a Hardware Abstraction Layer (HAL).
 
 ## Key Components
 
@@ -8,6 +8,30 @@ This package contains the main application logic for the NinjaRobotV4. It integr
 - **`config.py` (Configuration Manager):** Manages all robot settings from a central `config.json` file.
 - **`movement_controller.py` (Motion System):** Executes complex, multi-servo movement sequences.
 - **`facial_expressions.py`, `robot_sound.py`, `perception.py`:** High-level controllers for expressions, sounds, and sensing.
+
+---
+
+## V5 Changes
+
+> [!IMPORTANT]
+> As of V5, the HAL uses **dynamic driver loading** via `importlib` and validates drivers against ABCs.
+
+### Key Changes:
+- **Dynamic Loading**: Drivers are loaded from a registry, not hardcoded imports.
+- **ABC Validation**: All drivers implement `Sensor` or `Actuator` interfaces.
+- **Config Import**: Run `uv run ninja_core config import` to merge `servo.json` and `buzzer.json` into `config.json`.
+
+### Driver Registry:
+```python
+DRIVER_REGISTRY = {
+    "servos": {"module": "pi0servo.core.multi_servo", "class": "MultiServo"},
+    "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
+    "display": {"module": "pi0disp.disp.st7789v", "class": "ST7789V"},
+    "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},
+}
+```
+
+---
 
 ## The Motion System (`movement_controller.py`)
 

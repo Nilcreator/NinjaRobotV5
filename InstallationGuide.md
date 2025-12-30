@@ -1,6 +1,9 @@
-# NinjaRobotV4 Complete Installation Guide
+# NinjaRobot V5 Complete Installation Guide
 
-This guide will walk you through every step needed to build and run your NinjaRobotV4 on a Raspberry Pi Zero 2W. No programming experience is required—just follow each step carefully.
+This guide will walk you through every step needed to build and run your NinjaRobot V5 on a Raspberry Pi Zero 2W. No programming experience is required—just follow each step carefully.
+
+> [!NOTE]
+> V5 introduces a modular architecture with non-blocking drivers. All hardware now uses standardized interfaces.
 
 ---
 
@@ -398,7 +401,7 @@ Follow the on-screen instructions:
 After calibrating all servos, import the configurations:
 
 ```bash
-uv run ninja_core config import-all
+uv run ninja_core config import
 ```
 
 You should see:
@@ -1122,7 +1125,7 @@ uv run pi0servo calib 20
 すべてのサーボを校正した後、設定をインポート:
 
 ```bash
-uv run ninja_core config import-all
+uv run ninja_core config import
 ```
 
 次のように表示されるはずです:

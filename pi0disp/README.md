@@ -4,6 +4,34 @@ A Python library for controlling ST7789V-based displays on Raspberry Pi.
 
 ---
 
+## V5 Changes
+
+> [!NOTE]
+> As of V5, this library implements the `Actuator` interface from `ninja_utils.interfaces`.
+
+### Key Changes:
+- **Implements `Actuator` ABC**: `initialize()`, `execute()`, `off()` methods.
+- **Command-based API**: `execute({"image": img})`, `execute({"clear": True})`, `execute({"backlight": False})`.
+
+### Example (V5):
+```python
+from pi0disp.disp.st7789v import ST7789V
+from PIL import Image
+import pigpio
+
+pi = pigpio.pi()
+display = ST7789V(pi=pi, dc_pin=14, rst_pin=15, backlight_pin=16)
+
+display.execute({"clear": True})  # Clear screen
+img = Image.open("face.jpg")
+display.execute({"image": img})   # Show image
+display.off()                     # Turn off
+display.close()
+pi.stop()
+```
+
+---
+
 # `pi0disp` Library Testing Guide
 
 This guide provides instructions for connecting your ST7789V display and testing the `pi0disp` library's core functions.

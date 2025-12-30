@@ -4,71 +4,52 @@ A library to control a passive buzzer on a Raspberry Pi.
 
 ---
 
-## Testing the `pi0buzzer` Library
+## V5 Changes
 
-This guide provides step-by-step instructions for testing the `pi0buzzer` library on a Raspberry Pi.
+> [!NOTE]
+> As of V5, this library implements the `Actuator` interface from `ninja_utils.interfaces`.
+> Sound playback is now **non-blocking** using a background thread.
 
-### Prerequisites
+### Key Changes:
+- **Implements `Actuator` ABC**: `initialize()`, `execute()`, `off()` methods.
+- **Non-blocking**: `play_sound()` returns immediately; sound plays in background.
+- **Thread-safe**: Uses a queue-based worker thread for sound playback.
 
-#### Hardware
-- A passive buzzer.
+### Example (V5):
+```python
+from pi0buzzer.driver import Buzzer
+import pigpio
 
-#### Software
-- **git**: Must be installed.
-- **uv**: Must be installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
-- **pigpio**: The library and daemon must be installed (`sudo apt-get install pigpio`).
+pi = pigpio.pi()
+buzzer = Buzzer(pin=17, pi=pi)
+buzzer.initialize()  # Required: starts background worker
 
-### Step 1: Hardware Setup
+buzzer.execute({"frequency": 440, "duration": 0.5})  # Returns immediately
+# ... do other work while sound plays ...
 
-Connect the passive buzzer to your Raspberry Pi's GPIO pins. This guide assumes you are using **GPIO 26**.
-
-1.  Connect the **positive (longer) leg** of the buzzer to **GPIO 26**.
-2.  Connect the **negative (shorter) leg** of the buzzer to a **Ground (GND)** pin.
-
-### Step 2: Start the `pigpio` Daemon
-
-The `pigpio` library requires a background process (daemon) to be running. This must be done once after each reboot.
-
-```bash
-sudo pigpiod
+buzzer.off()
+pi.stop()
 ```
 
-### Step 3: Get the Code and Install
+---
 
-1.  **Clone the project repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd NinjaRobotV4
-    ```
+## CLI Usage
 
-2.  **Install the library:**
-    Navigate to the `pi0buzzer` directory and install the library in editable mode.
-    ```bash
-    cd pi0buzzer
-    uv pip install -e .
-    ```
+```bash
+# Initialize (saves pin to buzzer.json)
+uv run pi0buzzer init 17
 
-### Step 4: Test Using the Command-Line Interface (CLI)
+# Play a beep
+uv run pi0buzzer beep 440 0.5
 
-The CLI is the easiest way to test the basic functions.
+# Play music
+uv run pi0buzzer playmusic
+```
 
-1.  **Initialize the Buzzer Configuration:**
-    This command creates a `buzzer.json` file that stores the GPIO pin you are using.
-    ```bash
-    uv run pi0buzzer init 26
-    ```
-    *   **Expected Output:** A confirmation message: `"Buzzer initialized on pin 26 and saved to buzzer.json."`
+---
 
-2.  **Test the Beep:**
-    This command plays a simple, short beep.
-    ```bash
-    uv run pi0buzzer beep
-    ```
-    *   **Expected Output:** You should hear a beep from the buzzer.
+## Hardware Setup
 
-3.  **Test Playing Music:**
-    This command plays a short, pre-defined welcome melody.
-    ```bash
-    uv run pi0buzzer playmusic
-    ```
-    *   **Expected Output:** You should hear a short tune.
+Connect the passive buzzer to GPIO 17:
+1. **Positive leg** → GPIO 17
+2. **Negative leg** → GND

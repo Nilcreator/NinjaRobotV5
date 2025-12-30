@@ -1,91 +1,60 @@
 # `pi0vl53l0x` Library
 
-A Python library for the VL53L0X time-of-flight distance sensor, designed for Raspberry Pi using the `pigpio` library for high performance.
+A Python library for the VL53L0X time-of-flight distance sensor, designed for Raspberry Pi using the `pigpio` library.
 
 ---
 
-## Testing the `pi0vl53l0x` Library
+## V5 Changes
 
-This guide provides step-by-step instructions for testing the `pi0vl53l0x` library on a Raspberry Pi.
+> [!NOTE]
+> As of V5, this library implements the `Sensor` interface from `ninja_utils.interfaces`.
 
-### Prerequisites
+### Key Changes:
+- **Implements `Sensor` ABC**: `initialize()`, `get_data()`, `close()` methods.
+- **Standardized output**: `get_data()` returns a dictionary with `distance_mm`, `is_valid`, `raw_value`, `timestamp`.
 
-#### Hardware
-- A VL53L0X Time-of-Flight sensor.
+### Example (V5):
+```python
+from pi0vl53l0x.driver import VL53L0X
+import pigpio
 
-#### Software
-- **git**: Must be installed.
-- **uv**: Must be installed (`curl -LsSf https://astral.sh/uv/install.sh | sh`).
-- **pigpio**: The library and daemon must be installed (`sudo apt-get install pigpio`).
+pi = pigpio.pi()
+sensor = VL53L0X(pi=pi)
 
-### Step 1: Hardware Setup
+# V5 standardized method
+data = sensor.get_data()
+print(f"Distance: {data['distance_mm']} mm, Valid: {data['is_valid']}")
 
-Connect the VL53L0X sensor to your Raspberry Pi's I2C pins.
+# Legacy method still works
+distance = sensor.get_range()
 
-1.  Connect the **VCC** pin on the sensor to a **3.3V** pin on the Pi.
-2.  Connect the **GND** pin on the sensor to a **Ground (GND)** pin on the Pi.
-3.  Connect the **SCL** pin on the sensor to the Pi's **SCL** pin (GPIO 3).
-4.  Connect the **SDA** pin on the sensor to the Pi's **SDA** pin (GPIO 2).
+sensor.close()
+pi.stop()
+```
 
-### Step 2: Enable I2C and Start `pigpio`
+---
 
-1.  **Enable I2C:**
-    If you haven't already, enable the I2C interface.
-    ```bash
-    sudo raspi-config
-    ```
-    Navigate to `3 Interface Options` -> `I5 I2C`, select `<Yes>`, and reboot if prompted.
+## Hardware Setup
 
-2.  **Start the `pigpio` Daemon:**
-    This background process is required for the library to work. Run it once after each reboot.
-    ```bash
-    sudo pigpiod
-    ```
+Connect VL53L0X to I2C:
+1. **VCC** → 3.3V
+2. **GND** → GND
+3. **SCL** → GPIO 3 (SCL)
+4. **SDA** → GPIO 2 (SDA)
 
-### Step 3: Get the Code and Install
+Enable I2C: `sudo raspi-config` → Interface Options → I2C
 
-1.  **Navigate to your project directory:**
-    ```bash
-    cd NinjaRobotV4
-    ```
-    *(If you have not cloned the repository yet, do so now)*
+---
 
-2.  **Install the library:**
-    Navigate into the `pi0vl53l0x` directory and install it in editable mode.
-    ```bash
-    cd pi0vl53l0x
-    uv pip install -e .
-    ```
+## CLI Usage
 
-### Step 4: Test Using the Command-Line Interface (CLI)
+```bash
+# Get distance readings
+uv run pi0vl53l0x get --count 10 --interval 1.0
 
-The CLI is perfect for quick tests and calibration.
+# Performance test
+uv run pi0vl53l0x performance --count 100
 
-1.  **Get Distance Readings:**
-    This command will take 10 distance readings, one per second.
-    ```bash
-    uv run pi0vl53l0x get --count 10 --interval 1.0
-    ```
-    *   **Expected Output:**
-        ```
-        1/10: 150 mm
-        2/10: 149 mm
-        3/10: ...
-        ```
-
-2.  **Measure Performance:**
-    This command runs 100 measurements as fast as possible to see how many readings you can get per second.
-    ```bash
-    uv run pi0vl53l0x performance --count 100
-    ```
-    *   **Expected Output:** A report showing the total time, average time per measurement, and measurements per second.
-
-3.  **Calibrate the Sensor:**
-    The sensor might have a small, consistent error (an offset). This tool helps you calculate and save that offset.
-
-    *   Place a flat object at a **known distance** from the sensor. For this example, we'll use **100mm**.
-    *   Run the calibration command:
-        ```bash
-        uv run pi0vl53l0x calibrate --distance 100
-        ```
-    *   The tool will prompt you to press Enter when you are ready. It will then take several readings, calculate the average offset, and save it to a configuration file (`~/.config/pi0vl53l0x/config.json`). The library will automatically use this offset for all future readings.
+# Calibrate
+uv run pi0vl53l0x calibrate --distance 100
+```

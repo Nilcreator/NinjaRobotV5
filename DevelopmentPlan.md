@@ -182,13 +182,14 @@ class Actuator(ABC):
 
 ## 5. Phase-by-Phase Roadmap
 
-### Phase 1: Modularity & Foundation (Weeks 1-2) ✅ COMPLETE
+### Phase 1: Modularity & Foundation ✅ VERIFIED (2025-12-30)
 - [x] Conduct comprehensive health check.
 - [x] Create `ninja_utils/interfaces.py` with `Sensor`/`Actuator` ABCs.
 - [x] Refactor `pi0buzzer` to threaded sound queue + ABC.
 - [x] Refactor `pi0servo`, `pi0disp`, `pi0vl53l0x` to ABC.
 - [x] Rewrite `ninja_core/hal.py` for dynamic loading.
 - [x] Create `DistanceData` dataclass.
+- [x] **Hardware verification on Raspberry Pi Zero 2W.**
 
 
 ### Phase 2: Dual Connectivity Implementation (Weeks 3-4)

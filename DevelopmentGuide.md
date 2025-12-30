@@ -1,10 +1,34 @@
-# NinjaRobotV4 Development Guide
+# NinjaRobot V5 Development Guide
 
-**Version:** 0.1.0  
-**Last Updated:** 2025-11-21  
+**Version:** 5.0.0  
+**Last Updated:** 2025-12-30  
 **Target Audience:** Experienced Developers
 
-This guide provides a comprehensive technical reference for the NinjaRobotV4 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
+This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
+
+---
+
+## V5 Changes Summary
+
+> [!IMPORTANT]
+> V5 introduces a modular, plugin-based architecture. All hardware drivers now implement standardized interfaces.
+
+### Key Changes (Phase 1):
+| Component | Change |
+|---|---|
+| `ninja_utils` | Added `Sensor`, `Actuator` ABCs and `DistanceData` dataclass |
+| `pi0buzzer` | **Non-blocking** threaded sound queue, implements `Actuator` |
+| `pi0vl53l0x` | Added `get_data()` method, implements `Sensor` |
+| `pi0disp` | Added `execute()` command API, implements `Actuator` |
+| `pi0servo` | Added `execute()` for batch control, implements `Actuator` |
+| `ninja_core/hal.py` | **Dynamic driver loading** via `importlib` |
+
+### Required Setup:
+```bash
+uv run pi0buzzer init 17
+uv run pi0servo calib 20  # Repeat for each servo
+uv run ninja_core config import
+```
 
 ---
 

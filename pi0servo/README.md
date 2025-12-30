@@ -8,6 +8,33 @@ A library to control servo motors on a Raspberry Pi using the `pigpio` library.
 - Calibrate servos interactively via a user-friendly CLI.
 - Asynchronous, non-blocking control for smooth movements.
 
+---
+
+## V5 Changes
+
+> [!NOTE]
+> As of V5, this library implements the `Actuator` interface from `ninja_utils.interfaces`.
+
+### Key Changes:
+- **Implements `Actuator` ABC**: `initialize()`, `execute()`, `off()` methods.
+- **Standardized commands**: `execute({"angles": [...]})` for batch control.
+
+### Example (V5):
+```python
+from pi0servo.core.multi_servo import MultiServo
+import pigpio
+
+pi = pigpio.pi()
+servos = MultiServo(pi=pi, pins=[20, 21, 22, 23, 24, 25, 26, 27])
+
+servos.initialize()  # Centers all servos
+servos.execute({"angles": [30, -30, 30, -30, 30, -30, 30, -30]})
+servos.off()
+pi.stop()
+```
+
+---
+
 ## Standalone Installation and Setup
 
 This guide is for users who want to use the `pi0servo` library as a standalone package on a Raspberry Pi.
