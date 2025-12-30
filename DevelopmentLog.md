@@ -1,5 +1,14 @@
 # Development Log
 
+## 2025-12-30: Refined System Instructions (GEMINI.md)
+- **Action**: Updated `GEMINI.md` to reflect V5 requirements.
+- **Details**:
+    - Explicitly listed MCP tools (`Serena`, `SequentialThinking`) and their usage strategies.
+    - Defined "Core Capabilities" emphasizing Asyncio and Defensive Coding for RPi Zero 2W.
+    - Updated "Project Architecture" to match the V5 modular design (`ninja_core`, `ninja_ble`, `ninja_interfaces`).
+    - Removed outdated V4-specific context.
+- **Related Files**: `GEMINI.md`
+
 ## 2025-12-30: V5 ABC Explanation
 - **Action**: Added explanation of ABCs (Abstract Base Classes) to `DevelopmentPlan.md`.
 - **Details**:
