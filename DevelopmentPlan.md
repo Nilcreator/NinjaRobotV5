@@ -229,10 +229,34 @@ graph TD
 - [x] Route AI Agent responses through Dispatcher to BLE notifications.
 - [x] **AI Chat via Bluetooth verified on Raspberry Pi Zero 2W.**
 
-### Phase 3: Visual Programming & AI (Weeks 5-7)
-- [ ] Integrate Google Blockly into frontend.
-- [ ] Implement `SafeExecutor` backend.
-- [ ] Implement `ninja_coder` AI code generation.
+### Phase 3: Advanced Connectivity & Large Payloads (Weeks 5-6)
+
+> **Goal:** Support "Code Upload" (large payloads > 512 bytes) via a robust BLE Chunking Protocol.
+
+**3.1 BLE Protocol Upgrade (`ninja_ble`)**
+- [ ] **Implement Chunk Buffering:**
+    - Create `ChunkReassembler` class in `ninja_ble`.
+    - Logic: Detect `Header` (0x01) -> Initialize Buffer -> Append `Data` (0x02) -> Finalize on `EOF` (0x03).
+- [ ] **Implement Flow Control (ACKs):**
+    - Enable `Indicate` or `Notify` on Response Characteristic.
+    - Send `{"type": "ack", "seq": N}` after every X packets to prevent buffer overflow.
+- [ ] **Data Integrity:**
+    - Implement CRC32 check on the reassembled payload against the Header checksum.
+- [ ] **Dispatch Integration:**
+    - Only trigger `dispatcher.dispatch()` once the full payload is reassembled and verified.
+
+**3.2 Visual Programming Backend (`ninja_core`)**
+- [ ] **`SafeExecutor` (Sandboxed Execution):**
+    - Implement `RestrictedPython` or custom `exec()` wrapper.
+    - Limit imports to: `time`, `math`, and `robot` (HAL).
+    - Block `os`, `sys`, `subprocess` to prevent system damage.
+- [ ] **Blockly API Endpoint:**
+    - Handle `POST /api/execute` containing Python code strings.
+    - Pass valid code to `SafeExecutor`.
+
+**3.3 `ninja_coder` AI Agent**
+- [ ] Upgrade Agent prompt to generate robust Python code using the `robot` object.
+- [ ] Implement self-correction loop (Agent reads error -> Fixes code -> Retries).
 
 ---
 
