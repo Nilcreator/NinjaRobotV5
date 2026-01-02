@@ -67,17 +67,20 @@ class CommandDispatcher:
         Returns:
             A response dictionary.
         """
-        log.info(f"Received command from {source}: {command}")
-
+        # Log full command for debugging
         cmd_type = command.get("type")
+        log.info(f"[{source.upper()}] Command type='{cmd_type}' payload={command}")
 
         try:
             if cmd_type == "hal":
                 return await self._handle_hal_command(command)
             elif cmd_type == "chat":
                 return await self._handle_chat_command(command)
+            elif cmd_type == "execute":
+                return await self._handle_execute_command(command)
             else:
                 log.warning(f"Unknown command type: {cmd_type}")
+                log.warning(f"Full command was: {command}")
                 return {"status": "error", "message": f"Unknown type: {cmd_type}"}
 
         except Exception as e:
@@ -138,3 +141,31 @@ class CommandDispatcher:
 
         return {"status": "error", "message": f"Unknown HAL action: {action}"}
 
+    async def _handle_execute_command(self, cmd_data: dict) -> dict:
+        """Handle code execution commands (Phase 4 - SafeExecutor)."""
+        code = cmd_data.get("code", "")
+
+        # Log the received code for debugging
+        log.info(f"[EXECUTE] Received code ({len(code)} chars):")
+        for i, line in enumerate(code.split("\n")[:10]):  # First 10 lines
+            log.info(f"  {i+1}: {line}")
+        if code.count("\n") > 10:
+            log.info(f"  ... ({code.count(chr(10)) - 10} more lines)")
+
+        # Broadcast received code
+        await self.broadcast({
+            "type": "execute_received",
+            "code_length": len(code),
+            "preview": code[:200] + ("..." if len(code) > 200 else ""),
+        })
+
+        # TODO: Phase 4 - SafeExecutor implementation
+        # For now, just acknowledge receipt
+        log.warning(
+            "SafeExecutor not implemented yet (Phase 4). Code received but not executed."
+        )
+        return {
+            "status": "pending",
+            "message": "Code received. SafeExecutor not yet implemented.",
+            "code_length": len(code),
+        }
