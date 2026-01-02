@@ -72,6 +72,15 @@ Bluetooth Low Energy (BLE) control service for NinjaRobot V5. Enables direct, ze
 {"type": "hal", "command": "execute", "payload": {"buzzer": {"frequency": 440, "duration": 0.5}}}
 ```
 
+### Code Execute (Phase 3)
+```json
+// Send code for execution (large payloads use chunking protocol)
+{"type": "execute", "code": "import time\nrobot.forward()\ntime.sleep(1)"}
+
+// Response
+{"type": "execute_received", "code_length": 47, "preview": "import time..."}
+```
+
 ---
 
 ## Chunking Protocol (Phase 3)

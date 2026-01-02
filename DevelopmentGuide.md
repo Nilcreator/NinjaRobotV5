@@ -1121,7 +1121,8 @@ set_api_key("gemini", "AIzaSy...")
 **Supported Command Types:**
 1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
 2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
-3. **`ping`** -> Returns pong.
+3. **`execute`** -> Code execution (Phase 4 SafeExecutor). Currently logs code and returns pending status.
+4. **`ping`** -> Returns pong.
 
 **Usage:**
 ```python
