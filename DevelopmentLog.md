@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-01-02: Phase 3 BLE Protocol Upgrade - COMPLETE
+- **Action**: Implemented chunking protocol for large BLE payloads.
+- **Details**:
+    - Created `ninja_ble/chunking.py` with `ChunkReassembler` class.
+    - Protocol: HEADER (0x01) → DATA (0x02) → EOF (0x03) binary packets.
+    - CRC32 verification for data integrity.
+    - ACK flow control via Notify characteristic.
+    - Backward compatible: legacy JSON still works.
+- **Verification**: Linting passed. Ready for integration testing.
+- **Related Files**: `ninja_ble/chunking.py`, `ninja_ble/service.py`, `ninja_ble/__init__.py`
+
 ## 2025-12-31: Phase 2 Dual Connectivity - COMPLETE
 - **Action**: Implemented BLE integration with AI chat support.
 - **Details**:

@@ -11,6 +11,7 @@ from bless import (
 )
 
 from ninja_core.dispatcher import CommandDispatcher
+from .chunking import ChunkReassembler, PACKET_HEADER, PACKET_DATA, PACKET_EOF
 
 log = logging.getLogger(__name__)
 
@@ -33,8 +34,18 @@ class NinjaBLEService:
         self._running = False
         self._server: BlessServer | None = None
 
+        # Chunk reassembler for large payloads
+        self._reassembler = ChunkReassembler(on_ack=self._send_ack_sync)
+
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
+
+    def _send_ack_sync(self, seq: int, status: str, msg: str | None = None):
+        """Synchronous wrapper to send ACK (schedules async task)."""
+        ack_msg = {"type": "ack", "seq": seq, "status": status}
+        if msg:
+            ack_msg["msg"] = msg
+        asyncio.create_task(self.on_broadcast(ack_msg))
 
     def _on_read(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
         """Handle read requests. Returns current characteristic value."""
@@ -48,30 +59,70 @@ class NinjaBLEService:
         **kwargs,
     ):
         """Handle write requests to characteristics."""
-        log.debug(f"Write to {characteristic.uuid}: {value}")
+        log.debug(f"Write to {characteristic.uuid}: len={len(value) if value else 0}")
 
         # Only process writes to the Command characteristic
         char_uuid = str(characteristic.uuid).lower()
-        if CHAR_COMMAND_UUID.lower() in char_uuid:
-            try:
-                # Decode payload
-                if isinstance(value, (bytes, bytearray)):
-                    json_str = value.decode("utf-8")
-                else:
-                    json_str = str(value)
+        if CHAR_COMMAND_UUID.lower() not in char_uuid:
+            return
 
-                command_data = json.loads(json_str)
-                log.info(f"BLE Command: {command_data}")
+        if not value or len(value) == 0:
+            return
 
-                # Forward to Dispatcher (async)
-                asyncio.create_task(
-                    self.dispatcher.handle_command("ble", command_data)
-                )
+        # Convert to bytes if needed
+        if isinstance(value, bytearray):
+            data = bytes(value)
+        elif isinstance(value, bytes):
+            data = value
+        else:
+            data = str(value).encode("utf-8")
 
-            except json.JSONDecodeError:
-                log.error("BLE Write Error: Invalid JSON")
-            except Exception as e:
-                log.error(f"BLE Write Error: {e}")
+        # Check for chunked packet (first byte is packet type)
+        if data[0] in (PACKET_HEADER, PACKET_DATA, PACKET_EOF):
+            complete, payload = self._reassembler.process_packet(data)
+            if complete and payload:
+                self._dispatch_payload(payload)
+        else:
+            # Legacy: Direct JSON command (backward compatible)
+            self._handle_legacy_json(data)
+
+    def _handle_legacy_json(self, data: bytes):
+        """Handle legacy single-packet JSON commands."""
+        try:
+            json_str = data.decode("utf-8")
+            command_data = json.loads(json_str)
+            log.info(f"BLE Command (legacy): {command_data}")
+
+            asyncio.create_task(
+                self.dispatcher.handle_command("ble", command_data)
+            )
+
+        except json.JSONDecodeError:
+            log.error("BLE Write Error: Invalid JSON")
+        except Exception as e:
+            log.error(f"BLE Write Error: {e}")
+
+    def _dispatch_payload(self, payload: bytes):
+        """Dispatch a complete reassembled payload."""
+        try:
+            json_str = payload.decode("utf-8")
+            command_data = json.loads(json_str)
+            log.info(f"BLE Command (chunked): {command_data}")
+
+            asyncio.create_task(
+                self.dispatcher.handle_command("ble", command_data)
+            )
+
+        except json.JSONDecodeError:
+            log.error("BLE Chunked Payload Error: Invalid JSON")
+            asyncio.create_task(
+                self.on_broadcast({"type": "error", "msg": "Invalid JSON payload"})
+            )
+        except Exception as e:
+            log.error(f"BLE Chunked Payload Error: {e}")
+            asyncio.create_task(
+                self.on_broadcast({"type": "error", "msg": str(e)})
+            )
 
     async def start(self):
         """Start the GATT Server."""

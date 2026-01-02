@@ -74,6 +74,35 @@ Bluetooth Low Energy (BLE) control service for NinjaRobot V5. Enables direct, ze
 
 ---
 
+## Chunking Protocol (Phase 3)
+
+For large payloads (>512 bytes), use the binary chunking protocol:
+
+### Packet Types
+
+| Type | Byte | Format |
+|---|---|---|
+| HEADER | `0x01` | `[0x01][total_chunks:2B][crc32:4B][payload_len:4B]` |
+| DATA | `0x02` | `[0x02][seq:2B][chunk_data:N bytes]` |
+| EOF | `0x03` | `[0x03][chunks_received:2B]` |
+
+### ACK Response
+```json
+{"type": "ack", "seq": 0, "status": "ok"}
+{"type": "ack", "status": "complete"}
+{"type": "ack", "status": "error", "msg": "CRC mismatch"}
+```
+
+### Flow
+1. Client sends HEADER with metadata
+2. Robot ACKs header
+3. Client sends DATA packets (seq 0, 1, 2...)
+4. Robot ACKs each chunk
+5. Client sends EOF
+6. Robot verifies CRC32, ACKs complete, dispatches payload
+
+---
+
 ## Verification Instructions
 
 ### Prerequisites

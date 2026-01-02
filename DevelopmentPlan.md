@@ -229,23 +229,25 @@ graph TD
 - [x] Route AI Agent responses through Dispatcher to BLE notifications.
 - [x] **AI Chat via Bluetooth verified on Raspberry Pi Zero 2W.**
 
-### Phase 3: BLE Protocol Upgrade (`ninja_ble`) (Week 5)
+### Phase 3: BLE Protocol Upgrade (`ninja_ble`) ✅ Robot-Side Complete (2026-01-02)
 
 > **Goal:** Support "Code Upload" (large payloads > 512 bytes) via a robust BLE Chunking Protocol.
 
-**3.1 Robot-Side Chunking Logic (`ninja_ble`)**
-- [ ] **Implement Chunk Buffering:**
-    - Create `ChunkReassembler` class in `ninja_ble`.
+**3.1 Robot-Side Chunking Logic (`ninja_ble`)** ✅
+- [x] **Implement Chunk Buffering:**
+    - Created `ChunkReassembler` class in `ninja_ble/chunking.py`.
     - Logic: Detect `Header` (0x01) -> Initialize Buffer -> Append `Data` (0x02) -> Finalize on `EOF` (0x03).
-- [ ] **Implement Flow Control (ACKs):**
-    - Enable `Indicate` or `Notify` on Response Characteristic.
-    - Send `{"type": "ack", "seq": N}` after every X packets to prevent buffer overflow.
-- [ ] **Data Integrity:**
-    - Implement CRC32 check on the reassembled payload against the Header checksum.
-- [ ] **Dispatch Integration:**
-    - Only trigger `dispatcher.dispatch()` once the full payload is reassembled and verified.
+- [x] **Implement Flow Control (ACKs):**
+    - ACKs sent via Notify on Response Characteristic.
+    - JSON format: `{"type": "ack", "seq": N, "status": "ok"}`.
+- [x] **Data Integrity:**
+    - CRC32 verification using `binascii.crc32()`.
+- [x] **Dispatch Integration:**
+    - Payload dispatched only after full reassembly and CRC verification.
+- [x] **Backward Compatibility:**
+    - Legacy JSON commands still work (auto-detected by first byte).
 
-**3.2 Web Client Protocol (`Code IDE`)**
+**3.2 Web Client Protocol (`Code IDE`)** 🔲 Pending
 - [ ] **Web Bluetooth Integration:**
     - Implement `Head`/`Data`/`EOF` packetizers.
     - Handle MTU negotiation (default 512 bytes).
