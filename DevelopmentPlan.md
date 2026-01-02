@@ -229,11 +229,11 @@ graph TD
 - [x] Route AI Agent responses through Dispatcher to BLE notifications.
 - [x] **AI Chat via Bluetooth verified on Raspberry Pi Zero 2W.**
 
-### Phase 3: Advanced Connectivity & Large Payloads (Weeks 5-6)
+### Phase 3: BLE Protocol Upgrade (`ninja_ble`) (Week 5)
 
 > **Goal:** Support "Code Upload" (large payloads > 512 bytes) via a robust BLE Chunking Protocol.
 
-**3.1 BLE Protocol Upgrade (`ninja_ble`)**
+**3.1 Robot-Side Chunking Logic (`ninja_ble`)**
 - [ ] **Implement Chunk Buffering:**
     - Create `ChunkReassembler` class in `ninja_ble`.
     - Logic: Detect `Header` (0x01) -> Initialize Buffer -> Append `Data` (0x02) -> Finalize on `EOF` (0x03).
@@ -245,7 +245,16 @@ graph TD
 - [ ] **Dispatch Integration:**
     - Only trigger `dispatcher.dispatch()` once the full payload is reassembled and verified.
 
-**3.2 Visual Programming Backend (`ninja_core`)**
+**3.2 Web Client Protocol (`Code IDE`)**
+- [ ] **Web Bluetooth Integration:**
+    - Implement `Head`/`Data`/`EOF` packetizers.
+    - Handle MTU negotiation (default 512 bytes).
+
+---
+
+### Phase 4: Visual Programming Backend & AI Agent (Week 6)
+
+**4.1 Visual Programming Backend (`ninja_core`)**
 - [ ] **`SafeExecutor` (Sandboxed Execution):**
     - Implement `RestrictedPython` or custom `exec()` wrapper.
     - Limit imports to: `time`, `math`, and `robot` (HAL).
@@ -254,7 +263,7 @@ graph TD
     - Handle `POST /api/execute` containing Python code strings.
     - Pass valid code to `SafeExecutor`.
 
-**3.3 `ninja_coder` AI Agent**
+**4.2 `ninja_coder` AI Agent**
 - [ ] Upgrade Agent prompt to generate robust Python code using the `robot` object.
 - [ ] Implement self-correction loop (Agent reads error -> Fixes code -> Retries).
 
