@@ -168,6 +168,58 @@ class CommandDispatcher:
 
         return {"status": "error", "message": f"Unknown HAL action: {action}"}
 
+    def _on_execution_complete(self, result: dict):
+        """Callback when SafeExecutor finishes/fails."""
+        status = result.get("status")
+        
+        # Broadcast status update
+        # We need to run incomplete broadcast on loop
+        if self._loop and self._loop.is_running():
+            self._loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(self._process_execution_result(result))
+            )
+            
+    async def _process_execution_result(self, result: dict):
+        """Async processor for execution results (running on main loop)."""
+        status = result.get("status")
+        await self.broadcast({
+            "type": "execution_status",
+            "status": status,
+            "message": result.get("message", "")
+        })
+        
+        # If error, ask NinjaCoderAgent to explain
+        if status == "error":
+            error_msg = result.get("message", "Unknown error")
+            code = result.get("code", "")
+            
+            # Broadcast the error as a chat message first (immediate feedback)
+            await self.broadcast({
+                "type": "chat", 
+                "sender": "ninja", 
+                "text": f"⚠️ Error executing code: {error_msg}"
+            })
+            
+            # Then analyze if we have an agent
+            if self.agent: # Use attached NinjaAgent? Or CoderAgent? 
+                # Ideally we use NinjaCoderAgent, but Dispatcher doesn't hold reference to it currently.
+                # It holds NinjaAgent.
+                # We should probably pass CoderAgent to Dispatcher too?
+                # Or just let NinjaAgent handle it? NinjaAgent is "general".
+                # Let's attach CoderAgent to Dispatcher via attach_coder_agent method.
+                if hasattr(self, "coder_agent") and self.coder_agent:
+                     analysis = await self.coder_agent.analyze_error(code, error_msg)
+                     await self.broadcast({
+                        "type": "chat", 
+                        "sender": "ninja", 
+                        "text": f"💡 Diagnosis: {analysis}"
+                     })
+                     
+    def attach_coder_agent(self, agent):
+        """Attach the NinjaCoderAgent."""
+        self.coder_agent = agent
+        log.info("NinjaCoderAgent attached to Dispatcher.")
+
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
         """Handle code execution commands (Phase 4 - SafeExecutor)."""
         action = cmd_data.get("action", "run")
@@ -193,10 +245,8 @@ class CommandDispatcher:
             "preview": preview,
         })
 
-        # Execute SafeExecutor
-        result = self.safe_executor.execute(code)
+        # Execute SafeExecutor with callback
+        result = self.safe_executor.execute(code, on_complete=self._on_execution_complete)
         
-        # We return the initial status (e.g. "started").
-        # Logs will be streamed via _on_executor_print callback.
         return result
 

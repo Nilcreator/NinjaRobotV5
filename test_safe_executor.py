@@ -4,6 +4,7 @@ import threading
 from unittest.mock import MagicMock
 import sys
 import os
+import math
 
 # Ensure we can import ninja_core
 sys.path.append("ninja_core/src")
@@ -55,9 +56,48 @@ class TestSafeExecutor(unittest.TestCase):
         # So 'import' statement should fail.
         self.assertIn("ImportError", res["traceback"])
 
+    def test_allowed_imports(self):
+        code = "import time\nimport math\nprint(math.pi)"
+        result = self.executor.execute(code)
+        
+        # Wait for thread
+        time.sleep(0.1)
+        
+        self.assertEqual(result["status"], "started")
+        
+        # Check logs
+        logs = self.executor.get_log()
+        self.assertIn(str(math.pi), logs) # Should have printed PI
+        self.assertEqual(self.executor.get_result()["status"], "success")
+
+    def test_blocked_imports(self):
+        code = "import os"
+        result = self.executor.execute(code)
+        
+        time.sleep(0.1)
+        
+        self.assertEqual(self.executor.get_result()["status"], "error")
+        self.assertIn("Import of module 'os' is not allowed", self.executor.get_result()["message"])
+
+    def test_on_complete_callback(self):
+        callback_event = threading.Event()
+        callback_result = {}
+
+        def on_complete(res):
+            callback_result.update(res)
+            callback_event.set()
+
+        self.executor.execute("print('Callback test')", on_complete=on_complete)
+        
+        # Wait for callback
+        success = callback_event.wait(timeout=1.0)
+        self.assertTrue(success, "Callback was not triggered")
+        self.assertEqual(callback_result["status"], "success")
+        
     def test_stop_execution(self):
-        # Code that loops
+        # Long running code with check_stop
         code = """
+import time
 while True:
     time.sleep(0.1)
     check_stop()

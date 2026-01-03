@@ -31,6 +31,20 @@ class SafeExecutor:
             except Exception as e:
                 log.error(f"Error in on_print callback: {e}")
 
+    def _safe_import(self, name, globals=None, locals=None, fromlist=(), level=0):
+        allowed_modules = ["time", "math", "random", "ninja_core"]
+        
+        # Determine base module name
+        base_name = name.split(".")[0]
+        
+        if base_name in allowed_modules:
+            # For ninja_core, return the already imported module or mock? 
+            # Actually, standard __import__ handles this if we call it.
+            # But we must ensure we don't allow arbitrary imports.
+            return __import__(name, globals, locals, fromlist, level)
+        
+        raise ImportError(f"Import of module '{name}' is not allowed in SafeExecutor.")
+
     def _create_globals(self) -> Dict[str, Any]:
         safe_builtins = {
             'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
@@ -43,6 +57,7 @@ class SafeExecutor:
             'str': str, 'sum': sum, 'tuple': tuple, 'type': type, 'zip': zip,
             'True': True, 'False': False, 'None': None,
             'Exception': Exception, 'ValueError': ValueError, 'TypeError': TypeError,
+            '__import__': self._safe_import
         }
 
         return {
@@ -58,8 +73,8 @@ class SafeExecutor:
         if self._stop_flag:
             raise KeyboardInterrupt()
 
-    def execute(self, code: str) -> Dict[str, Any]:
-        """Starts execution in a thread."""
+    def execute(self, code: str, on_complete: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+        """Starts execution in a thread. returns status immediately."""
         with self._lock:
             if self._current_thread and self._current_thread.is_alive():
                 return {"status": "error", "message": "Code already running"}
@@ -69,19 +84,36 @@ class SafeExecutor:
             self._last_result = {"status": "pending"}
             
             def target():
+                result = {"code": code} # Copy code for analysis reference
                 try:
                     compiled_code = compile(code, "<user_code>", "exec")
                     exec(compiled_code, self._create_globals())
                     self._last_result["status"] = "success"
+                    result.update(self._last_result)
                 except Exception as e:
                     self._last_result["status"] = "error"
                     self._last_result["message"] = str(e)
                     self._last_result["traceback"] = traceback.format_exc()
+                    result.update(self._last_result)
+                    
+                    # Log error visibly
+                    msg = f"Runtime Error: {e}"
+                    self._safe_print(msg) 
+                    
                 except KeyboardInterrupt:
                     self._last_result["status"] = "stopped"
                     self._last_result["message"] = "Execution stopped by user"
+                    result.update(self._last_result)
                 except SystemExit:
                      self._last_result["status"] = "stopped"
+                     result.update(self._last_result)
+                
+                # Trigger callback if provided
+                if on_complete:
+                    try:
+                        on_complete(result)
+                    except Exception as ex:
+                        log.error(f"Error in on_complete callback: {ex}")
 
             self._current_thread = threading.Thread(target=target, daemon=True)
             self._current_thread.start()

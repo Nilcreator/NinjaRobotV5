@@ -13,9 +13,10 @@ class NinjaCoderAgent:
 
     def __init__(self, config: NinjaConfig):
         self.api_key = config.api_keys.get("gemini")
+        self.model = None # Default to None
+        
         if not self.api_key:
             log.warning("Gemini API key missing. NinjaCoderAgent disabled.")
-            self.model = None
             return
 
         genai.configure(api_key=self.api_key)
@@ -114,3 +115,24 @@ Code:
         except Exception as e:
             log.error(f"Code analysis error: {e}")
             return f"Error analyzing code: {e}"
+
+    async def analyze_error(self, code: str, error_msg: str) -> str:
+        """Explains an execution error in simple terms."""
+        if not self.model:
+            return "AI Agent not initialized."
+            
+        prompt = f"""The following user code failed on the NinjaRobot.
+Error: "{error_msg}"
+Code:
+```python
+{code}
+```
+Explain WHY it failed and fix the code in a single concise paragraph.
+Then provide the corrected code block.
+"""
+        try:
+            response = await self.model.generate_content_async(prompt)
+            return response.text.strip()
+        except Exception as e:
+            log.error(f"Error analysis failed: {e}")
+            return f"Error analyzing failure: {e}"

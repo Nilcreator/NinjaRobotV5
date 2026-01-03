@@ -119,6 +119,7 @@ async def lifespan(app: FastAPI):
     # Initialize NinjaCoderAgent
     try:
         app.state.ninja.coder_agent = NinjaCoderAgent(config)
+        dispatcher.attach_coder_agent(app.state.ninja.coder_agent) # Attach for error loop
         print("Ninja Coder Agent initialized.")
     except Exception as e:
          print(f"Ninja Coder Agent failed to start: {e}")
