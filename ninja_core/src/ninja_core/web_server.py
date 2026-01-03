@@ -63,6 +63,14 @@ class AppState:
 async def lifespan(app: FastAPI):
     # --- Startup ---
     print("Initializing NinjaRobot V4 Web Server...")
+
+    # Configure logging to ensure INFO logs (including BLE data) are visible
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S"
+    )
     
     # Load Config & HAL
     config = load_config()

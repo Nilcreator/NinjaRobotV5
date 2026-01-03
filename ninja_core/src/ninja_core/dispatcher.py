@@ -34,6 +34,7 @@ class CommandDispatcher:
             on_print=self._on_executor_print
         )
         self._listeners: List[Callable[[dict], Any]] = []
+        self._loop = asyncio.get_running_loop()  # Capture main loop
         self._initialized = True
         log.info("CommandDispatcher initialized.")
 
@@ -66,26 +67,19 @@ class CommandDispatcher:
 
     def _on_executor_print(self, msg: str):
         """Callback for SafeExecutor to broadcast logs."""
-        # Use asyncio.run_coroutine_threadsafe if called from thread?
-        # SafeExecutor runs in a thread. Broadcast is async.
-        # We need to bridge the thread to the event loop.
-        # However, _on_executor_print is called from the executor thread.
-        # We can't await here directly if the loop is in another thread.
-        # Assuming Dispatcher lives in Main Loop.
+        # Truncate long logs to prevent BLE packet fragmentation issues
+        safe_msg = msg[:120] + "..." if len(msg) > 120 else msg
         
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-             # Creating task might not work if we are in another thread without loop context?
-             # No, asyncio.create_task requires running loop in current thread usually?
-             # Actually, loop.call_soon_threadsafe is better.
-             loop.call_soon_threadsafe(
-                 lambda: asyncio.create_task(self.broadcast({
-                     "type": "execution_log", 
-                     "content": msg
-                 }))
-             )
+        # This is called from the executor thread, so we must schedule it on the main loop.
+        if self._loop and self._loop.is_running():
+            self._loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(self.broadcast({
+                    "type": "execution_log", 
+                    "content": safe_msg
+                }))
+            )
         else:
-             log.warning("Event loop not running, cannot broadcast log.")
+             log.warning("Main event loop not available, cannot broadcast log.")
 
     async def handle_command(self, source: str, command: dict) -> dict:
         """
@@ -190,11 +184,13 @@ class CommandDispatcher:
         if not code:
             return {"status": "error", "message": "No code provided"}
 
-        # Broadcast received confirmation
+        # Broadcast received confirmation (Truncate preview safely for BLE)
+        # Limit to 60 chars to fit in standard MTU packets
+        preview = code[:60] + ("..." if len(code) > 60 else "")
         await self.broadcast({
             "type": "execute_received",
             "code_length": len(code),
-            "preview": code[:500] + ("..." if len(code) > 500 else ""),
+            "preview": preview,
         })
 
         # Execute SafeExecutor
