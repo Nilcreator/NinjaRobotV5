@@ -404,7 +404,14 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (msg.type === 'execution_status') {
                 appendLog(`[STATUS] ${msg.status}: ${msg.message || ''}`);
             } else if (msg.type === 'execute_received') {
-                appendLog(`[RECV] Code received (${msg.code_length} chars)`);
+                appendLog(`─── CODE RECEIVED (${msg.code_length} chars) ───`);
+                if (msg.full_code) {
+                    // Display each line of the code
+                    msg.full_code.split('\n').forEach(line => {
+                        appendLog(`  ${line}`);
+                    });
+                }
+                appendLog(`───────────────────────────────────`);
             }
         };
 

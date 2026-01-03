@@ -223,10 +223,10 @@ class CommandDispatcher:
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
         """Handle code execution commands (Phase 4 - SafeExecutor + AI Agent)."""
         action = cmd_data.get("action", "run")
-        
+
         if action == "stop":
-             self.safe_executor.stop()
-             return {"status": "ok", "message": "Stop signal sent"}
+            self.safe_executor.stop()
+            return {"status": "ok", "message": "Stop signal sent"}
 
         code = cmd_data.get("code", "")
 
@@ -236,42 +236,74 @@ class CommandDispatcher:
         if not code:
             return {"status": "error", "message": "No code provided"}
 
-        # Broadcast received confirmation (Truncate preview safely for BLE)
-        preview = code[:60] + ("..." if len(code) > 60 else "")
+        # Broadcast received confirmation with FULL code for system log
         await self.broadcast({
             "type": "execute_received",
             "code_length": len(code),
-            "preview": preview,
+            "full_code": code,
         })
-        
+
         # --- AI Translation / Optimization Step ---
         if self.coder_agent:
-            # Notify Chat that optimization is starting
+            # Notify Chat with a detailed message about what was received
+            # Extract key actions from code for description
+            actions_found = []
+            if "buzzer.play" in code or "buzzer.tone" in code:
+                actions_found.append("🔊 Sound")
+            if "display.image" in code or "display.clear" in code:
+                actions_found.append("🖼️ Display")
+            if "distance.read" in code:
+                actions_found.append("📏 Distance Sensor")
+            if "servo" in code.lower():
+                actions_found.append("🦾 Servo")
+            
+            actions_desc = ", ".join(actions_found) if actions_found else "custom logic"
+            
             await self.broadcast({
                 "type": "chat",
                 "sender": "ninja",
-                "text": "Code received! Optimizing for V5 Hardware... 🤖✨"
+                "text": f"📥 Code received! Detected: {actions_desc}. Optimizing..."
             })
-            
+
             try:
                 # Ask Agent to translate/fix the code
                 translated_code = await self.coder_agent.translate_code(code)
-                
-                # If code changed, log it (Debug)
+
+                # If code changed, notify
                 if translated_code != code:
                     log.info("Agent optimized the code.")
                     log.debug(f"Original:\n{code}\nTranslated:\n{translated_code}")
-                    code = translated_code # Swap execution target check
                     
+                    await self.broadcast({
+                        "type": "chat",
+                        "sender": "ninja",
+                        "text": "✅ Code optimized for V5 hardware. Executing now..."
+                    })
+                    code = translated_code
+                else:
+                    await self.broadcast({
+                        "type": "chat",
+                        "sender": "ninja",
+                        "text": "✅ Code is V5-compatible. Executing now..."
+                    })
+
             except Exception as e:
                 log.error(f"Translation failed: {e}")
-                # Fallback to original code if translation fails
+                await self.broadcast({
+                    "type": "chat",
+                    "sender": "ninja",
+                    "text": f"⚠️ Optimization failed ({e}). Running original code..."
+                })
         else:
             log.warning("No CoderAgent attached, skipping translation.")
+            await self.broadcast({
+                "type": "chat",
+                "sender": "ninja",
+                "text": "📥 Code received. Executing directly..."
+            })
 
         # Execute SafeExecutor with callback
-        # Use the (potentially translated) code
         result = self.safe_executor.execute(code, on_complete=self._on_execution_complete)
-        
+
         return result
 
