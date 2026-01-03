@@ -37,10 +37,14 @@ class SafeExecutor:
         # Determine base module name
         base_name = name.split(".")[0]
         
+        if base_name == "ninja_core":
+             # Mock ninja_core module to allow 'from ninja_core import robot'
+             import types
+             mock_module = types.ModuleType("ninja_core")
+             mock_module.robot = self.hal
+             return mock_module
+
         if base_name in allowed_modules:
-            # For ninja_core, return the already imported module or mock? 
-            # Actually, standard __import__ handles this if we call it.
-            # But we must ensure we don't allow arbitrary imports.
             return __import__(name, globals, locals, fromlist, level)
         
         raise ImportError(f"Import of module '{name}' is not allowed in SafeExecutor.")
