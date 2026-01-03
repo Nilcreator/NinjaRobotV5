@@ -30,6 +30,13 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/dispatcher.py` | **NEW** - Central command router for BLE/Web |
 | `ninja_core/web_server.py` | Integrated Dispatcher, launches BLE on startup |
 
+### Key Changes (Phase 4 - Agent Intelligence):
+| Component | Change |
+|---|---|
+| `ninja_core/safe_executor.py` | **NEW** - Sandboxed Python execution engine |
+| `ninja_core/ninja_coder.py` | **NEW** - AI Agent for code generation (Gemini 3 Flash) |
+| `ninja_core/web_server.py` | Added `/api/code/*` endpoints for remote execution |
+
 ### Required Setup:
 ```bash
 uv run pi0buzzer init 17
@@ -148,6 +155,8 @@ NinjaRobotV5/
         ├── facial_expressions.py   # Visual emotions
         ├── robot_sound.py      # Auditory feedback
         ├── perception.py       # Distance monitoring
+        ├── safe_executor.py    # Sandboxed execution (V5 Phase 4)
+        ├── ninja_coder.py      # AI Code Agent (V5 Phase 4)
         ├── web_server.py       # FastAPI server (BLE + Web)
         ├── static/             # Web UI assets
         └── templates/          # HTML templates
@@ -231,6 +240,25 @@ uv run ninja_core --help
 uv run pi0servo calib 20
 uv run pi0disp image test.jpg
 ```
+
+---
+
+### Step 5: Test Safe Execution (Phase 4)
+
+1.  **Run the Unit Tests:**
+    ```bash
+    uv run python test_safe_executor.py
+    ```
+    - Verifies that `os`/`sys` are blocked.
+    - Verifies that `robot` API calls work.
+    - Verifies `check_stop()` functionality.
+
+2.  **Test Remote Execution (via curl):**
+    ```bash
+    curl -X POST "http://localhost:8000/api/code/execute" \
+         -H "Content-Type: application/json" \
+         -d '{"code": "print(\"Hello from API\")"}'
+    ```
 
 ---
 

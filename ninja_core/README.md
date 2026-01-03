@@ -7,6 +7,8 @@ This package contains the main application logic for NinjaRobot V5. It integrate
 - **`hal.py` (Hardware Abstraction Layer):** Initializes and provides a single access point for all hardware drivers.
 - **`config.py` (Configuration Manager):** Manages all robot settings from a central `config.json` file.
 - **`movement_controller.py` (Motion System):** Executes complex, multi-servo movement sequences.
+- **`safe_executor.py` (Safe Execution):** Sandboxed environment for running user/AI-generated Python code safely.
+- **`ninja_coder.py` (AI Code Agent):** Specialized agent for generating and debugging robot code.
 - **`facial_expressions.py`, `robot_sound.py`, `perception.py`:** High-level controllers for expressions, sounds, and sensing.
 
 ---

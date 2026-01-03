@@ -1,6 +1,23 @@
 # Development Log
 
-## 2026-01-02: Phase 3 BLE Protocol Upgrade - COMPLETE
+## 2026-01-03: Phase 4 Backend Core & Agent Intelligence - COMPLETE
+- **Action**: Implemented Safe Execution Engine and NinjaCoder Agent.
+- **Details**:
+    - Created `ninja_core/safe_executor.py`: Threaded logic for safe code execution (restricted globals).
+    - Created `ninja_core/ninja_coder.py`: AI Agent specialized for Python coding (Gemini 3 Flash).
+    - Updated `ninja_core/dispatcher.py`: Integrated `SafeExecutor` with real-time log broadcasting.
+    - Updated `ninja_core/web_server.py`: Added API endpoints (`/api/code/execute`, `/api/code/analyze`).
+- **Verification**: `test_safe_executor.py` passed. Linting verified.
+- **Cleanup**: Removed legacy `app` folder (web client moved to Phase 5).
+- **Related Files**: `safe_executor.py`, `ninja_coder.py`, `dispatcher.py`, `web_server.py`
+
+## 2026-01-03: Phase 3 BLE Protocol Upgrade - COMPLETE
+- **Action**: Verified BLE Client Protocol logic on Robot Hardware.
+- **Details**:
+    - Created and passed unit tests (`test_ble_chunking.py`) for `ChunkReassembler`.
+    - Confirmed robust handling of Header/Data/EOF packets, CRC32 checks, and ACK flow control.
+    - **Verification**: `python3 test_ble_chunking.py` passed (5 tests).
+    - **Note**: Web Client JS implementation deferred to Phase 5.
 - **Action**: Implemented chunking protocol for large BLE payloads + execute command handler.
 - **Details**:
     - Created `ninja_ble/chunking.py` with `ChunkReassembler` class.

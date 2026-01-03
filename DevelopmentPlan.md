@@ -247,29 +247,71 @@ graph TD
 - [x] **Backward Compatibility:**
     - Legacy JSON commands still work (auto-detected by first byte).
 
-**3.2 Web Client Protocol (`Code IDE`)** 🔲 Pending
-- [ ] **Web Bluetooth Integration:**
-    - Implement `Head`/`Data`/`EOF` packetizers.
-    - Handle MTU negotiation (default 512 bytes).
+**3.2 Web Client Protocol (`Code IDE`)**
+- [x] **Protocol Verification (Robot-Side)**:
+    - Verified `ChunkReassembler` against protocol specs using unit tests.
+    - Confirmed Packet creation helpers match expected Client behavior.
+    - Note: JS implementation moved to Phase 5.
+- [ ] MTU negotiation logic (Deferred to Phase 5).
 
 ---
 
-### Phase 4: Visual Programming Backend & AI Agent (Week 6)
+### Phase 4: Backend Core & Agent Intelligence (Week 6) ✅ COMPLETE (2026-01-03)
 
-**4.1 Visual Programming Backend (`ninja_core`)**
-- [ ] **`SafeExecutor` (Sandboxed Execution):**
-    - Implement `RestrictedPython` or custom `exec()` wrapper.
-    - Limit imports to: `time`, `math`, and `robot` (HAL).
-    - Block `os`, `sys`, `subprocess` to prevent system damage.
-- [ ] **Blockly API Endpoint:**
-    - Handle `POST /api/execute` containing Python code strings.
-    - Pass valid code to `SafeExecutor`.
+> **Goal:** Create the "brain" and "muscle" for running code safely and intelligently.
 
-**4.2 `ninja_coder` AI Agent**
-- [ ] Upgrade Agent prompt to generate robust Python code using the `robot` object.
-- [ ] Implement self-correction loop (Agent reads error -> Fixes code -> Retries).
+**4.1 Safe Execution Engine (`ninja_core`)**
+- [x] **Implement `SafeExecutor`:**
+    - Sandboxed `exec()` environment restricting access to `os`, `sys`.
+    - Expose safe `robot` API (HAL wrapper) + `time`, `math`.
+    - Thread-based execution with `stop()` capability.
+- [x] **Command Dispatcher Upgrade:**
+    - Wire `execute` command (from BLE/Web) to `SafeExecutor`.
+    - Broadcast execution logs via WebSocket/BLE Notify.
+
+**4.2 Code Agent (Backend)**
+- [x] **Create `NinjaCoderAgent` Class:**
+    - Specialized prompt for Python code generation and debugging.
+    - Model: `gemini-3-flash-preview` (as requested).
+    - Capabilities:
+        - `generate_code(query)`: Operations -> Python Code.
+        - `analyze_code(code)`: Python Code -> Bug Fixes/Advice.
+
+**4.3 Web Server API Extensions**
+- [x] `POST /api/code/execute`: Trigger `SafeExecutor`.
+- [x] `POST /api/code/stop`: Terminate running code.
+- [x] `POST /api/agent/code/analyze`: Send code to `NinjaCoderAgent`.
 
 ---
+
+### Phase 5: Web Interface & Visual Programming (Week 7)
+
+> **Goal:** A unified, mobile-optimized Web App for Chat, Coding, and Control.
+
+**5.1 UI Architecture Overhaul (`templates/index.html`)**
+- [ ] **Main Menu System:**
+    - Landing page with large touch-friendly buttons: "Ninja Agent" vs "Code Agent".
+    - **Multilingual Support**: Switcher for EN, JP, TC, SC (affects UI & Agent language).
+- [ ] **System Log Window:**
+    - Real-time scrolling log (WebSocket) showing BLE events, server status, and errors.
+
+**5.2 Ninja Agent Interface**
+- [ ] **Interaction Mode:**
+    - Voice Input (Mic button) + Text Input.
+    - Chat History Window (Styled bubbles).
+
+**5.3 Code Agent Interface**
+- [ ] **Mobile Blockly Integration:**
+    - Embed Blockly library (via CDN or static assets).
+    - Custom blocks for NinjaRobot API (`move`, `turn`, `express`, `say`).
+    - Vertical layout optimization for mobile.
+- [ ] **Python Code Editor:**
+    - Read-only view (synced from Blockly) OR Mutable view.
+    - **BLE Sync**: When code arrives via BLE, auto-populate this editor.
+- [ ] **AI Side-Panel:**
+    - "Fix Bug" / "Explain" buttons triggering `NinjaCoderAgent`.
+    - Display AI advice overlay.
+
 
 ## 6. Ideal V5 Project File Structure
 

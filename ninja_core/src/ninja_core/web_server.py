@@ -24,6 +24,7 @@ from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
 from .movement_controller import MovementController, EmergencyStop
 from .perception import DistanceMonitor
+from .ninja_coder import NinjaCoderAgent
 
 # --- Configuration ---
 base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,6 +37,12 @@ class SetApiKeyRequest(BaseModel):
 class AgentChatRequest(BaseModel):
     message: str
 
+class CodeExecuteRequest(BaseModel):
+    code: str
+
+class CodeAnalyzeRequest(BaseModel):
+    code: str
+
 # --- Global State Wrapper ---
 class AppState:
     def __init__(self):
@@ -44,7 +51,9 @@ class AppState:
         self.faces: Optional[AnimatedFaces] = None
         self.sound: Optional[RobotSoundPlayer] = None
         self.movement: Optional[MovementController] = None
+        self.movement: Optional[MovementController] = None
         self.distance_monitor: Optional[DistanceMonitor] = None
+        self.coder_agent: Optional[NinjaCoderAgent] = None
         self.first_interaction: bool = True
         self.has_greeted: bool = False
         self.last_reaction_time: float = 0.0
@@ -98,6 +107,13 @@ async def lifespan(app: FastAPI):
         print("Run 'ninja_core config set-key gemini <KEY>' or use the web interface to set it.")
     except ValueError as e:
         print(f"Ninja AI Agent not initialized: {e}")
+
+    # Initialize NinjaCoderAgent
+    try:
+        app.state.ninja.coder_agent = NinjaCoderAgent(config)
+        print("Ninja Coder Agent initialized.")
+    except Exception as e:
+         print(f"Ninja Coder Agent failed to start: {e}")
 
     # Network & ngrok
     asyncio.create_task(setup_network_and_display(app))
@@ -348,6 +364,34 @@ async def agent_chat(payload: AgentChatRequest, request: Request):
         await execute_action_plan(state, result["action_plan"])
         
     return {"response": result.get("response"), "log": result.get("log")}
+
+@api_router.post("/code/execute")
+async def execute_code(payload: CodeExecuteRequest, request: Request):
+    dispatcher = request.app.state.ninja.dispatcher
+    if not dispatcher:
+        raise HTTPException(status_code=500, detail="Dispatcher not ready")
+        
+    # Route through dispatcher to ensure consistent logging/broadcasting
+    result = await dispatcher.handle_command("web", {"type": "execute", "code": payload.code})
+    return result
+
+@api_router.post("/code/stop")
+async def stop_execution(request: Request):
+    dispatcher = request.app.state.ninja.dispatcher
+    if not dispatcher:
+         raise HTTPException(status_code=500, detail="Dispatcher not ready")
+         
+    result = await dispatcher.handle_command("web", {"type": "stop"})
+    return result
+
+@api_router.post("/agent/code/analyze")
+async def analyze_code(payload: CodeAnalyzeRequest, request: Request):
+    agent = request.app.state.ninja.coder_agent
+    if not agent:
+        raise HTTPException(status_code=503, detail="Coder Agent not available (Check API Key)")
+        
+    analysis = await agent.analyze_code(payload.code)
+    return {"analysis": analysis}
 
 # Note: Voice chat requires saving file and passing to agent. 
 # V4 agent doesn't have process_audio_command yet in the interface shown in previous turns?

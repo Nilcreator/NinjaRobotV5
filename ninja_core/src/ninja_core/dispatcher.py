@@ -3,6 +3,7 @@ import logging
 from typing import Any, Optional, Callable, List
 
 from .hal import HardwareAbstractionLayer
+from .safe_executor import SafeExecutor
 
 log = logging.getLogger(__name__)
 
@@ -10,7 +11,7 @@ log = logging.getLogger(__name__)
 class CommandDispatcher:
     """
     Central hub for routing commands from various sources (BLE, Web)
-    to the appropriate handlers (HAL, Agent) and broadcasting updates back.
+    to the appropriate handlers (HAL, Agent, Executor) and broadcasting updates back.
     """
 
     _instance = None
@@ -27,6 +28,11 @@ class CommandDispatcher:
 
         self.hal = hal
         self.agent = None  # NinjaAgent instance (set via attach_agent)
+        # Initialize SafeExecutor with callback for broadcasting logs
+        self.safe_executor = SafeExecutor(
+            self.hal, 
+            on_print=self._on_executor_print
+        )
         self._listeners: List[Callable[[dict], Any]] = []
         self._initialized = True
         log.info("CommandDispatcher initialized.")
@@ -34,6 +40,8 @@ class CommandDispatcher:
     def attach_hal(self, hal: HardwareAbstractionLayer):
         """Update the HAL reference if not provided during init."""
         self.hal = hal
+        if self.safe_executor:
+            self.safe_executor.hal = hal
 
     def attach_agent(self, agent):
         """Attach the NinjaAgent for processing chat commands."""
@@ -55,6 +63,29 @@ class CommandDispatcher:
                     callback(message)
             except Exception as e:
                 log.error(f"Error in broadcast listener: {e}")
+
+    def _on_executor_print(self, msg: str):
+        """Callback for SafeExecutor to broadcast logs."""
+        # Use asyncio.run_coroutine_threadsafe if called from thread?
+        # SafeExecutor runs in a thread. Broadcast is async.
+        # We need to bridge the thread to the event loop.
+        # However, _on_executor_print is called from the executor thread.
+        # We can't await here directly if the loop is in another thread.
+        # Assuming Dispatcher lives in Main Loop.
+        
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+             # Creating task might not work if we are in another thread without loop context?
+             # No, asyncio.create_task requires running loop in current thread usually?
+             # Actually, loop.call_soon_threadsafe is better.
+             loop.call_soon_threadsafe(
+                 lambda: asyncio.create_task(self.broadcast({
+                     "type": "execution_log", 
+                     "content": msg
+                 }))
+             )
+        else:
+             log.warning("Event loop not running, cannot broadcast log.")
 
     async def handle_command(self, source: str, command: dict) -> dict:
         """
@@ -78,9 +109,11 @@ class CommandDispatcher:
                 return await self._handle_chat_command(command)
             elif cmd_type == "execute":
                 return await self._handle_execute_command(command)
+            elif cmd_type == "stop": # Shortcut for stopping execution
+                 self.safe_executor.stop()
+                 return {"status": "ok", "message": "Stop signal sent"}
             else:
                 log.warning(f"Unknown command type: {cmd_type}")
-                log.warning(f"Full command was: {command}")
                 return {"status": "error", "message": f"Unknown type: {cmd_type}"}
 
         except Exception as e:
@@ -143,41 +176,31 @@ class CommandDispatcher:
 
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
         """Handle code execution commands (Phase 4 - SafeExecutor)."""
+        action = cmd_data.get("action", "run")
+        
+        if action == "stop":
+             self.safe_executor.stop()
+             return {"status": "ok", "message": "Stop signal sent"}
+
         code = cmd_data.get("code", "")
 
-        # Log the received command (WARNING level for visibility)
-        log.warning("=" * 60)
-        log.warning("[EXECUTE] CODE RECEIVED VIA BLE")
-        log.warning(f"  Payload keys: {list(cmd_data.keys())}")
-        log.warning(f"  Code length: {len(code)} characters")
-        log.warning("-" * 60)
+        # Log the received command
+        log.info(f"[EXECUTE] Code received ({len(code)} chars)")
 
-        # Show ALL code content (or first 50 lines for very long code)
-        if code:
-            lines = code.split("\n")
-            log.warning(f"  Code content ({len(lines)} lines):")
-            for i, line in enumerate(lines[:50]):
-                log.warning(f"    {i+1:3}: {line}")
-            if len(lines) > 50:
-                log.warning(f"    ... ({len(lines) - 50} more lines truncated)")
-        else:
-            log.warning("  Code content: (empty)")
+        if not code:
+            return {"status": "error", "message": "No code provided"}
 
-        log.warning("-" * 60)
-        log.warning("SafeExecutor not implemented yet (Phase 4).")
-        log.warning("Code was received but NOT executed.")
-        log.warning("=" * 60)
-
-        # Broadcast received code
+        # Broadcast received confirmation
         await self.broadcast({
             "type": "execute_received",
             "code_length": len(code),
             "preview": code[:500] + ("..." if len(code) > 500 else ""),
         })
 
-        return {
-            "status": "pending",
-            "message": "Code received. SafeExecutor not yet implemented.",
-            "code_length": len(code),
-        }
+        # Execute SafeExecutor
+        result = self.safe_executor.execute(code)
+        
+        # We return the initial status (e.g. "started").
+        # Logs will be streamed via _on_executor_print callback.
+        return result
 
