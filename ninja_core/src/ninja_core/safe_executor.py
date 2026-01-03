@@ -5,6 +5,8 @@ import math
 import traceback
 from typing import Dict, Any, Optional, Callable
 
+from .api_wrappers import RobotWrapper
+
 log = logging.getLogger(__name__)
 
 class SafeExecutor:
@@ -14,6 +16,7 @@ class SafeExecutor:
     
     def __init__(self, hal: Any, on_print: Optional[Callable[[str], None]] = None):
         self.hal = hal
+        self.robot_wrapper = RobotWrapper(hal)
         self.on_print = on_print
         self._lock = threading.Lock()
         self._current_thread: Optional[threading.Thread] = None
@@ -41,7 +44,7 @@ class SafeExecutor:
              # Mock ninja_core module to allow 'from ninja_core import robot'
              import types
              mock_module = types.ModuleType("ninja_core")
-             mock_module.robot = self.hal
+             mock_module.robot = self.robot_wrapper
              return mock_module
 
         if base_name in allowed_modules:
@@ -66,7 +69,7 @@ class SafeExecutor:
 
         return {
             '__builtins__': safe_builtins,
-            'robot': self.hal,
+            'robot': self.robot_wrapper,
             'time': time,
             'math': math,
             'print': self._safe_print,

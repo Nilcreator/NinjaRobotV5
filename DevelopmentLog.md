@@ -15,7 +15,8 @@
 - **Action**: Enhanced `SafeExecutor` and `Dispatcher` for better user feedback.
 - **Details**:
     - **Safe Imports**: Patched `SafeExecutor` to allow `time`, `math`, `random` via custom `__import__`.
-    - **Ninja Core Compatibility**: Added mock support for `from ninja_core import robot` to ensure compatibility with Blockly-generated code.
+    - **API Wrappers**: Implemented `RobotWrapper` in `api_wrappers.py` to bridge the gap between low-level HAL and Blockly/IDE high-level API (e.g., `robot.buzzer.play("happy")`, `robot.distance.read()`).
+    - **Ninja Core Compatibility**: Mocked `from ninja_core import robot` to return the Wrapped Robot instance.
     - **Error Feedback**: Implemented `on_complete` callback in `SafeExecutor`.
     - **Agent Integration**: `Dispatcher` now catches execution errors and triggers `NinjaCoderAgent.analyze_error()` to broadcast a user-friendly diagnosis to the chat.
 - **Verification**: `test_safe_executor.py` updated and passed.

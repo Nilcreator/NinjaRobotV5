@@ -31,25 +31,43 @@ class TestSafeExecutor(unittest.TestCase):
         self.assertIn("Hello World", self.executor.get_log())
 
     def test_robot_interaction(self):
-        code = "robot.test_method()"
+        # Verify High-Level API Usage
+        # Mock the underlying HAL components BEFORE initializing SafeExecutor
+        self.mock_hal.buzzer = MagicMock()
+        self.mock_hal.distance_sensor = MagicMock()
+        self.mock_hal.display = MagicMock()
+        
+        # Re-init executor to pick up new mocks
+        self.executor = SafeExecutor(self.mock_hal)
+        
+        # Test code using wrappers
+        code = """
+robot.buzzer.tone(440, 0.1)
+robot.distance.read()
+"""
         self.executor.execute(code)
         
         start = time.time()
         while self.executor.is_running() and time.time() - start < 2:
             time.sleep(0.1)
             
-        self.mock_hal.test_method.assert_called_once()
+        # Verify HAL calls made by wrappers
+        self.mock_hal.buzzer.execute.assert_called_with({"frequency": 440, "duration": 0.1})
+        self.mock_hal.distance_sensor.get_data.assert_called()
 
     def test_ninja_core_import(self):
         # Verification for standard generated code
-        code = "from ninja_core import robot\nrobot.test_method()"
+        # We must use valid RobotWrapper methods now (robot.test_method does not exist on wrapper)
+        self.mock_hal.buzzer = MagicMock()
+        
+        code = "from ninja_core import robot\nrobot.buzzer.tone(100, 0.1)"
         self.executor.execute(code)
         
         start = time.time()
         while self.executor.is_running() and time.time() - start < 2:
             time.sleep(0.1)
             
-        self.mock_hal.test_method.assert_called()
+        self.mock_hal.buzzer.execute.assert_called_with({"frequency": 100, "duration": 0.1})
         self.assertEqual(self.executor.get_result()["status"], "success")
 
     def test_allowed_imports(self):
