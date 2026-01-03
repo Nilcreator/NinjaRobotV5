@@ -221,7 +221,7 @@ class CommandDispatcher:
         log.info("NinjaCoderAgent attached to Dispatcher.")
 
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
-        """Handle code execution commands (Phase 4 - SafeExecutor)."""
+        """Handle code execution commands (Phase 4 - SafeExecutor + AI Agent)."""
         action = cmd_data.get("action", "run")
         
         if action == "stop":
@@ -237,15 +237,40 @@ class CommandDispatcher:
             return {"status": "error", "message": "No code provided"}
 
         # Broadcast received confirmation (Truncate preview safely for BLE)
-        # Limit to 60 chars to fit in standard MTU packets
         preview = code[:60] + ("..." if len(code) > 60 else "")
         await self.broadcast({
             "type": "execute_received",
             "code_length": len(code),
             "preview": preview,
         })
+        
+        # --- AI Translation / Optimization Step ---
+        if self.coder_agent:
+            # Notify Chat that optimization is starting
+            await self.broadcast({
+                "type": "chat",
+                "sender": "ninja",
+                "text": "Code received! Optimizing for V5 Hardware... 🤖✨"
+            })
+            
+            try:
+                # Ask Agent to translate/fix the code
+                translated_code = await self.coder_agent.translate_code(code)
+                
+                # If code changed, log it (Debug)
+                if translated_code != code:
+                    log.info("Agent optimized the code.")
+                    log.debug(f"Original:\n{code}\nTranslated:\n{translated_code}")
+                    code = translated_code # Swap execution target check
+                    
+            except Exception as e:
+                log.error(f"Translation failed: {e}")
+                # Fallback to original code if translation fails
+        else:
+            log.warning("No CoderAgent attached, skipping translation.")
 
         # Execute SafeExecutor with callback
+        # Use the (potentially translated) code
         result = self.safe_executor.execute(code, on_complete=self._on_execution_complete)
         
         return result

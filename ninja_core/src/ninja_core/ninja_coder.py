@@ -37,37 +37,77 @@ Your goal is to write clean, efficient, and safe Python code based on user reque
 ## The Environment
 - You are running inside a restricted `SafeExecutor` environment.
 - **Available Globals**:
-    - `robot`: The HardwareAbstractionLayer instance.
-    - `time`: Standard time module.
-    - `math`: Standard math module.
-    - `print`: Redirected to the user's log.
-- **Unavailable**: `os`, `sys`, `subprocess` are BLOCKED. Do NOT import them.
+    - `robot`: The `RobotWrapper` instance (High-Level API).
+    - `time`, `math`: Standard modules.
+    - `print`: Redirected to user log.
+- **Unavailable**: `os`, `sys`, `subprocess` are BLOCKED.
 
 ## The Robot API (`robot` object)
-The `robot` object has the following attributes (drivers):
-1.  `robot.servos`:
+The `robot` object supports a High-Level API:
+
+1.  **`robot.servos`** (MultiServo):
     - `move_angle_sync(chan, angle)`: Move single servo.
     - `move_sequence(sequence_dict)`: Complex sequences.
-2.  `robot.buzzer`:
-    - `play_sound(name)`: Play buffer sound ("startup", "jump").
-    - `play_tone(freq, duration)`: Play raw tone.
-3.  `robot.display`:
-    - `show_image(path)`: (Use carefully, paths are restricted).
+    
+2.  **`robot.buzzer`** (BuzzerWrapper):
+    - `play(name)`: Play emotion sound.
+      - **Valid Sounds**: 'happy', 'sad', 'exciting', 'angry', 'confusing', 'cry', 'embarrassing', 'idle', 'laughing', 'scary', 'shy', 'sleepy', 'speaking', 'surprising'.
+      - *Note*: If a requested sound is NOT in this list, you MUST generate raw tones using `tone()` or map it to a similar sound.
+    - `tone(frequency, duration)`: Play frequency (Hz) for duration (s).
+
+3.  **`robot.display`** (DisplayWrapper):
+    - `image(name)`: Display asset image (e.g., 'star', 'heart').
+      - *Note*: If image likely doesn't exist, ignore or use `clear()`.
     - `clear()`: Clear screen.
 
+4.  **`robot.distance`** (DistanceWrapper):
+    - `read()`: Returns distance in **millimeters** (int).
+
 ## Instructions
-1.  **Generate Code**: When asked to write code, output ONLY valid Python code inside a markdown code block (```python ... ```).
-2.  **No Explanations**: Unless explicitly asked, just provide the code.
-3.  **Safety**: Never attempt to access the file system or run shell commands.
-4.  **Loops**: If you write an infinite loop (`while True`), YOU MUST call `check_stop()` inside the loop to allow the user to stop execution.
-    Example:
-    ```python
-    while True:
-        robot.servos.move_angle_sync(0, 90)
-        time.sleep(1)
-        check_stop() # CRITICAL!
-    ```
+1.  **Translate/Fix**: When processing code, checking for API validity (especially valid sound names). if a sound name like "startup" is missing, replace it with a sequence of `tone()` calls or a similar sound.
+2.  **Generate Code**: Output ONLY valid Python code inside a markdown code block.
+3.  **Safety**: No infinite loops without `check_stop()`.
 """
+
+    async def translate_code(self, code: str) -> str:
+        """Translates/Fixes user code to match the actual Robot API."""
+        if not self.model:
+            return code # Return original if agent disabled
+            
+        prompt = f"""Translate and Fix the following NinjaRobot Python code to ensure it works with the V5 API.
+        
+        Specific Checks:
+        1. Check `robot.buzzer.play(name)` calls. Only use VALID sounds (happy, sad, etc.).
+           - If user asks for "startup", REPLACE it with: `robot.buzzer.tone(440, 0.1); time.sleep(0.1); robot.buzzer.tone(880, 0.2)` (or similar).
+        2. Check `robot.display.image(name)`. Ensure strict asset names.
+        
+        Input Code:
+        ```python
+        {code}
+        ```
+        
+        Output ONLY the fixed executable Python code block.
+        """
+        try:
+            response = await self.model.generate_content_async(prompt)
+            text = response.text.strip()
+            
+            # Extract code block
+            if "```python" in text:
+                start = text.find("```python") + 9
+                end = text.find("```", start)
+                if end != -1:
+                    return text[start:end].strip()
+            elif "```" in text:
+                start = text.find("```") + 3
+                end = text.find("```", start)
+                if end != -1:
+                    return text[start:end].strip()
+            return text
+        except Exception as e:
+            log.error(f"Code translation error: {e}")
+            return code # Fallback to original
+
 
     async def generate_code(self, query: str) -> str:
         """Generates Python code from a natural language description."""
