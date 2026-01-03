@@ -51,12 +51,32 @@ class AppState:
         self.faces: Optional[AnimatedFaces] = None
         self.sound: Optional[RobotSoundPlayer] = None
         self.movement: Optional[MovementController] = None
-        self.movement: Optional[MovementController] = None
         self.distance_monitor: Optional[DistanceMonitor] = None
         self.coder_agent: Optional[NinjaCoderAgent] = None
         self.first_interaction: bool = True
         self.has_greeted: bool = False
         self.last_reaction_time: float = 0.0
+        self.connection_manager = ConnectionManager()
+
+# --- Connection Manager ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                # Handle disconnected clients gracefully if not caught elsewhere
+                pass
 
 # --- Lifecycle ---
 @asynccontextmanager
@@ -81,7 +101,11 @@ async def lifespan(app: FastAPI):
     # Initialize Dispatcher
     from .dispatcher import CommandDispatcher
     dispatcher = CommandDispatcher(app.state.ninja.hal)
-    app.state.ninja.dispatcher = dispatcher  # Store for later use
+    app.state.ninja.dispatcher = dispatcher
+    
+    # Bridge Dispatcher -> WebSockets
+    # This ensures "chat", "execution_log", "status" events go to the web UI
+    dispatcher.register_listener(app.state.ninja.connection_manager.broadcast)
     
     # Initialize BLE Service (conditionally, could fail on non-Linux)
     try:
@@ -538,6 +562,18 @@ async def websocket_distance(websocket: WebSocket):
             await asyncio.sleep(0.1)
     except WebSocketDisconnect:
         pass
+
+@app.websocket("/ws/events")
+async def websocket_events(websocket: WebSocket):
+    manager = websocket.app.state.ninja.connection_manager
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive, maybe receive client pings/commands later?
+            # For now, just listen.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 def check_port_available(host: str, port: int) -> bool:
     """Checks if the port is available."""
