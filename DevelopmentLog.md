@@ -21,7 +21,9 @@
     - **Error Feedback**: Implemented `on_complete` callback in `SafeExecutor`.
     - **Agent Integration**: `Dispatcher` now broadcasts "Optimizing..." status and error diagnosis.
 - **Verification**: `test_safe_executor.py` updated and passed.
-- **Related Files**: `safe_executor.py`, `dispatcher.py`, `ninja_coder.py`, `test_safe_executor.py`
+- **Related Files**: `safe_executor.py`, `dispatcher.py`, `ninja_coder.py`, `test_safe_executor.py`, `api_wrappers.py`
+- **WebSocket Fix (2026-01-04)**: Added `ConnectionManager` and `/ws/events` endpoint to bridge `Dispatcher` broadcasts to the Web UI. Fixed critical JavaScript syntax error in `main.js` (`pass;` was Python, not JS) that prevented the event WebSocket from connecting.
+- **System Prompt Refinement (2026-01-04)**: Rewrote `NinjaCoderAgent` system prompt with comprehensive API tables, explicit sound/image mappings (e.g., "startup" → tones, "success" → "happy"), and strict translation rules to ensure clean code output.
 
 ## 2026-01-03: Phase 3 BLE Protocol Upgrade - COMPLETE
 - **Action**: Verified BLE Client Protocol logic on Robot Hardware.

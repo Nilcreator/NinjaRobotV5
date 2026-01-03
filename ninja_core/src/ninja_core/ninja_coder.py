@@ -31,67 +31,91 @@ class NinjaCoderAgent:
         log.info("NinjaCoderAgent initialized with gemini-3-flash-preview.")
 
     def _create_system_prompt(self) -> str:
-        return """You are an expert Python developer for the NinjaRobot V5 platform.
-Your goal is to write clean, efficient, and safe Python code based on user requests.
+        return """You are the NinjaRobot V5 Code Optimizer. Your ONLY job is to rewrite incoming user code so it runs correctly on the V5 hardware.
 
-## The Environment
-- You are running inside a restricted `SafeExecutor` environment.
-- **Available Globals**:
-    - `robot`: The `RobotWrapper` instance (High-Level API).
-    - `time`, `math`: Standard modules.
-    - `print`: Redirected to user log.
-- **Unavailable**: `os`, `sys`, `subprocess` are BLOCKED.
+## Execution Environment
+- Runs inside `SafeExecutor` (restricted sandbox).
+- **Available**: `robot` (RobotWrapper), `time`, `math`, `print`, `check_stop()`.
+- **BLOCKED**: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`.
 
-## The Robot API (`robot` object)
-The `robot` object supports a High-Level API:
+## RobotWrapper API Reference
 
-1.  **`robot.servos`** (MultiServo):
-    - `move_angle_sync(chan, angle)`: Move single servo.
-    - `move_sequence(sequence_dict)`: Complex sequences.
-    
-2.  **`robot.buzzer`** (BuzzerWrapper):
-    - `play(name)`: Play emotion sound.
-      - **Valid Sounds**: 'happy', 'sad', 'exciting', 'angry', 'confusing', 'cry', 'embarrassing', 'idle', 'laughing', 'scary', 'shy', 'sleepy', 'speaking', 'surprising'.
-      - *Note*: If a requested sound is NOT in this list, you MUST generate raw tones using `tone()` or map it to a similar sound.
-    - `tone(frequency, duration)`: Play frequency (Hz) for duration (s).
+### `robot.buzzer`
+| Method | Args | Description |
+|--------|------|-------------|
+| `play(name)` | `name: str` | Play predefined emotion sound. |
+| `tone(freq, dur)` | `freq: int, dur: float` | Play raw frequency for duration. |
 
-3.  **`robot.display`** (DisplayWrapper):
-    - `image(name)`: Display asset image (e.g., 'star', 'heart').
-      - *Note*: If image likely doesn't exist, ignore or use `clear()`.
-    - `clear()`: Clear screen.
+**Valid sound names for `play()`**:
+`happy`, `sad`, `exciting`, `angry`, `confusing`, `cry`, `embarrassing`, `idle`, `laughing`, `scary`, `shy`, `sleepy`, `speaking`, `surprising`
 
-4.  **`robot.distance`** (DistanceWrapper):
-    - `read()`: Returns distance in **millimeters** (int).
+**Sound Mapping (convert invalid names)**:
+| Input | Convert To |
+|-------|------------|
+| `"startup"` | `robot.buzzer.tone(523, 0.1); time.sleep(0.05); robot.buzzer.tone(659, 0.1); time.sleep(0.05); robot.buzzer.tone(784, 0.15)` |
+| `"success"` | `robot.buzzer.play("happy")` |
+| `"error"` | `robot.buzzer.play("sad")` |
+| `"alert"` | `robot.buzzer.play("scary")` |
+| `"beep"` | `robot.buzzer.tone(1000, 0.2)` |
+| `"warning"` | `robot.buzzer.play("confusing")` |
 
-## Instructions
-1.  **Translate/Fix**: When processing code, checking for API validity (especially valid sound names). if a sound name like "startup" is missing, replace it with a sequence of `tone()` calls or a similar sound.
-2.  **Generate Code**: Output ONLY valid Python code inside a markdown code block.
-3.  **Safety**: No infinite loops without `check_stop()`.
+### `robot.display`
+| Method | Args | Description |
+|--------|------|-------------|
+| `image(name)` | `name: str` | Show asset image. |
+| `clear()` | - | Clear display. |
+
+**Valid image names**: `star`, `heart`  
+**Image Mapping (convert invalid names)**:
+| Input | Convert To |
+|-------|------------|
+| `"happy"` | `robot.display.clear()` (no asset, use clear) |
+| `"surprised"` | `robot.display.clear()` |
+| Any unknown | `robot.display.clear()` |
+
+### `robot.distance`
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `read()` | `int` | Distance in millimeters. |
+
+### `robot.servo`
+| Method | Args | Description |
+|--------|------|-------------|
+| `move_angle_sync(ch, angle)` | `ch: int, angle: int` | Move servo channel. |
+
+## Translation Rules
+1. **DO NOT** add explanations, comments about changes, or print statements about conversions.
+2. **DO NOT** explain your changes. Output ONLY the final code block.
+3. Preserve ALL user logic (loops, conditionals, variables).
+4. If you see `from ninja_core import robot`, keep it as-is (it's valid).
+5. If you see `import time`, keep it as-is.
+6. Always output valid Python that can be executed immediately.
 """
 
     async def translate_code(self, code: str) -> str:
         """Translates/Fixes user code to match the actual Robot API."""
         if not self.model:
-            return code # Return original if agent disabled
-            
-        prompt = f"""Translate and Fix the following NinjaRobot Python code to ensure it works with the V5 API.
-        
-        Specific Checks:
-        1. Check `robot.buzzer.play(name)` calls. Only use VALID sounds (happy, sad, etc.).
-           - If user asks for "startup", REPLACE it with: `robot.buzzer.tone(440, 0.1); time.sleep(0.1); robot.buzzer.tone(880, 0.2)` (or similar).
-        2. Check `robot.display.image(name)`. Ensure strict asset names.
-        
-        Input Code:
-        ```python
-        {code}
-        ```
-        
-        Output ONLY the fixed executable Python code block.
-        """
+            return code  # Return original if agent disabled
+
+        prompt = f"""Rewrite this NinjaRobot code to be V5 API compatible.
+
+RULES:
+1. Convert invalid `robot.buzzer.play(name)` using the Sound Mapping table.
+2. Convert invalid `robot.display.image(name)` using the Image Mapping table.
+3. Keep all imports, logic, loops, and conditionals unchanged.
+4. Output ONLY the final Python code block. NO explanations.
+
+INPUT:
+```python
+{code}
+```
+
+OUTPUT (code only):"""
+
         try:
             response = await self.model.generate_content_async(prompt)
             text = response.text.strip()
-            
+
             # Extract code block
             if "```python" in text:
                 start = text.find("```python") + 9
@@ -103,10 +127,12 @@ The `robot` object supports a High-Level API:
                 end = text.find("```", start)
                 if end != -1:
                     return text[start:end].strip()
+            
+            # If no code block, assume raw code
             return text
         except Exception as e:
             log.error(f"Code translation error: {e}")
-            return code # Fallback to original
+            return code  # Fallback to original
 
 
     async def generate_code(self, query: str) -> str:

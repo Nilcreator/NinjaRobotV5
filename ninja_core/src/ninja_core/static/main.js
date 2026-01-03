@@ -380,45 +380,42 @@ document.addEventListener('DOMContentLoaded', () => {
         distanceSocket.onerror = () => distanceDisplay.textContent = 'Error';
         distanceSocket.onclose = () => distanceDisplay.textContent = 'Disconnected';
 
-        // Event/Chat WebSocket
+        // Event/Chat WebSocket - Receives broadcasts from Dispatcher
         const eventSocket = new WebSocket(`${wsProtocol}//${window.location.host}/ws/events`);
+
+        eventSocket.onopen = () => {
+            console.log('[WS] Event socket connected');
+            appendLog('Real-time event stream connected.');
+        };
+
         eventSocket.onmessage = (event) => {
             const msg = JSON.parse(event.data);
+            console.log('[WS] Received:', msg);
 
             if (msg.type === 'chat') {
-                // If sender is user, we might have already appended it locally, 
-                // but if it comes from BLE, we need to show it.
-                // We can check if it's a dup or just always append. 
-                // Since local append is sync, we might want to avoid dupes.
-                // But for now, let's just append everything that isn't "user" to be safe, 
-                // OR rely on the server broadcast for everything (cleaner).
-                // Existing handleChatSend appends "user". Let's assume we filter "user" if via REST.
-                // But BLE commands will come as "user".
-                if (msg.sender !== 'user' || document.hidden) {
-                    // Simple heuristic: if we are active, we might have added it.
-                    // Better: handleChatSend DOES NOT append, relies on socket?
-                    // V4 logic in handleChatSend currently appends.
-                    // Let's just append "ninja" (agent) messages for now to ensure feedback.
-                    // And "user" messages if we want to see BLE inputs.
-                    if (msg.sender === 'ninja') {
-                        appendMessage('agent', msg.text);
-                    } else if (msg.sender === 'user') {
-                        // Optional: show user inputs from other sources (BLE)
-                        // Check if last message was same? No, just append.
-                        // But if I typed it, I see it twice?
-                        // Let's ignore 'user' for now to prevent double-posting in Web Chat,
-                        // UNLESS we modify handleChatSend to NOT append locally.
-                        // Let's modify handleChatSend below/later if needed. 
-                        // For now, FOCUS ON AGENT FEEDBACK.
-                        // The user complained about Agent didn't show message.
-                        pass;
-                    }
+                // Show all agent/ninja messages in chat
+                if (msg.sender === 'ninja') {
+                    appendMessage('agent', msg.text);
                 }
+                // Optionally show BLE user inputs (from other devices)
+                // else if (msg.sender === 'user') { appendMessage('user', msg.text); }
             } else if (msg.type === 'execution_log') {
-                appendLog(msg.content);
+                appendLog(`[CODE] ${msg.content}`);
             } else if (msg.type === 'execution_status') {
-                appendLog(`[STATUS] ${msg.status}: ${msg.message}`);
+                appendLog(`[STATUS] ${msg.status}: ${msg.message || ''}`);
+            } else if (msg.type === 'execute_received') {
+                appendLog(`[RECV] Code received (${msg.code_length} chars)`);
             }
+        };
+
+        eventSocket.onerror = (err) => {
+            console.error('[WS] Event socket error:', err);
+            appendLog('Event stream error.');
+        };
+
+        eventSocket.onclose = () => {
+            console.log('[WS] Event socket closed');
+            appendLog('Event stream disconnected.');
         };
     }
 
