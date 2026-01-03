@@ -168,16 +168,17 @@ uv run ninja_core start
 
 ## 📊 Current Status
 
-**Development Phase:** **V5 Phase 2 Complete ✅**
+**Development Phase:** **V5 Phase 4 Complete ✅**
 
-Phase 2 (Dual Connectivity) has been implemented and verified on Raspberry Pi Zero 2W.
+Phase 4 (Backend Core & Agent Intelligence) has been implemented and verified.
 
 - ✅ **V4 Base**: Stable web control, ngrok remote access, basic AI agent.
 - ✅ **Health Check**: Comprehensive codebase review completed (2025-12-30).
 - ✅ **Modularity (Phase 1)**: ABCs created, HAL refactored, all drivers updated. **VERIFIED.**
 - ✅ **Connectivity (Phase 2)**: BLE integration complete. AI Chat via Bluetooth working! **VERIFIED (2025-12-31)**
-- 📅 **Visual Programming (Phase 3)**: Google Blockly integration planned.
-- 📅 **AI Coding (Phase 3)**: Code generation agent planned.
+- ✅ **Protocol (Phase 3)**: BLE chunking protocol, unified command routing. **VERIFIED (2026-01-03)**
+- ✅ **Backend Intelligence (Phase 4)**: SafeExecutor, NinjaCoderAgent, API Wrappers, WebSocket events. **VERIFIED (2026-01-04)**
+- 📅 **Visual Programming (Phase 5)**: Web UI overhaul and Blockly integration planned.
 
 
 ---
@@ -308,16 +309,17 @@ uv run ninja_core start
 
 ## 📊 現在の状況
 
-**開発フェーズ:** **V5 フェーズ2 完了 ✅**
+**開発フェーズ:** **V5 フェーズ4 完了 ✅**
 
-フェーズ2（デュアル接続）は、Raspberry Pi Zero 2Wで実装および検証が完了しました。
+フェーズ4（バックエンドコア＆エージェント知能）の実装と検証が完了しました。
 
 - ✅ **V4ベース**: 安定したWeb制御、ngrokリモートアクセス、基本的なAIエージェント。
 - ✅ **ヘルスチェック**: 包括的なコードベースレビュー完了 (2025-12-30)。
 - ✅ **モジュール性（フェーズ1)**: ABC作成、HALリファクタリング、全ドライバー更新完了。**検証済み。**
 - ✅ **接続性（フェーズ2)**: BLE統合完了。Bluetooth経由のAIチャット動作確認済み！**(2025-12-31検証済み)**
-- 📅 **ビジュアルプログラミング（フェーズ3)**: Google Blockly統合を計画中。
-- 📅 **AIコーディング（フェーズ3)**: コード生成エージェントを計画中。
+- ✅ **プロトコル（フェーズ3)**: BLEチャンキング、統一コマンドルーティング。**(2026-01-03検証済み)**
+- ✅ **バックエンド知能（フェーズ4)**: SafeExecutor、NinjaCoderAgent、APIラッパー、WebSocketイベント。**(2026-01-04検証済み)**
+- 📅 **ビジュアルプログラミング（フェーズ5)**: Web UI刷新とBlockly統合を計画中。
 
 
 ---

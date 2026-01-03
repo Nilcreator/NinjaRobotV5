@@ -1712,6 +1712,128 @@ uv run ninja_core server
 
 ---
 
+#### 3.6.10 `safe_executor.py` (New Phase 4)
+
+**Module:** `ninja_core.safe_executor`
+
+**Purpose:** Provides a sandboxed environment for executing user-generated or AI-generated Python code safely.
+
+##### Class: `SafeExecutor`
+
+**Constructor:**
+```python
+def __init__(self, hal: HardwareAbstractionLayer, on_print: Callable[[str], None] = None)
+```
+
+**Parameters:**
+- `hal`: Hardware Abstraction Layer for accessing `robot` API.
+- `on_print`: Callback for capturing `print()` output (e.g., for broadcasting to WebSockets).
+
+**Methods:**
+
+**`execute(code: str, on_complete: Callable[[dict], None] = None) -> dict`**
+- Executes Python code in a restricted sandbox.
+- **Parameters:**
+    - `code`: Python code string.
+    - `on_complete`: Async callback fired when execution completes/fails.
+- **Returns:** `{"status": "running" | "success" | "error", "message": str}`
+- **Safety Features:**
+    - Blocks: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`, `__import__`.
+    - Provides: `robot`, `time`, `math`, `print`, `check_stop()`.
+
+**`stop() -> None`**
+- Signals the current execution to stop.
+
+**Usage:**
+```python
+from ninja_core.safe_executor import SafeExecutor
+
+executor = SafeExecutor(hal, on_print=lambda msg: print(f"[LOG] {msg}"))
+result = executor.execute("robot.buzzer.play('happy')")
+```
+
+---
+
+#### 3.6.11 `ninja_coder.py` (New Phase 4)
+
+**Module:** `ninja_core.ninja_coder`
+
+**Purpose:** AI-powered code generation, translation, and debugging agent. Uses `gemini-3-flash-preview` for fast coding tasks.
+
+##### Class: `NinjaCoderAgent`
+
+**Constructor:**
+```python
+def __init__(self, config: NinjaConfig)
+```
+
+**Methods:**
+
+**`async translate_code(code: str) -> str`**
+- Rewrites user code to match the V5 Robot API.
+- **Use Case:** Converts `robot.buzzer.play("startup")` → tone sequence.
+- **Returns:** Translated Python code string.
+
+**`async generate_code(query: str) -> str`**
+- Generates Python code from natural language description.
+- **Returns:** Generated Python code string.
+
+**`async analyze_code(code: str) -> str`**
+- Analyzes code for bugs and improvements.
+- **Returns:** Human-readable analysis text.
+
+**`async analyze_error(code: str, error_msg: str) -> str`**
+- Explains an execution error and suggests a fix.
+- **Returns:** Diagnostic text with corrected code.
+
+**Sound Mapping (built into system prompt):**
+| Invalid Input | Translated Output |
+|---------------|-------------------|
+| `"startup"` | Tone sequence (C5→E5→G5) |
+| `"success"` | `play("happy")` |
+| `"error"` | `play("sad")` |
+| `"alert"` | `play("scary")` |
+
+---
+
+#### 3.6.12 `api_wrappers.py` (New Phase 4)
+
+**Module:** `ninja_core.api_wrappers`
+
+**Purpose:** High-level Python API wrappers that simplify robot control for user-generated code. Exposed as `robot` in the SafeExecutor.
+
+##### Class: `RobotWrapper`
+
+**Constructor:**
+```python
+def __init__(self, hal: HardwareAbstractionLayer)
+```
+
+**Attributes:**
+- `buzzer` (BuzzerWrapper): Sound control.
+- `display` (DisplayWrapper): Screen control.
+- `distance` (DistanceWrapper): Sensor reading.
+- `servo` (MultiServo): Direct servo access.
+
+##### Class: `BuzzerWrapper`
+
+**Methods:**
+- `play(name: str)`: Plays a predefined sound. Valid: `happy`, `sad`, `exciting`, `angry`, `confusing`, etc.
+- `tone(freq: int, duration: float)`: Plays raw frequency.
+
+##### Class: `DisplayWrapper`
+
+**Methods:**
+- `image(name: str)`: Shows asset image. Valid: `star`, `heart`.
+- `clear()`: Clears the display.
+
+##### Class: `DistanceWrapper`
+
+**Methods:**
+- `read() -> int`: Returns distance in millimeters.
+
+---
+
 ### 3.7 ninja_ble
 
 **Purpose:** Bluetooth Low Energy GATT server for wireless control and AI chat. Enables direct, zero-network-setup communication with the robot.
