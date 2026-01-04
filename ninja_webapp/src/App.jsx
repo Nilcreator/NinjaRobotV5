@@ -8,6 +8,13 @@
  * - "/code": Blockly visual programming
  * - "/help": Documentation and troubleshooting
  */
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/layout/Layout';
+import Home from './pages/Home';
+import Agent from './pages/Agent';
+import Code from './pages/Code';
+import Help from './pages/Help';
+
 function App() {
     return (
         <BrowserRouter>
