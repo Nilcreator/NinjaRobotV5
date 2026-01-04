@@ -566,8 +566,14 @@ if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
         app.mount("/static", StaticFiles(directory=str(legacy_static)), name="static")
 else:
     print("⚠️ React SPA not found. Falling back to legacy templates.")
+    print("   👉 ACTION REQUIRED: The 'dist' folder is missing on the robot.")
+    print("   1. If using git: I have updated .gitignore. Please commit 'ninja_webapp/dist' and pull on the robot.")
+    print("   2. Or manually copy 'ninja_webapp/dist' to the robot.")
+
     # Legacy static files
-    app.mount("/static", StaticFiles(directory=str(base_dir / "static")), name="static")
+    legacy_static = base_dir / "static" # Define legacy_static here for the else block
+    if legacy_static.exists():
+        app.mount("/static", StaticFiles(directory=str(base_dir / "static")), name="static")
 
 app.include_router(api_router)
 

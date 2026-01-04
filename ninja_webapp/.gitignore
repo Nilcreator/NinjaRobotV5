@@ -2,7 +2,7 @@
 node_modules/
 
 # Build output
-dist/
+# # dist/ (Commented out to allow syncing build artifacts to robot) (Commented out to allow syncing build artifacts to robot)
 
 # IDE
 .DS_Store
