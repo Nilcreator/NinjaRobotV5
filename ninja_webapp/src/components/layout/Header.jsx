@@ -72,10 +72,10 @@ function Header() {
 
                     <LanguageSelector />
 
-                    {/* Server Status Indicator */}
+                    {/* Robot Connection Status */}
                     <div
                         className={`${styles.bleStatus} ${isServerActive ? styles.connected : ''}`}
-                        title={isServerActive ? 'Server: Online' : 'Server: Disconnected'}
+                        title={isServerActive ? 'Robot Connection: Connected' : 'Robot Connection: Disconnected'}
                     >
                         <span className={styles.bleIcon}>{isServerActive ? '🟢' : '🔴'}</span>
                         <span className={styles.bleDot} />

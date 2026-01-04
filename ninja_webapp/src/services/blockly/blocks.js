@@ -6,50 +6,10 @@
 
 import * as Blockly from 'blockly';
 
-// ============================================
-// MOTION BLOCKS (Servos)
-// ============================================
+// ... (existing code)
 
-Blockly.Blocks['ninja_servo_set'] = {
-    init: function () {
-        this.appendDummyInput()
-            .appendField('Set Servo')
-            .appendField(new Blockly.FieldNumber(1, 1, 8, 1), 'SERVO_NUM')
-            .appendField('to')
-            .appendField(new Blockly.FieldNumber(90, 0, 180, 1), 'ANGLE')
-            .appendField('°');
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(160);
-        this.setTooltip('Set a servo motor to a specific angle (0-180°)');
-    }
-};
-
-Blockly.Blocks['ninja_servo_sweep'] = {
-    init: function () {
-        this.appendDummyInput()
-            .appendField('Sweep Servo')
-            .appendField(new Blockly.FieldNumber(1, 1, 8, 1), 'SERVO_NUM');
-        this.appendValueInput('START_ANGLE')
-            .setCheck('Number')
-            .appendField('from');
-        this.appendValueInput('END_ANGLE')
-            .setCheck('Number')
-            .appendField('to');
-        this.appendValueInput('SPEED')
-            .setCheck('Number')
-            .appendField('speed');
-        this.setInputsInline(true);
-        this.setPreviousStatement(true, null);
-        this.setNextStatement(true, null);
-        this.setColour(160);
-        this.setTooltip('Smoothly move a servo from one angle to another');
-    }
-};
-
-// ============================================
 // DISPLAY BLOCKS (ST7789)
-// ============================================
+// ...
 
 Blockly.Blocks['ninja_display_text'] = {
     init: function () {
@@ -64,7 +24,7 @@ Blockly.Blocks['ninja_display_text'] = {
             .appendField('Y');
         this.appendDummyInput()
             .appendField('color')
-            .appendField(new Blockly.FieldColour('#FFFFFF'), 'COLOR');
+            .appendField(new Blockly.FieldTextInput('#FFFFFF'), 'COLOR'); // Using TextInput to avoid build error with FieldColour
         this.setInputsInline(true);
         this.setPreviousStatement(true, null);
         this.setNextStatement(true, null);

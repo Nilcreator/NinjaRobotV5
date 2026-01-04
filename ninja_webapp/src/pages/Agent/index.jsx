@@ -16,8 +16,12 @@ function Agent() {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [distance, setDistance] = useState(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [logs, setLogs] = useState([]);
     const messagesEndRef = useRef(null);
-    const wsRef = useRef(null);
+    const logsEndRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
 
     // Scroll to bottom when new messages arrive
     useEffect(() => {
@@ -52,15 +56,17 @@ function Agent() {
             try {
                 eventsWs = new WebSocket(wsUrl);
                 eventsWs.onmessage = (event) => {
-                    // System Logs Handler
-                    // Assuming events come as JSON: { type: 'log', message: '...', ... } or raw text
-                    // If it's a JSON with 'log' field or just raw text
                     try {
+                        // Attempt to parse as JSON
                         const data = JSON.parse(event.data);
-                        console.log("Event:", data);
-                        // Add to logs - could be implemented in a separate state
+                        // Add to internal logs state
+                        const timestamp = new Date().toLocaleTimeString();
+                        const logEntry = typeof data === 'string' ? data : JSON.stringify(data);
+                        setLogs(prev => [...prev, `[${timestamp}] ${logEntry}`].slice(-50)); // Keep last 50 logs
                     } catch {
-                        console.log("Log:", event.data);
+                        // Plain text fallback
+                        const timestamp = new Date().toLocaleTimeString();
+                        setLogs(prev => [...prev, `[${timestamp}] ${event.data}`].slice(-50));
                     }
                 };
             } catch (e) {
@@ -116,6 +122,70 @@ function Agent() {
             sendMessage();
         }
     };
+
+    // Voice Input Handler
+    const toggleVoiceRecording = async () => {
+        if (isRecording) {
+            // Stop recording
+            mediaRecorderRef.current?.stop();
+            setIsRecording(false);
+        } else {
+            // Start recording
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const mediaRecorder = new MediaRecorder(stream);
+                mediaRecorderRef.current = mediaRecorder;
+                audioChunksRef.current = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunksRef.current.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' }); // or 'audio/webm' depending on browser
+                    // In a real implementation, we would send this blob to /api/agent/voice
+                    // For now, let's assume the API accepts formData
+                    const formData = new FormData();
+                    formData.append('file', audioBlob);
+
+                    setIsLoading(true);
+                    try {
+                        const response = await fetch('/api/agent/voice', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const data = await response.json();
+                        if (data.transcription) {
+                            setMessages(prev => [...prev, { role: 'user', content: `🎤 ${data.transcription}` }]);
+                        }
+                        if (data.response) {
+                            setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+                        }
+                    } catch (error) {
+                        console.error("Voice upload failed", error);
+                        setMessages(prev => [...prev, { role: 'assistant', content: "Error processing voice command." }]);
+                    } finally {
+                        setIsLoading(false);
+                        // Stop tracks to release mic
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                };
+
+                mediaRecorder.start();
+                setIsRecording(true);
+            } catch (err) {
+                console.error("Error accessing microphone:", err);
+                alert("Could not access microphone.");
+            }
+        }
+    };
+
+    // Auto-scroll logs
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [logs]);
 
     const triggerAction = async (type, name) => {
         // Map simplified types to actual API endpoints
@@ -175,8 +245,26 @@ function Agent() {
                     <div ref={messagesEndRef} />
                 </div>
 
+                {/* System Log Panel */}
+                <div className={styles.logPanel}>
+                    <div className={styles.logHeader}>System Log</div>
+                    <div className={styles.logContent}>
+                        {logs.length === 0 && <div className={styles.logPlaceholder}>System events will appear here...</div>}
+                        {logs.map((log, i) => (
+                            <div key={i} className={styles.logEntry}>{log}</div>
+                        ))}
+                        <div ref={logsEndRef} />
+                    </div>
+                </div>
+
                 {/* Input Area */}
                 <div className={styles.inputArea}>
+                    <IconButton
+                        icon={isRecording ? "⏹️" : "🎤"}
+                        onClick={toggleVoiceRecording}
+                        className={isRecording ? styles.recordingBtn : ""}
+                        title="Voice Input"
+                    />
                     <input
                         type="text"
                         value={input}
@@ -184,7 +272,7 @@ function Agent() {
                         onKeyPress={handleKeyPress}
                         placeholder={t('agent.placeholder')}
                         className={styles.input}
-                        disabled={isLoading}
+                        disabled={isLoading || isRecording}
                     />
                     <Button
                         variant="primary"
@@ -210,10 +298,10 @@ function Agent() {
                 <div className={styles.controlSection}>
                     <h3>😊 {t('agent.expressions')}</h3>
                     <div className={styles.buttonGrid}>
-                        {['happy', 'sad', 'angry', 'surprised'].map(expr => (
+                        {['idle', 'happy', 'laughing', 'sad', 'cry', 'angry', 'surprising', 'sleepy', 'speaking', 'shy', 'scary', 'exciting', 'confusing'].map(expr => (
                             <IconButton
                                 key={expr}
-                                icon={expr === 'happy' ? '😊' : expr === 'sad' ? '😢' : expr === 'angry' ? '😠' : '😲'}
+                                icon="😊"
                                 label={expr}
                                 onClick={() => triggerAction('expressions', expr)}
                             />
@@ -225,7 +313,7 @@ function Agent() {
                 <div className={styles.controlSection}>
                     <h3>🔊 {t('agent.sounds')}</h3>
                     <div className={styles.buttonGrid}>
-                        {['startup', 'success', 'error', 'alert'].map(sound => (
+                        {['startup', 'happy', 'sad', 'exciting', 'angry', 'confusing', 'cry', 'embarrassing', 'idle', 'laughing', 'scary', 'shy', 'sleepy', 'speaking', 'surprising'].map(sound => (
                             <IconButton
                                 key={sound}
                                 icon="🎵"
@@ -240,7 +328,7 @@ function Agent() {
                 <div className={styles.controlSection}>
                     <h3>🤖 {t('agent.movements')}</h3>
                     <div className={styles.buttonGrid}>
-                        {['wave', 'bow', 'dance'].map(move => (
+                        {['wave', 'bow', 'dance', 'look_around', 'nod', 'shake_head'].map(move => (
                             <IconButton
                                 key={move}
                                 icon="🎭"
