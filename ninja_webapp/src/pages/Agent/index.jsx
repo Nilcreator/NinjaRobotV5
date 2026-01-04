@@ -231,7 +231,7 @@ function Agent() {
                 <div className={styles.chatMessages}>
                     {messages.length === 0 && (
                         <div className={styles.welcomeMessage}>
-                            <p>{t('agent.welcomeMessage') || "Hi! I'm Ninja. Please enter your message or click the microphone to speak to me."}</p>
+                            <p>{"Hi! I'm Ninja. Please enter your message or click the microphone to speak to me."}</p>
                         </div>
                     )}
                     {messages.map((msg, idx) => (
@@ -292,7 +292,10 @@ function Agent() {
                                 <option key={expr} value={expr}>{expr}</option>
                             ))}
                         </select>
-                        <Button onClick={() => triggerAction('expressions', selectedExpr)}>▶</Button>
+                        <button
+                            className={styles.execButton}
+                            onClick={() => triggerAction('expressions', selectedExpr)}
+                        >▶</button>
                     </div>
                 </div>
 
@@ -309,7 +312,10 @@ function Agent() {
                                 <option key={sound} value={sound}>{sound}</option>
                             ))}
                         </select>
-                        <Button onClick={() => triggerAction('sounds', selectedSound)}>▶</Button>
+                        <button
+                            className={styles.execButton}
+                            onClick={() => triggerAction('sounds', selectedSound)}
+                        >▶</button>
                     </div>
                 </div>
 
@@ -326,7 +332,10 @@ function Agent() {
                                 <option key={move} value={move}>{move}</option>
                             ))}
                         </select>
-                        <Button onClick={() => triggerAction('movements', selectedMove)}>▶</Button>
+                        <button
+                            className={styles.execButton}
+                            onClick={() => triggerAction('movements', selectedMove)}
+                        >▶</button>
                     </div>
                 </div>
             </div>

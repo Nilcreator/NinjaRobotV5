@@ -1,5 +1,32 @@
 # Development Log
 
+## 2026-01-04: Phase 5 Web Interface - COMPLETE
+- **Action**: Implemented complete React-based Web Application (`ninja_webapp`).
+- **Details**:
+    - **Project Setup**: Created `ninja_webapp/` with Vite, React 18, react-router-dom, react-i18next.
+    - **Pages Implemented**:
+        - **Home**: Hero image, gradient title, power-off slider (V4-style touch drag).
+        - **Agent**: Full-width chat dialog, hardware controls (expressions/sounds/movements), distance sensor display, slidable bottom log panel.
+        - **Help**: Documentation and troubleshooting.
+    - **Components**: Layout (Header, Footer), Button, IconButton, LanguageSelector, PowerOffSlider.
+    - **Features**:
+        - Multi-language support (EN, JA, ZH-TW, ZH-CN).
+        - BLE advertising status indicator in header.
+        - Voice input via Web Speech API with language auto-detection.
+        - Real-time WebSocket events (`/ws/distance`, `/ws/events`).
+        - Hardware controls via REST API endpoints.
+    - **Backend Updates**:
+        - Fixed `RuntimeError: no running event loop` in hardware endpoints.
+        - Added `/api/system/shutdown` endpoint.
+        - Updated `/api/ble/status` to return advertising state.
+        - Fixed WebSocket `/ws/events` to use `asyncio.sleep` instead of blocking.
+    - **Code Cleanup**:
+        - Removed Code page and Blockly integration (simplification).
+        - Removed `services/blockly/` and `services/bluetooth/` directories.
+        - Bundle size reduced from ~1MB to 304KB.
+- **Verification**: Build successful (Vite 7.3.0, 648ms). Mobile layout verified.
+- **Related Files**: `ninja_webapp/src/*`, `ninja_core/web_server.py`
+
 ## 2026-01-03: Phase 4 Backend Core & Agent Intelligence - COMPLETE
 - **Action**: Implemented Safe Execution Engine and NinjaCoder Agent.
 - **Details**:

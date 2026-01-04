@@ -285,6 +285,35 @@
     box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5), 0 0 0 1px #8F95A3;
 }
 
+/* Execute Button - Round Orange Style */
+.execButton {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    flex-shrink: 0;
+}
+
+.execButton:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.execButton:active {
+    transform: scale(0.95);
+}
+
 /* ============================================
    LOG PANEL (SLIDABLE)
    ============================================ */

@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.0.0  
-**Last Updated:** 2025-12-30  
+**Version:** 5.1.0  
+**Last Updated:** 2026-01-04  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -36,6 +36,14 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/safe_executor.py` | **NEW** - Sandboxed Python execution engine |
 | `ninja_core/ninja_coder.py` | **NEW** - AI Agent for code generation (Gemini 3 Flash) |
 | `ninja_core/web_server.py` | Added `/api/code/*` endpoints for remote execution |
+
+### Key Changes (Phase 5 - Web Interface):
+| Component | Change |
+|---|---|
+| `ninja_webapp/` | **NEW** - React SPA (Vite + React 18 + react-router-dom) |
+| `ninja_webapp/src/pages/Agent/` | Chat dialog, hardware controls, slidable log panel |
+| `ninja_webapp/src/pages/Home/` | Hero image, power-off slider |
+| `ninja_core/web_server.py` | SPA serving from `ninja_webapp/dist`, `/api/system/shutdown` |
 
 ### Required Setup:
 ```bash
@@ -98,7 +106,29 @@ NinjaRobotV5/
 │   ├── README.md
 │   └── src/ninja_ble/
 │       ├── __init__.py
-│       └── service.py          # GATT server (bless)
+│       ├── service.py          # GATT server (bless)
+│       └── chunking.py         # BLE payload chunking
+│
+├── ninja_webapp/               # React Web Application (V5 Phase 5)
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   ├── public/
+│   │   ├── logo.png
+│   │   └── robot-hero.png
+│   └── src/
+│       ├── main.jsx            # React entry point
+│       ├── App.jsx             # Router configuration
+│       ├── index.css           # Global styles
+│       ├── i18n.js             # i18next configuration
+│       ├── components/
+│       │   ├── layout/         # Header, Footer, Layout
+│       │   └── common/         # Button, IconButton, PowerOffSlider
+│       ├── pages/
+│       │   ├── Home/           # Hero + Power-off slider
+│       │   ├── Agent/          # Chat + Hardware controls
+│       │   └── Help/           # Documentation
+│       └── locales/            # en.json, ja.json, zh-tw.json, zh-cn.json
 │
 ├── pi0buzzer/                  # Buzzer control library
 │   ├── pyproject.toml

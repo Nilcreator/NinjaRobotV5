@@ -1,8 +1,8 @@
 # NinjaRobot V5 Development Plan
 
-**Status:** Approved
-**Version:** 1.0.0
-**Last Updated:** 2025-12-30
+**Status:** Phase 5 Complete ✅
+**Version:** 1.1.0
+**Last Updated:** 2026-01-04
 **Objective:** Evolve NinjaRobot from a fixed V4 architecture to a modular, connected, and AI-adaptive V5 platform.
 
 ---
@@ -284,33 +284,32 @@ graph TD
 
 ---
 
-### Phase 5: Web Interface & Visual Programming (Week 7)
+### Phase 5: Web Interface & Visual Programming ✅ COMPLETE (2026-01-04)
 
-> **Goal:** A unified, mobile-optimized Web App for Chat, Coding, and Control.
+> **Goal:** A unified, mobile-optimized Web App for Chat and Control.
 
-**5.1 UI Architecture Overhaul (`templates/index.html`)**
-- [ ] **Main Menu System:**
-    - Landing page with large touch-friendly buttons: "Ninja Agent" vs "Code Agent".
-    - **Multilingual Support**: Switcher for EN, JP, TC, SC (affects UI & Agent language).
-- [ ] **System Log Window:**
-    - Real-time scrolling log (WebSocket) showing BLE events, server status, and errors.
+**5.1 React Web Application (`ninja_webapp`)**
+- [x] **Project Setup**: Vite + React 18 + react-router-dom + react-i18next.
+- [x] **Pages Implemented**:
+    - Home: Hero image, CTA button, V4-style power-off slider.
+    - Agent: Chat dialog, hardware controls, distance display, slidable log panel.
+    - Help: Documentation page.
+- [x] **Multi-language Support**: EN, JA, ZH-TW, ZH-CN with localStorage persistence.
 
-**5.2 Ninja Agent Interface**
-- [ ] **Interaction Mode:**
-    - Voice Input (Mic button) + Text Input.
-    - Chat History Window (Styled bubbles).
+**5.2 Agent Interface**
+- [x] **Chat Dialog**: Full-width panel with bubble messages (user/assistant/system).
+- [x] **Voice Input**: Web Speech API with auto-language detection.
+- [x] **Hardware Controls**: Dropdown selectors for expressions, sounds, movements.
+- [x] **System Log**: Hideable bottom panel with real-time WebSocket events.
 
-**5.3 Code Agent Interface**
-- [ ] **Mobile Blockly Integration:**
-    - Embed Blockly library (via CDN or static assets).
-    - Custom blocks for NinjaRobot API (`move`, `turn`, `express`, `say`).
-    - Vertical layout optimization for mobile.
-- [ ] **Python Code Editor:**
-    - Read-only view (synced from Blockly) OR Mutable view.
-    - **BLE Sync**: When code arrives via BLE, auto-populate this editor.
-- [ ] **AI Side-Panel:**
-    - "Fix Bug" / "Explain" buttons triggering `NinjaCoderAgent`.
-    - Display AI advice overlay.
+**5.3 Backend Integration**
+- [x] **SPA Serving**: FastAPI serves `ninja_webapp/dist` as static files.
+- [x] **API Endpoints**: All hardware control endpoints verified working.
+- [x] **WebSocket**: `/ws/distance` and `/ws/events` for real-time data.
+
+**5.4 Simplifications**
+- [x] **Removed Blockly**: Code page and visual programming removed for simplicity.
+- [x] **Bundle Optimization**: 304KB production build (down from ~1MB with Blockly).
 
 
 ## 6. Ideal V5 Project File Structure
@@ -322,29 +321,35 @@ NinjaRobotV5/
 │
 ├── ninja_utils/
 │   └── src/ninja_utils/
-│       ├── interfaces.py       # Sensor/Actuator ABCs (NEW)
+│       ├── interfaces.py       # Sensor/Actuator ABCs
 │       ├── my_logger.py
 │       └── ...
 │
 ├── ninja_ble/                  # Bluetooth Library (Phase 2)
 │   └── src/ninja_ble/
-│       ├── gatt_server.py
-│       └── connection.py
+│       ├── service.py          # GATT Server
+│       └── chunking.py         # Payload chunking
+│
+├── ninja_webapp/               # React Web App (Phase 5)
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── pages/Home/         # Hero + Power-off slider
+│       ├── pages/Agent/        # Chat + Hardware controls
+│       └── pages/Help/         # Documentation
 │
 ├── ninja_core/
 │   └── src/ninja_core/
-│       ├── core/               # Core Logic (Phase 2/3)
-│       │   ├── dispatcher.py   # Unified Command Dispatcher
-│       │   └── executor.py     # SafeExecutor for Blockly/AI
-│       ├── hal.py              # Refactored for dynamic loading
-│       ├── static/
-│       │   └── blockly/        # Blockly Assets (Phase 3)
-│       ├── ninja_agent.py
-│       ├── web_server.py       
-│       └── ...
+│       ├── dispatcher.py       # Unified Command Dispatcher
+│       ├── safe_executor.py    # SafeExecutor for code
+│       ├── ninja_agent.py      # AI Chat Agent
+│       ├── ninja_coder.py      # AI Code Agent
+│       ├── hal.py              # Dynamic hardware loading
+│       └── web_server.py       # FastAPI (serves SPA)
 │
 ├── pi0servo/                   # Implements Actuator ABC
 ├── pi0disp/                    # Implements Actuator ABC
 ├── pi0vl53l0x/                 # Implements Sensor ABC
 └── pi0buzzer/                  # Implements Actuator ABC (Threaded)
 ```
+

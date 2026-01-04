@@ -168,17 +168,17 @@ uv run ninja_core start
 
 ## 📊 Current Status
 
-**Development Phase:** **V5 Phase 4 Complete ✅**
+**Development Phase:** **V5 Phase 5 Complete ✅**
 
-Phase 4 (Backend Core & Agent Intelligence) has been implemented and verified.
+Phase 5 (Web Interface) has been implemented and verified.
 
 - ✅ **V4 Base**: Stable web control, ngrok remote access, basic AI agent.
 - ✅ **Health Check**: Comprehensive codebase review completed (2025-12-30).
 - ✅ **Modularity (Phase 1)**: ABCs created, HAL refactored, all drivers updated. **VERIFIED.**
 - ✅ **Connectivity (Phase 2)**: BLE integration complete. AI Chat via Bluetooth working! **VERIFIED (2025-12-31)**
 - ✅ **Protocol (Phase 3)**: BLE chunking protocol, unified command routing. **VERIFIED (2026-01-03)**
-- ✅ **Backend Intelligence (Phase 4)**: SafeExecutor, NinjaCoderAgent, API Wrappers, WebSocket events. **VERIFIED (2026-01-04)**
-- 📅 **Visual Programming (Phase 5)**: Web UI overhaul and Blockly integration planned.
+- ✅ **Backend Intelligence (Phase 4)**: SafeExecutor, NinjaCoderAgent, API Wrappers. **VERIFIED (2026-01-04)**
+- ✅ **Web Interface (Phase 5)**: React SPA (`ninja_webapp`) with Agent chat, hardware controls, slidable log panel. **VERIFIED (2026-01-04)**
 
 
 ---
