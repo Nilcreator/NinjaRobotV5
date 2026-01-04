@@ -1,0 +1,57 @@
+{
+    "nav": {
+        "home": "ホーム",
+        "agent": "エージェント",
+        "code": "コード",
+        "help": "ヘルプ"
+    },
+    "header": {
+        "connected": "接続済み",
+        "disconnected": "未接続"
+    },
+    "home": {
+        "welcome": "NinjaRobotへようこそ",
+        "subtitle": "ロボットとの対話方法を選んでください",
+        "chatButton": "ロボットとチャット",
+        "codeButton": "ロボットをプログラム"
+    },
+    "agent": {
+        "title": "忍者エージェント",
+        "placeholder": "メッセージを入力...",
+        "send": "送信",
+        "voice": "音声入力",
+        "expressions": "表情",
+        "sounds": "サウンド",
+        "movements": "動き",
+        "distance": "距離",
+        "distanceUnit": "mm"
+    },
+    "code": {
+        "title": "コード",
+        "connect": "接続",
+        "disconnect": "切断",
+        "run": "実行",
+        "stop": "停止",
+        "viewCode": "コードを見る",
+        "hideCode": "コードを隠す",
+        "codePanel": "Pythonコード",
+        "copy": "コピー",
+        "connecting": "接続中...",
+        "connected": "{{name}}に接続済み",
+        "unsupported": "Bluetoothはサポートされていません"
+    },
+    "help": {
+        "title": "ヘルプとドキュメント",
+        "gettingStarted": "はじめに",
+        "gettingStartedText": "Bluetoothでロボットを接続し、ビジュアルブロックでプログラミングするか、AIエージェントとチャットしましょう。",
+        "troubleshooting": "トラブルシューティング",
+        "troubleshootingText": "問題が発生した場合は、ページを更新するか、ロボットを再起動してください。"
+    },
+    "language": {
+        "label": "言語",
+        "en": "English",
+        "ja": "日本語",
+        "zh-TW": "繁體中文",
+        "zh-CN": "简体中文"
+    }
+}

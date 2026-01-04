@@ -1,0 +1,127 @@
+.header {
+    position: relative;
+    z-index: var(--z-header);
+    background-color: var(--color-primary);
+    padding: 0 var(--space-md);
+    height: 50px;
+    flex-shrink: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Logo - LEFT side */
+.logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    text-decoration: none;
+    color: white;
+    font-weight: 700;
+    font-size: var(--type-h5);
+    flex-shrink: 0;
+}
+
+.logoImg {
+    height: 32px;
+    width: auto;
+}
+
+.logoText {
+    color: white;
+    white-space: nowrap;
+}
+
+/* Navigation - RIGHT side */
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-left: auto;
+}
+
+.navLink {
+    font-size: var(--type-body);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    padding: 8px 16px;
+    position: relative;
+    transition: color 0.2s ease;
+    border-radius: var(--radius-sm);
+}
+
+.navLink:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    text-decoration: none;
+}
+
+.navLink.active {
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Mobile Menu Button */
+.menuButton {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-xs);
+    font-size: 1.5rem;
+    color: white;
+    margin-left: auto;
+}
+
+.menuIcon {
+    display: block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .header {
+        padding: 0 var(--space-sm);
+    }
+
+    .logoText {
+        display: none;
+    }
+
+    .menuButton {
+        display: block;
+    }
+
+    .nav {
+        position: fixed;
+        top: 50px;
+        left: 0;
+        right: 0;
+        background-color: var(--color-primary);
+        flex-direction: column;
+        padding: var(--space-md);
+        gap: var(--space-sm);
+        box-shadow: var(--shadow-soft);
+        transform: translateY(-100%);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 100;
+    }
+
+    .navOpen {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .navLink {
+        width: 100%;
+        text-align: center;
+        padding: var(--space-sm);
+    }
+}

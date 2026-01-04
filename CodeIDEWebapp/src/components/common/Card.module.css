@@ -1,0 +1,32 @@
+.card {
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+}
+
+/* Variants */
+.default {
+    box-shadow: none;
+}
+
+.feature {
+    background: linear-gradient(180deg, #fff, var(--color-surface));
+    box-shadow: var(--shadow-soft);
+}
+
+.elevated {
+    box-shadow: var(--shadow-soft);
+}
+
+/* Padding */
+.paddingSmall {
+    padding: var(--space-sm);
+}
+
+.paddingMedium {
+    padding: var(--space-md);
+}
+
+.paddingLarge {
+    padding: var(--space-lg);
+}

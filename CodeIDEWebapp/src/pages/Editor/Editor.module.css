@@ -1,0 +1,255 @@
+/* === EDITOR CONTAINER === */
+/* Editor is a fixed-height, no-scroll page unlike other scrollable pages */
+.editor {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 50px - 32px);
+    /* Header 50px + Footer 32px */
+    max-height: calc(100vh - 50px - 32px);
+    width: 100%;
+    overflow: hidden;
+    background: var(--color-bg);
+}
+
+/* === TOOLBAR === */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    height: 52px;
+    flex-shrink: 0;
+    gap: 8px;
+    position: relative;
+    z-index: 100;
+}
+
+.toolGroup {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.divider {
+    width: 1px;
+    height: 28px;
+    background: var(--color-border);
+    margin: 0 4px;
+}
+
+/* === WORKSPACE CONTAINER === */
+.workspaceContainer {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* === BLOCKLY AREA === */
+.blocklyArea {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+    transition: margin-right 0.3s ease;
+}
+
+.blocklyArea.withCodePanel {
+    /* Width controlled by inline style */
+}
+
+/* === CODE PANEL (Slide-in from Right) === */
+.codePanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    background: #1e1e1e;
+    border-left: 1px solid #3d3d3d;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 50;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+}
+
+.codePanel.open {
+    transform: translateX(0);
+}
+
+/* Resize handle on left edge */
+.resizeHandle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 10;
+    transition: background 0.2s;
+}
+
+.resizeHandle:hover,
+.resizeHandle:active {
+    background: rgba(100, 150, 255, 0.3);
+}
+
+.resizeHandle::after {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 1px;
+}
+
+.codePanelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #2d2d2d;
+    border-bottom: 1px solid #3d3d3d;
+    font-weight: 600;
+    font-size: 13px;
+    color: #e0e0e0;
+    flex-shrink: 0;
+}
+
+.codePanelActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.copyBtn {
+    background: none;
+    border: none;
+    font-size: 16px;
+    cursor: pointer;
+    color: #888;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.copyBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.closeCodePanel {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #888;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.closeCodePanel:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.codePanelContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Editable code textarea */
+.codeEditor {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    padding: 12px;
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #d4d4d4;
+    background: #1e1e1e;
+    overflow: auto;
+}
+
+.codeEditor::placeholder {
+    color: #6d6d6d;
+}
+
+/* === MOBILE PORTRAIT === */
+@media (max-width: 768px) {
+    .toolbar {
+        padding: 4px 8px;
+        height: 48px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .divider {
+        display: none;
+    }
+
+    .blocklyArea.withCodePanel {
+        margin-right: 0 !important;
+    }
+
+    .codePanel {
+        width: 100% !important;
+        height: 50%;
+        top: auto;
+        bottom: 0;
+        right: 0;
+        transform: translateY(100%);
+        border-left: none;
+        border-top: 1px solid var(--color-border);
+    }
+
+    .codePanel.open {
+        transform: translateY(0);
+    }
+
+    .resizeHandle {
+        display: none;
+    }
+}
+
+/* === MOBILE LANDSCAPE === */
+@media (max-height: 500px) and (orientation: landscape) {
+    .editor {
+        height: calc(100vh - 50px);
+    }
+
+    .toolbar {
+        height: 44px;
+        padding: 4px 8px;
+    }
+
+    .divider {
+        height: 24px;
+        margin: 0 2px;
+    }
+}

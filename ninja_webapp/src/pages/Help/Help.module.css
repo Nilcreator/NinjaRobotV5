@@ -1,0 +1,29 @@
+.help {
+    flex: 1;
+    padding: var(--space-xl);
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.help h1 {
+    margin-bottom: var(--space-xl);
+}
+
+.section {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.section h2 {
+    margin-bottom: var(--space-sm);
+}
+
+.section p {
+    margin: 0;
+    color: var(--color-subtext);
+}

@@ -1,0 +1,103 @@
+{
+    "nav": {
+        "home": "ホーム",
+        "editor": "エディタ",
+        "help": "ヘルプ"
+    },
+    "editor": {
+        "toolbar": {
+            "save": "Pythonファイルを保存 (Cmd+S)",
+            "open": "Pythonファイルを開く",
+            "undo": "元に戻す (Cmd+Z)",
+            "redo": "やり直す (Cmd+Shift+Z)",
+            "clear": "すべてクリア",
+            "run": "ロボットで実行 (Cmd+Enter)",
+            "sending": "送信中...",
+            "stop": "ロボットを停止",
+            "connect": "NinjaRobotに接続",
+            "connected": "接続済み: {{name}}。クリックして切断",
+            "connecting": "接続中...",
+            "failed": "接続失敗: {{error}}。クリックして再試行",
+            "unsupported": "Bluetoothはサポートされていません",
+            "toggle_code": "コードパネルの表示/非表示"
+        },
+        "panel": {
+            "title": "Python コード",
+            "hide": "コードパネルを隠す",
+            "show": "コードパネルを表示",
+            "copy": "コードをコピー"
+        },
+        "workspace": {
+            "clear_confirm": "すべてのブロックを削除しますか？"
+        }
+    },
+    "home": {
+        "hero": {
+            "title": "NinjaRobot Code IDEへようこそ",
+            "subtitle": "ユニークなSTEAM学習パートナー。NinjaRobotで組み立て、コーディング、創造しよう。",
+            "cta_start": "🚀 コーディングを開始",
+            "cta_learn": "📖 もっと詳しく"
+        },
+        "features": {
+            "title": "主な機能",
+            "create": {
+                "title": "創造",
+                "desc": "ドラッグ＆ドロップのブロックで視覚的にプログラムを作成。コーディング経験は不要です。"
+            },
+            "connect": {
+                "title": "接続",
+                "desc": "Bluetooth経由でNinjaRobotと瞬時にペアリング。ネットワーク設定は不要です。"
+            },
+            "code": {
+                "title": "コード",
+                "desc": "ブロックがリアルタイムでPythonコードに変換され、ロボット上で動作します。"
+            }
+        },
+        "specs": {
+            "title": "ハードウェア互換性",
+            "items": {
+                "platform": "プラットフォーム",
+                "servos": "サーボ",
+                "display": "ディスプレイ",
+                "sensors": "センサー",
+                "sound": "サウンド",
+                "connection": "接続"
+            }
+        }
+    },
+    "help": {
+        "title": "ヘルプ＆ドキュメント",
+        "subtitle": "NinjaRobotCodeを使ってロボットをプログラムする方法を学びましょう。",
+        "topics": {
+            "getting_started": {
+                "title": "はじめに",
+                "items": {
+                    "0": "Bluetooth経由でNinjaRobotに接続します",
+                    "1": "ツールボックスからブロックをドラッグします",
+                    "2": "「ロボットで実行」をクリックしてプログラムを動かします"
+                }
+            },
+            "block_reference": {
+                "title": "ブロックリファレンス",
+                "items": {
+                    "0": "モーション: 8つのサーボモーターを制御",
+                    "1": "ディスプレイ: テキストや画像を表示",
+                    "2": "サウンド: 音やメロディを再生",
+                    "3": "センサー: 距離センサーの値を読み取り"
+                }
+            },
+            "troubleshooting": {
+                "title": "トラブルシューティング",
+                "items": {
+                    "0": "Bluetoothが有効になっているか確認してください",
+                    "1": "ChromeまたはEdgeブラウザを使用してください",
+                    "2": "ロボットの電源が入っているか確認してください"
+                }
+            }
+        },
+        "support": {
+            "title": "さらなるヘルプが必要ですか？",
+            "text": "<1>GitHubリポジトリ</1>で詳細なドキュメントとコミュニティサポートをご覧ください。"
+        }
+    }
+}

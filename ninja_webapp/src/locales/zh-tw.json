@@ -1,0 +1,57 @@
+{
+    "nav": {
+        "home": "首頁",
+        "agent": "助手",
+        "code": "程式",
+        "help": "幫助"
+    },
+    "header": {
+        "connected": "已連接",
+        "disconnected": "未連接"
+    },
+    "home": {
+        "welcome": "歡迎使用 NinjaRobot",
+        "subtitle": "選擇與機器人互動的方式",
+        "chatButton": "與機器人對話",
+        "codeButton": "程式設計機器人"
+    },
+    "agent": {
+        "title": "忍者助手",
+        "placeholder": "輸入訊息...",
+        "send": "發送",
+        "voice": "語音輸入",
+        "expressions": "表情",
+        "sounds": "聲音",
+        "movements": "動作",
+        "distance": "距離",
+        "distanceUnit": "mm"
+    },
+    "code": {
+        "title": "程式",
+        "connect": "連接",
+        "disconnect": "斷開",
+        "run": "執行",
+        "stop": "停止",
+        "viewCode": "查看程式碼",
+        "hideCode": "隱藏程式碼",
+        "codePanel": "Python 程式碼",
+        "copy": "複製",
+        "connecting": "連接中...",
+        "connected": "已連接到 {{name}}",
+        "unsupported": "不支援藍牙"
+    },
+    "help": {
+        "title": "幫助與文件",
+        "gettingStarted": "開始使用",
+        "gettingStartedText": "透過藍牙連接您的機器人，使用視覺化積木程式設計或與 AI 助手聊天。",
+        "troubleshooting": "故障排除",
+        "troubleshootingText": "如果遇到問題，請嘗試重新整理頁面或重新啟動機器人。"
+    },
+    "language": {
+        "label": "語言",
+        "en": "English",
+        "ja": "日本語",
+        "zh-TW": "繁體中文",
+        "zh-CN": "简体中文"
+    }
+}

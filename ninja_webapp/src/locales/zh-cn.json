@@ -1,0 +1,57 @@
+{
+    "nav": {
+        "home": "首页",
+        "agent": "助手",
+        "code": "程序",
+        "help": "帮助"
+    },
+    "header": {
+        "connected": "已连接",
+        "disconnected": "未连接"
+    },
+    "home": {
+        "welcome": "欢迎使用 NinjaRobot",
+        "subtitle": "选择与机器人互动的方式",
+        "chatButton": "与机器人对话",
+        "codeButton": "编程机器人"
+    },
+    "agent": {
+        "title": "忍者助手",
+        "placeholder": "输入消息...",
+        "send": "发送",
+        "voice": "语音输入",
+        "expressions": "表情",
+        "sounds": "声音",
+        "movements": "动作",
+        "distance": "距离",
+        "distanceUnit": "mm"
+    },
+    "code": {
+        "title": "程序",
+        "connect": "连接",
+        "disconnect": "断开",
+        "run": "运行",
+        "stop": "停止",
+        "viewCode": "查看代码",
+        "hideCode": "隐藏代码",
+        "codePanel": "Python 代码",
+        "copy": "复制",
+        "connecting": "连接中...",
+        "connected": "已连接到 {{name}}",
+        "unsupported": "不支持蓝牙"
+    },
+    "help": {
+        "title": "帮助与文档",
+        "gettingStarted": "开始使用",
+        "gettingStartedText": "通过蓝牙连接您的机器人，使用可视化积木编程或与 AI 助手聊天。",
+        "troubleshooting": "故障排除",
+        "troubleshootingText": "如果遇到问题，请尝试刷新页面或重新启动机器人。"
+    },
+    "language": {
+        "label": "语言",
+        "en": "English",
+        "ja": "日本語",
+        "zh-TW": "繁體中文",
+        "zh-CN": "简体中文"
+    }
+}

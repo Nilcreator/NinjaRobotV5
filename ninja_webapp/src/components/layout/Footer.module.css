@@ -1,0 +1,19 @@
+.footer {
+    background-color: var(--color-surface);
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-xs) var(--space-md);
+    height: var(--footer-height);
+    flex-shrink: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.copyright {
+    margin: 0;
+    font-size: var(--type-small);
+    color: var(--color-subtext);
+}

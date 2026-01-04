@@ -6,12 +6,13 @@ import subprocess
 import threading
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 import qrcode
 import uvicorn
 from fastapi import FastAPI, APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -27,8 +28,11 @@ from .perception import DistanceMonitor
 from .ninja_coder import NinjaCoderAgent
 
 # --- Configuration ---
-base_dir = os.path.dirname(os.path.abspath(__file__))
-templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+base_dir = Path(__file__).parent
+templates = Jinja2Templates(directory=str(base_dir / "templates"))
+
+# React SPA dist path (built from ninja_webapp)
+WEBAPP_DIST = base_dir.parents[2] / "ninja_webapp" / "dist"
 
 # --- Pydantic Models ---
 class SetApiKeyRequest(BaseModel):
@@ -542,13 +546,51 @@ async def system_shutdown(request: Request):
 
 # --- App ---
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=os.path.join(base_dir, "static")), name="static")
+
+# Serve React SPA if built, otherwise fall back to legacy templates
+if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
+    print(f"✅ React SPA found at {WEBAPP_DIST}")
+    # Mount assets folder from Vite build
+    if (WEBAPP_DIST / "assets").exists():
+        app.mount("/assets", StaticFiles(directory=str(WEBAPP_DIST / "assets")), name="assets")
+    
+    # Keep legacy static mount for backward compatibility
+    legacy_static = base_dir / "static"
+    if legacy_static.exists():
+        app.mount("/static", StaticFiles(directory=str(legacy_static)), name="static")
+else:
+    print("⚠️ React SPA not found. Using legacy templates.")
+    print(f"   To build SPA: cd ninja_webapp && npm install && npm run build")
+    # Legacy static files
+    app.mount("/static", StaticFiles(directory=str(base_dir / "static")), name="static")
+
 app.include_router(api_router)
 
+# Root route - serves SPA or legacy template
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     # Trigger welcome greeting on page load
     asyncio.create_task(trigger_welcome(request.app.state.ninja))
+    
+    # Serve React SPA if available
+    if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
+        return FileResponse(WEBAPP_DIST / "index.html")
+    
+    # Fallback to legacy template
+    return templates.TemplateResponse("index.html", {"request": request})
+
+# SPA catch-all route for client-side routing (must be after API routes)
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str, request: Request):
+    # Skip API and WebSocket routes (handled by router and specific endpoints)
+    if full_path.startswith("api/") or full_path.startswith("ws/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Serve React SPA for all other routes
+    if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
+        return FileResponse(WEBAPP_DIST / "index.html")
+    
+    # Fallback to legacy template
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.websocket("/ws/distance")

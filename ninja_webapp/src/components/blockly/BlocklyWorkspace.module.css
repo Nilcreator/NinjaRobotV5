@@ -1,0 +1,27 @@
+.workspace {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.blocklyContainer {
+    width: 100%;
+    height: 100%;
+}
+
+/* Blockly toolbox mobile optimization */
+@media (max-width: 768px) {
+
+    /* Make toolbox more compact on mobile */
+    :global(.blocklyToolboxDiv) {
+        width: 60px !important;
+    }
+
+    :global(.blocklyTreeRow) {
+        padding: 4px !important;
+    }
+
+    :global(.blocklyTreeLabel) {
+        font-size: 12px !important;
+    }
+}

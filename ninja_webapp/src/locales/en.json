@@ -1,0 +1,57 @@
+{
+    "nav": {
+        "home": "Home",
+        "agent": "Agent",
+        "code": "Code",
+        "help": "Help"
+    },
+    "header": {
+        "connected": "Connected",
+        "disconnected": "Disconnected"
+    },
+    "home": {
+        "welcome": "Welcome to NinjaRobot",
+        "subtitle": "Choose how you want to interact with your robot",
+        "chatButton": "Chat with Robot",
+        "codeButton": "Program Robot"
+    },
+    "agent": {
+        "title": "Ninja Agent",
+        "placeholder": "Type a message...",
+        "send": "Send",
+        "voice": "Voice Input",
+        "expressions": "Expressions",
+        "sounds": "Sounds",
+        "movements": "Movements",
+        "distance": "Distance",
+        "distanceUnit": "mm"
+    },
+    "code": {
+        "title": "Code",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "run": "Run",
+        "stop": "Stop",
+        "viewCode": "View Code",
+        "hideCode": "Hide Code",
+        "codePanel": "Python Code",
+        "copy": "Copy",
+        "connecting": "Connecting...",
+        "connected": "Connected to {{name}}",
+        "unsupported": "Bluetooth not supported"
+    },
+    "help": {
+        "title": "Help & Documentation",
+        "gettingStarted": "Getting Started",
+        "gettingStartedText": "Connect your robot via Bluetooth and start programming with visual blocks or chat with the AI agent.",
+        "troubleshooting": "Troubleshooting",
+        "troubleshootingText": "If you experience issues, try refreshing the page or restarting the robot."
+    },
+    "language": {
+        "label": "Language",
+        "en": "English",
+        "ja": "日本語",
+        "zh-TW": "繁體中文",
+        "zh-CN": "简体中文"
+    }
+}

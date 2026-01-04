@@ -1,0 +1,166 @@
+.header {
+    position: relative;
+    z-index: var(--z-header);
+    background-color: var(--color-primary);
+    padding: 0 var(--space-md);
+    height: var(--header-height);
+    flex-shrink: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Logo */
+.logo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    text-decoration: none;
+    color: white;
+    font-weight: 700;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.logoIcon {
+    font-size: 24px;
+}
+
+.logoText {
+    color: white;
+    white-space: nowrap;
+}
+
+/* Navigation */
+.nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+}
+
+.navLink {
+    font-size: var(--type-body);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.navLink:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    text-decoration: none;
+}
+
+.navLink.active {
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.3);
+    margin: 0 4px;
+}
+
+/* BLE Status */
+.bleStatus {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.bleIcon {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.bleDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-subtext);
+    transition: background 0.2s;
+}
+
+.bleStatus.connected .bleDot {
+    background: var(--color-success);
+    box-shadow: 0 0 6px var(--color-success);
+}
+
+/* Mobile Menu Button */
+.menuButton {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-xs);
+    font-size: 1.5rem;
+    color: white;
+    margin-left: auto;
+}
+
+.menuIcon {
+    display: block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .header {
+        padding: 0 var(--space-sm);
+    }
+
+    .logoText {
+        display: none;
+    }
+
+    .menuButton {
+        display: block;
+    }
+
+    .nav {
+        position: fixed;
+        top: var(--header-height);
+        left: 0;
+        right: 0;
+        background-color: var(--color-primary);
+        flex-direction: column;
+        padding: var(--space-md);
+        gap: var(--space-sm);
+        box-shadow: var(--shadow-soft);
+        transform: translateY(-100%);
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 100;
+    }
+
+    .navOpen {
+        transform: translateY(0);
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .navLink {
+        width: 100%;
+        text-align: center;
+        padding: var(--space-sm);
+    }
+
+    .divider {
+        width: 100%;
+        height: 1px;
+        margin: var(--space-xs) 0;
+    }
+}

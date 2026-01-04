@@ -1,0 +1,103 @@
+{
+    "nav": {
+        "home": "首页",
+        "editor": "编辑器",
+        "help": "帮助"
+    },
+    "editor": {
+        "toolbar": {
+            "save": "保存 Python 文件 (Cmd+S)",
+            "open": "打开 Python 文件",
+            "undo": "撤销 (Cmd+Z)",
+            "redo": "重做 (Cmd+Shift+Z)",
+            "clear": "清除所有积木",
+            "run": "在机器人上运行 (Cmd+Enter)",
+            "sending": "发送中...",
+            "stop": "停止机器人",
+            "connect": "连接 NinjaRobot",
+            "connected": "已连接: {{name}}。点击断开连接",
+            "connecting": "连接中...",
+            "failed": "连接失败: {{error}}。点击重试",
+            "unsupported": "不支持蓝牙",
+            "toggle_code": "显示/隐藏代码面板"
+        },
+        "panel": {
+            "title": "Python 代码",
+            "hide": "隐藏代码面板",
+            "show": "显示代码面板",
+            "copy": "复制代码"
+        },
+        "workspace": {
+            "clear_confirm": "确定要清除所有积木吗？"
+        }
+    },
+    "home": {
+        "hero": {
+            "title": "欢迎使用 NinjaRobot Code IDE",
+            "subtitle": "遇见你不一样的 STEAM 学习伙伴。使用 NinjaRobot 构建、编码和创造。",
+            "cta_start": "🚀 开始编码",
+            "cta_learn": "📖 了解更多"
+        },
+        "features": {
+            "title": "主要功能",
+            "create": {
+                "title": "创造",
+                "desc": "使用拖放积木可视化构建程序。无需编码经验。"
+            },
+            "connect": {
+                "title": "连接",
+                "desc": "通过蓝牙即时与你的 NinjaRobot 配对。无需网络设置。"
+            },
+            "code": {
+                "title": "编码",
+                "desc": "看着你的积木转换为真正的 Python 代码并在机器人上运行。"
+            }
+        },
+        "specs": {
+            "title": "硬件兼容性",
+            "items": {
+                "platform": "平台",
+                "servos": "舵机",
+                "display": "显示器",
+                "sensors": "传感器",
+                "sound": "声音",
+                "connection": "连接"
+            }
+        }
+    },
+    "help": {
+        "title": "帮助与文档",
+        "subtitle": "学习如何使用 NinjaRobotCode 为您的机器人编写程序。",
+        "topics": {
+            "getting_started": {
+                "title": "开始使用",
+                "items": {
+                    "0": "通过蓝牙连接您的 NinjaRobot",
+                    "1": "从工具箱中拖动积木",
+                    "2": "点击“在机器人上运行”以运行您的程序"
+                }
+            },
+            "block_reference": {
+                "title": "积木参考",
+                "items": {
+                    "0": "动作：控制 8 个舵机",
+                    "1": "显示：显示文字和图像",
+                    "2": "声音：播放音调和旋律",
+                    "3": "传感器：读取距离数值"
+                }
+            },
+            "troubleshooting": {
+                "title": "疑难解答",
+                "items": {
+                    "0": "确保蓝牙已启用",
+                    "1": "使用 Chrome 或 Edge 浏览器",
+                    "2": "检查机器人电源是否已开启"
+                }
+            }
+        },
+        "support": {
+            "title": "需要更多帮助？",
+            "text": "访问 <1>GitHub 存储库</1> 以获取详细文档和社区支持。"
+        }
+    }
+}
