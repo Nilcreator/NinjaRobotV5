@@ -24,36 +24,56 @@ function Agent() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // Connect to distance WebSocket
+    // Connect to WebSockets (Distance & Events)
     useEffect(() => {
-        const connectWs = () => {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let distanceWs;
+        let eventsWs;
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+        const connectDistance = () => {
             const wsUrl = `${protocol}//${window.location.host}/ws/distance`;
-
             try {
-                wsRef.current = new WebSocket(wsUrl);
-
-                wsRef.current.onmessage = (event) => {
+                distanceWs = new WebSocket(wsUrl);
+                distanceWs.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    if (data.distance !== undefined) {
+                    if (data.distance_mm !== undefined) {
+                        setDistance(data.distance_mm);
+                    } else if (data.distance !== undefined) {
                         setDistance(data.distance);
                     }
                 };
-
-                wsRef.current.onerror = () => {
-                    console.log('Distance WebSocket error');
-                };
-            } catch {
-                console.log('WebSocket not available');
+            } catch (e) {
+                console.error("Distance WS Error", e);
             }
         };
 
-        connectWs();
+        const connectEvents = () => {
+            const wsUrl = `${protocol}//${window.location.host}/ws/events`;
+            try {
+                eventsWs = new WebSocket(wsUrl);
+                eventsWs.onmessage = (event) => {
+                    // System Logs Handler
+                    // Assuming events come as JSON: { type: 'log', message: '...', ... } or raw text
+                    // If it's a JSON with 'log' field or just raw text
+                    try {
+                        const data = JSON.parse(event.data);
+                        console.log("Event:", data);
+                        // Add to logs - could be implemented in a separate state
+                    } catch {
+                        console.log("Log:", event.data);
+                    }
+                };
+            } catch (e) {
+                console.error("Events WS Error", e);
+            }
+        };
+
+        connectDistance();
+        connectEvents();
 
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
+            if (distanceWs) distanceWs.close();
+            if (eventsWs) eventsWs.close();
         };
     }, []);
 
@@ -77,10 +97,13 @@ function Agent() {
 
             const data = await response.json();
             setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+            if (data.log) {
+                console.log("Agent Log:", data.log);
+            }
         } catch {
             setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: 'Error: Could not connect to robot.'
+                content: t('agent.error') || 'Error: Could not connect to robot.'
             }]);
         } finally {
             setIsLoading(false);
@@ -95,8 +118,31 @@ function Agent() {
     };
 
     const triggerAction = async (type, name) => {
+        // Map simplified types to actual API endpoints
+        // 'expressions' -> 'display/expressions'
+        // 'sounds' -> 'sound/emotions'
+        // 'movements' -> 'servos/movements'
+
+        let apiPath = '';
+        let method = 'POST';
+
+        switch (type) {
+            case 'expressions':
+                apiPath = `/api/display/expressions/${name}`;
+                break;
+            case 'sounds':
+                apiPath = `/api/sound/emotions/${name}`;
+                break;
+            case 'movements':
+                apiPath = `/api/servos/movements/${name}/execute`;
+                break;
+            default:
+                console.error("Unknown action type:", type);
+                return;
+        }
+
         try {
-            await fetch(`/api/${type}/${name}`, { method: 'POST' });
+            await fetch(apiPath, { method });
         } catch (error) {
             console.error(`Failed to trigger ${type}/${name}:`, error);
         }
@@ -104,7 +150,7 @@ function Agent() {
 
     return (
         <div className={styles.agent}>
-            {/* Chat Area */}
+            {/* Main Content Area - Split into Chat and Logs if needed, but for now just Chat */}
             <div className={styles.chatArea}>
                 <div className={styles.messages}>
                     {messages.length === 0 && (
@@ -205,6 +251,8 @@ function Agent() {
                     </div>
                 </div>
             </div>
+
+            {/* TODO: Add explicit LogPanel if space permits, or integrate into chat */}
         </div>
     );
 }

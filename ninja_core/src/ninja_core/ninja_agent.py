@@ -54,7 +54,7 @@ class NinjaAgent:
         )
 
         self.model = genai.GenerativeModel(
-            model_name="gemini-3-flash-preview",
+            model_name="gemini-3-flash-preview", 
             generation_config=GenerationConfig(temperature=0.7),
             system_instruction=self.system_prompt,
         )
@@ -172,11 +172,13 @@ Example Interactions:
             }
 
         except Exception as e:
+            import traceback
             error_message = f"Error processing command: {e}"
             print(error_message)
+            traceback.print_exc() # Print full stack trace to console
             return {
                 "action_plan": {},
-                "response": "I'm sorry, something went wrong.",
+                "response": "I'm sorry, something went wrong (Available on Server Console).",
                 "log": error_message,
             }
 

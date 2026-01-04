@@ -1,21 +1,31 @@
-/**
- * @file Header.jsx
- * @description Global header with Logo, Navigation, Language Selector, and BLE Status.
- * Displayed on all pages.
- */
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useBluetooth } from '../../contexts/BluetoothContext';
 import LanguageSelector from '../common/LanguageSelector';
 import styles from './Header.module.css';
 
 function Header() {
     const { t } = useTranslation();
     const location = useLocation();
-    const { isConnected, deviceName } = useBluetooth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isServerActive, setIsServerActive] = useState(false);
+
+    // Simple Server Health Check
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const res = await fetch('/api/agent/status');
+                if (res.ok) setIsServerActive(true);
+                else setIsServerActive(false);
+            } catch {
+                setIsServerActive(false);
+            }
+        };
+
+        checkStatus();
+        const interval = setInterval(checkStatus, 10000); // Check every 10s
+        return () => clearInterval(interval);
+    }, []);
 
     const navLinks = [
         { path: '/', label: 'home' },
@@ -31,7 +41,7 @@ function Header() {
             <div className={styles.container}>
                 {/* Logo */}
                 <NavLink to="/" className={styles.logo}>
-                    <span className={styles.logoIcon}>🥷</span>
+                    <img src="/logo.png" alt="NinjaRobot" className={styles.logoImage} style={{ height: '32px' }} />
                     <span className={styles.logoText}>NinjaRobot</span>
                 </NavLink>
 
@@ -62,12 +72,12 @@ function Header() {
 
                     <LanguageSelector />
 
-                    {/* BLE Status Indicator */}
+                    {/* Server Status Indicator */}
                     <div
-                        className={`${styles.bleStatus} ${isConnected ? styles.connected : ''}`}
-                        title={isConnected ? t('header.connected') + `: ${deviceName}` : t('header.disconnected')}
+                        className={`${styles.bleStatus} ${isServerActive ? styles.connected : ''}`}
+                        title={isServerActive ? 'Server: Online' : 'Server: Disconnected'}
                     >
-                        <span className={styles.bleIcon}>📶</span>
+                        <span className={styles.bleIcon}>{isServerActive ? '🟢' : '🔴'}</span>
                         <span className={styles.bleDot} />
                     </div>
                 </nav>

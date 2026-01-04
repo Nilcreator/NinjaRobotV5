@@ -6,15 +6,12 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useBluetooth } from '../../contexts/BluetoothContext';
 import BlocklyWorkspace from '../../components/blockly/BlocklyWorkspace';
 import IconButton from '../../components/common/IconButton';
-import Button from '../../components/common/Button';
 import styles from './Code.module.css';
 
 function Code() {
     const { t } = useTranslation();
-    const { isSupported, isConnected, isConnecting, deviceName, connect, disconnect, sendCode } = useBluetooth();
 
     const [code, setCode] = useState('# Your code will appear here\n');
     const [isCodePanelOpen, setIsCodePanelOpen] = useState(false);
@@ -25,34 +22,33 @@ function Code() {
         setCode(newCode);
     }, []);
 
-    const handleConnect = async () => {
-        if (isConnected) {
-            disconnect();
-        } else {
-            await connect();
-        }
-    };
-
     const handleRun = async () => {
-        if (!isConnected) {
-            alert(t('code.unsupported'));
-            return;
-        }
-
         setIsRunning(true);
         try {
-            await sendCode(code);
+            const response = await fetch('/api/code/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+            });
+            const data = await response.json();
+            if (data.status === 'error') {
+                alert(`Error: ${data.detail || 'Execution failed'}`);
+            }
         } catch (err) {
-            alert(`Error: ${err.message}`);
+            alert(`Network Error: ${err.message}`);
         } finally {
+            // We don't necessarily know when it finishes unless we poll, 
+            // but for UX, let's keep button spinning briefly then stop.
+            // Or we rely on the server to return immediately? 
+            // Dispatcher returns immediately often, or waits. 
+            // Let's just set false after call returns.
             setIsRunning(false);
         }
     };
 
     const handleStop = async () => {
-        if (!isConnected) return;
         try {
-            await sendCode('robot.stop()');
+            await fetch('/api/code/stop', { method: 'POST' });
         } catch (err) {
             console.error('Stop failed:', err);
         }
@@ -71,43 +67,18 @@ function Code() {
             {/* Toolbar */}
             <div className={styles.toolbar}>
                 <div className={styles.toolGroup}>
-                    {/* Connection */}
-                    {isSupported ? (
-                        <Button
-                            variant={isConnected ? 'success' : 'secondary'}
-                            size="small"
-                            onClick={handleConnect}
-                            disabled={isConnecting}
-                        >
-                            {isConnecting ? '⏳' : isConnected ? '🔗' : '🔌'}
-                            {' '}
-                            {isConnecting
-                                ? t('code.connecting')
-                                : isConnected
-                                    ? t('code.connected', { name: deviceName })
-                                    : t('code.connect')}
-                        </Button>
-                    ) : (
-                        <Button variant="danger" size="small" disabled>
-                            ⚠️ {t('code.unsupported')}
-                        </Button>
-                    )}
-                </div>
-
-                <div className={styles.toolGroup}>
                     {/* Run / Stop */}
                     <IconButton
                         icon="▶️"
                         label={t('code.run')}
                         onClick={handleRun}
-                        disabled={!isConnected || isRunning}
+                        disabled={isRunning}
                         variant="success"
                     />
                     <IconButton
                         icon="⏹️"
                         label={t('code.stop')}
                         onClick={handleStop}
-                        disabled={!isConnected}
                         variant="danger"
                     />
 
