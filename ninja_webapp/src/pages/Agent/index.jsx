@@ -148,7 +148,7 @@ function Agent() {
         // Map i18n codes to Speech API codes
         const langMap = {
             'en': 'en-US',
-            'jp': 'ja-JP',
+            'ja': 'ja-JP',
             'zh-TW': 'zh-TW',
             'zh-CN': 'zh-CN'
         };

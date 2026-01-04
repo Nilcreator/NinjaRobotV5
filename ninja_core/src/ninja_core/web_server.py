@@ -491,13 +491,6 @@ async def execute_movement(name: str, request: Request):
 
     def run():
         try:
-            # Broadcast start
-            asyncio.run_coroutine_threadsafe(
-                request.app.state.ninja.connection_manager.broadcast({
-                    "type": "log", "message": f"Executing Movement: {name}"
-                }), 
-                loop=asyncio.get_event_loop()
-            )
             state.movement.execute_movement(name, abort_check=lambda: safety_check(state))
             return "executed"
         except EmergencyStop:
@@ -509,6 +502,10 @@ async def execute_movement(name: str, request: Request):
             raise HTTPException(status_code=409, detail="Emergency Stop: Obstacle Detected")
 
     await asyncio.to_thread(run)
+    # Broadcast after successful execution (outside the thread)
+    await request.app.state.ninja.connection_manager.broadcast({
+        "type": "log", "message": f"Executed Movement: {name}"
+    })
     return {"status": "executed"}
 
 @api_router.get("/display/expressions")
@@ -518,14 +515,12 @@ def get_expressions(request: Request):
     return {"expressions": []}
 
 @api_router.post("/display/expressions/{name}")
-def show_expression(name: str, request: Request):
+async def show_expression(name: str, request: Request):
     if request.app.state.ninja.faces:
         request.app.state.ninja.faces.play(name, duration_s=3.0)
-        asyncio.create_task(
-            request.app.state.ninja.connection_manager.broadcast({
-                "type": "log", "message": f"Displaying Expression: {name}"
-            })
-        )
+        await request.app.state.ninja.connection_manager.broadcast({
+            "type": "log", "message": f"Displaying Expression: {name}"
+        })
     return {"status": "displayed"}
 
 @api_router.get("/sound/emotions")
