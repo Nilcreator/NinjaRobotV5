@@ -1,6 +1,6 @@
 /**
  * @file Agent/index.jsx
- * @description Agent page with AI chat interface and hardware controls.
+ * @description Agent page with AI chat interface, hardware controls, and slidable log panel.
  * Uses WebSocket for real-time streaming.
  */
 
@@ -18,15 +18,19 @@ function Agent() {
     const [distance, setDistance] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
     const [logs, setLogs] = useState([]);
+    const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const logsEndRef = useRef(null);
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
 
     // Scroll to bottom when new messages arrive
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // Scroll log panel when new logs
+    useEffect(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [logs]);
 
     // Connect to WebSockets (Distance & Events)
     useEffect(() => {
@@ -57,14 +61,34 @@ function Agent() {
                 eventsWs = new WebSocket(wsUrl);
                 eventsWs.onmessage = (event) => {
                     try {
-                        // Attempt to parse as JSON
                         const data = JSON.parse(event.data);
-                        // Add to internal logs state
                         const timestamp = new Date().toLocaleTimeString();
-                        const logEntry = typeof data === 'string' ? data : JSON.stringify(data);
-                        setLogs(prev => [...prev, `[${timestamp}] ${logEntry}`].slice(-50)); // Keep last 50 logs
+
+                        // Handle BLE code reception
+                        if (data.type === 'execute_received') {
+                            // Display code in chat
+                            setMessages(prev => [...prev, {
+                                role: 'system',
+                                content: `📝 Code received via BLE (${data.code_length} chars):\n\`\`\`python\n${data.full_code || 'Code not available'}\n\`\`\``
+                            }]);
+                            setLogs(prev => [...prev, `[${timestamp}] 📥 Code received via BLE`].slice(-50));
+
+                            // If there's a diagnosis, show it
+                            if (data.diagnosis) {
+                                setMessages(prev => [...prev, {
+                                    role: 'assistant',
+                                    content: `🔍 Code Diagnosis:\n${data.diagnosis}`
+                                }]);
+                            }
+                        } else if (data.type === 'execution_status') {
+                            setLogs(prev => [...prev, `[${timestamp}] ⚡ ${data.status}: ${data.message || ''}`].slice(-50));
+                        } else if (data.type === 'execution_log') {
+                            setLogs(prev => [...prev, `[${timestamp}] 📋 ${data.content}`].slice(-50));
+                        } else {
+                            const logEntry = typeof data === 'string' ? data : JSON.stringify(data);
+                            setLogs(prev => [...prev, `[${timestamp}] ${logEntry}`].slice(-50));
+                        }
                     } catch {
-                        // Plain text fallback
                         const timestamp = new Date().toLocaleTimeString();
                         setLogs(prev => [...prev, `[${timestamp}] ${event.data}`].slice(-50));
                     }
@@ -104,7 +128,6 @@ function Agent() {
             const data = await response.json();
             setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
             if (data.log) {
-                console.log("Agent Log:", data.log);
                 const timestamp = new Date().toLocaleTimeString();
                 setLogs(prev => [...prev, `[${timestamp}] Agent: ${data.log}`].slice(-50));
             }
@@ -125,53 +148,34 @@ function Agent() {
         }
     };
 
-    // Voice Input Handler (SpeechRecognition)
+    // Voice Input (SpeechRecognition)
     const toggleVoiceRecording = () => {
         if (isRecording) {
-            // Manual stop (though it auto-stops usually)
             window.speechRecognitionInstance?.stop();
             setIsRecording(false);
             return;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
         if (!SpeechRecognition) {
-            alert(t('agent.speechNotSupported') || "Speech Recognition not supported in this browser.");
+            alert(t('agent.speechNotSupported') || "Speech Recognition not supported.");
             return;
         }
 
         const recognition = new SpeechRecognition();
         window.speechRecognitionInstance = recognition;
 
-        // Detect language based on current i18n setting
-        // Map i18n codes to Speech API codes
-        const langMap = {
-            'en': 'en-US',
-            'ja': 'ja-JP',
-            'zh-TW': 'zh-TW',
-            'zh-CN': 'zh-CN'
-        };
+        const langMap = { 'en': 'en-US', 'ja': 'ja-JP', 'zh-TW': 'zh-TW', 'zh-CN': 'zh-CN' };
         recognition.lang = langMap[i18n.language] || 'en-US';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
-        recognition.onstart = () => {
-            setIsRecording(true);
-        };
-
-        recognition.onend = () => {
-            setIsRecording(false);
-        };
-
+        recognition.onstart = () => setIsRecording(true);
+        recognition.onend = () => setIsRecording(false);
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            if (transcript) {
-                setInput(transcript);
-                // Optional: Auto-send? No, user wants to explicitly send.
-            }
+            if (transcript) setInput(transcript);
         };
-
         recognition.onerror = (event) => {
             console.error("Speech Recognition Error", event.error);
             setIsRecording(false);
@@ -181,22 +185,15 @@ function Agent() {
         recognition.start();
     };
 
-    // Auto-scroll logs
-    useEffect(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
-
-    // State for Dynamic Lists
+    // Hardware Control States
     const [expressionsList, setExpressionsList] = useState([]);
     const [soundsList, setSoundsList] = useState([]);
     const [movementsList, setMovementsList] = useState([]);
-
-    // State for Selections
     const [selectedExpr, setSelectedExpr] = useState('');
     const [selectedSound, setSelectedSound] = useState('');
     const [selectedMove, setSelectedMove] = useState('');
 
-    // Fetch Capabilities on Mount
+    // Fetch Capabilities
     useEffect(() => {
         const fetchCapabilities = async () => {
             try {
@@ -228,24 +225,15 @@ function Agent() {
         fetchCapabilities();
     }, []);
 
-    // Trigger Action - Makes API call to execute hardware action
+    // Hardware Action
     const triggerAction = async (type, name) => {
         let apiPath = '';
         switch (type) {
-            case 'expressions':
-                apiPath = `/api/display/expressions/${name}`;
-                break;
-            case 'sounds':
-                apiPath = `/api/sound/emotions/${name}`;
-                break;
-            case 'movements':
-                apiPath = `/api/servos/movements/${name}/execute`;
-                break;
-            default:
-                console.error("Unknown action type:", type);
-                return;
+            case 'expressions': apiPath = `/api/display/expressions/${name}`; break;
+            case 'sounds': apiPath = `/api/sound/emotions/${name}`; break;
+            case 'movements': apiPath = `/api/servos/movements/${name}/execute`; break;
+            default: return;
         }
-
         try {
             const res = await fetch(apiPath, { method: 'POST' });
             const data = await res.json();
@@ -258,146 +246,158 @@ function Agent() {
         }
     };
 
-    // Execute handler - maps dropdown selection to API call
     const handleExecute = (type) => {
         let name = '';
         if (type === 'expressions') name = selectedExpr;
         else if (type === 'sounds') name = selectedSound;
         else if (type === 'movements') name = selectedMove;
-
         if (!name) return;
         triggerAction(type, name);
     };
 
     return (
         <div className={styles.agent}>
-            {/* ... (Chat Area same as before) ... */}
-            <div className={styles.chatArea}>
-                <div className={styles.messages}>
-                    {messages.length === 0 && (
-                        <div className={styles.welcome}>
-                            <span className={styles.welcomeIcon}>🥷</span>
-                            <p>{t('agent.title')}</p>
-                        </div>
-                    )}
-                    {messages.map((msg, idx) => (
-                        <div
-                            key={idx}
-                            className={`${styles.message} ${styles[msg.role]}`}
-                        >
-                            {msg.content}
-                        </div>
-                    ))}
-                    {isLoading && (
-                        <div className={`${styles.message} ${styles.assistant}`}>
-                            <span className={styles.typing}>...</span>
-                        </div>
-                    )}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* System Log Panel */}
-                <div className={styles.logPanel}>
-                    <div className={styles.logHeader}>System Log</div>
-                    <div className={styles.logContent}>
-                        {logs.length === 0 && <div className={styles.logPlaceholder}>System events will appear here...</div>}
-                        {logs.map((log, i) => (
-                            <div key={i} className={styles.logEntry}>{log}</div>
+            {/* Main Content Area */}
+            <div className={styles.mainContent}>
+                {/* Chat Area */}
+                <div className={styles.chatArea}>
+                    <div className={styles.messages}>
+                        {messages.length === 0 && (
+                            <div className={styles.welcome}>
+                                <span className={styles.welcomeIcon}>🥷</span>
+                                <p>{t('agent.title')}</p>
+                            </div>
+                        )}
+                        {messages.map((msg, idx) => (
+                            <div
+                                key={idx}
+                                className={`${styles.message} ${styles[msg.role]}`}
+                            >
+                                {msg.role === 'system' ? (
+                                    <pre className={styles.codeBlock}>{msg.content}</pre>
+                                ) : (
+                                    msg.content
+                                )}
+                            </div>
                         ))}
-                        <div ref={logsEndRef} />
+                        {isLoading && (
+                            <div className={`${styles.message} ${styles.assistant}`}>
+                                <span className={styles.typing}>...</span>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Input Area */}
+                    <div className={styles.inputArea}>
+                        <IconButton
+                            icon={isRecording ? "⏹️" : "🎤"}
+                            onClick={toggleVoiceRecording}
+                            className={isRecording ? styles.recordingBtn : ""}
+                            title="Voice Input"
+                        />
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            placeholder={t('agent.placeholder')}
+                            className={styles.input}
+                            disabled={isLoading || isRecording}
+                        />
+                        <Button
+                            variant="primary"
+                            onClick={sendMessage}
+                            disabled={!input.trim() || isLoading}
+                        >
+                            {t('agent.send')}
+                        </Button>
                     </div>
                 </div>
 
-                {/* Input Area */}
-                <div className={styles.inputArea}>
-                    <IconButton
-                        icon={isRecording ? "⏹️" : "🎤"}
-                        onClick={toggleVoiceRecording}
-                        className={isRecording ? styles.recordingBtn : ""}
-                        title="Voice Input"
-                    />
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        placeholder={t('agent.placeholder')}
-                        className={styles.input}
-                        disabled={isLoading || isRecording}
-                    />
-                    <Button
-                        variant="primary"
-                        onClick={sendMessage}
-                        disabled={!input.trim() || isLoading}
-                    >
-                        {t('agent.send')}
-                    </Button>
+                {/* Controls Sidebar */}
+                <div className={styles.controls}>
+                    {/* Distance Sensor */}
+                    <div className={styles.controlSection}>
+                        <h3>📏 {t('agent.distance')}</h3>
+                        <div className={styles.distanceValue}>
+                            {distance !== null ? `${distance} ${t('agent.distanceUnit')}` : '---'}
+                        </div>
+                    </div>
+
+                    {/* Expressions */}
+                    <div className={styles.controlSection}>
+                        <h3>😊 {t('agent.expressions')}</h3>
+                        <div className={styles.controlRow}>
+                            <select
+                                className={styles.select}
+                                value={selectedExpr}
+                                onChange={(e) => setSelectedExpr(e.target.value)}
+                            >
+                                {expressionsList.map(expr => (
+                                    <option key={expr} value={expr}>{expr}</option>
+                                ))}
+                            </select>
+                            <Button onClick={() => handleExecute('expressions')}>Execute</Button>
+                        </div>
+                    </div>
+
+                    {/* Sounds */}
+                    <div className={styles.controlSection}>
+                        <h3>🔊 {t('agent.sounds')}</h3>
+                        <div className={styles.controlRow}>
+                            <select
+                                className={styles.select}
+                                value={selectedSound}
+                                onChange={(e) => setSelectedSound(e.target.value)}
+                            >
+                                {soundsList.map(sound => (
+                                    <option key={sound} value={sound}>{sound}</option>
+                                ))}
+                            </select>
+                            <Button onClick={() => handleExecute('sounds')}>Execute</Button>
+                        </div>
+                    </div>
+
+                    {/* Movements */}
+                    <div className={styles.controlSection}>
+                        <h3>🤖 {t('agent.movements')}</h3>
+                        <div className={styles.controlRow}>
+                            <select
+                                className={styles.select}
+                                value={selectedMove}
+                                onChange={(e) => setSelectedMove(e.target.value)}
+                            >
+                                {movementsList.map(move => (
+                                    <option key={move} value={move}>{move}</option>
+                                ))}
+                            </select>
+                            <Button onClick={() => handleExecute('movements')}>Execute</Button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            {/* Controls Sidebar */}
-            <div className={styles.controls}>
-                {/* Distance Sensor */}
-                <div className={styles.controlSection}>
-                    <h3>📏 {t('agent.distance')}</h3>
-                    <div className={styles.distanceValue}>
-                        {distance !== null ? `${distance} ${t('agent.distanceUnit')}` : '---'}
-                    </div>
-                </div>
-
-                {/* Expressions */}
-                <div className={styles.controlSection}>
-                    <h3>😊 {t('agent.expressions')}</h3>
-                    <div className={styles.controlRow}>
-                        <select
-                            className={styles.select}
-                            value={selectedExpr}
-                            onChange={(e) => setSelectedExpr(e.target.value)}
-                        >
-                            {expressionsList.map(expr => (
-                                <option key={expr} value={expr}>{expr}</option>
-                            ))}
-                        </select>
-                        <Button onClick={() => handleExecute('expressions')}>Execute</Button>
-                    </div>
-                </div>
-
-                {/* Sounds */}
-                <div className={styles.controlSection}>
-                    <h3>🔊 {t('agent.sounds')}</h3>
-                    <div className={styles.controlRow}>
-                        <select
-                            className={styles.select}
-                            value={selectedSound}
-                            onChange={(e) => setSelectedSound(e.target.value)}
-                        >
-                            {soundsList.map(sound => (
-                                <option key={sound} value={sound}>{sound}</option>
-                            ))}
-                        </select>
-                        <Button onClick={() => handleExecute('sounds')}>Execute</Button>
-                    </div>
-                </div>
-
-                {/* Movements */}
-                <div className={styles.controlSection}>
-                    <h3>🤖 {t('agent.movements')}</h3>
-                    <div className={styles.controlRow}>
-                        <select
-                            className={styles.select}
-                            value={selectedMove}
-                            onChange={(e) => setSelectedMove(e.target.value)}
-                        >
-                            {movementsList.map(move => (
-                                <option key={move} value={move}>{move}</option>
-                            ))}
-                        </select>
-                        <Button onClick={() => handleExecute('movements')}>Execute</Button>
-                    </div>
+            {/* Slidable Log Panel - Bottom */}
+            <div className={`${styles.logPanelWrapper} ${isLogPanelOpen ? styles.open : ''}`}>
+                <button
+                    className={styles.logPanelTab}
+                    onClick={() => setIsLogPanelOpen(!isLogPanelOpen)}
+                >
+                    {isLogPanelOpen ? '▼' : '▲'} {t('agent.systemLog') || 'System Log'} ({logs.length})
+                </button>
+                <div className={styles.logPanelContent}>
+                    {logs.length === 0 && (
+                        <div className={styles.logPlaceholder}>
+                            System events will appear here...
+                        </div>
+                    )}
+                    {logs.map((log, i) => (
+                        <div key={i} className={styles.logEntry}>{log}</div>
+                    ))}
+                    <div ref={logsEndRef} />
                 </div>
             </div>
-
-            {/* TODO: Add explicit LogPanel if space permits, or integrate into chat */}
         </div>
     );
 }

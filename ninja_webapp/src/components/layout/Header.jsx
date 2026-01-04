@@ -35,7 +35,6 @@ function Header() {
     const navLinks = [
         { path: '/', label: 'home' },
         { path: '/agent', label: 'agent' },
-        { path: '/code', label: 'code' },
         { path: '/help', label: 'help' },
     ];
 

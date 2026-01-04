@@ -1,0 +1,74 @@
+/* PowerOffSlider.module.css - V4-style power-off slider */
+
+.sliderContainer {
+    position: relative;
+    width: 100%;
+    height: 60px;
+    background-color: var(--bg-input, #121212);
+    border-radius: 30px;
+    box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+}
+
+.sliderTrack {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.sliderText {
+    color: var(--text-secondary, #8F95A3);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 1px;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.sliderThumb {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 52px;
+    height: 52px;
+    background-color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    z-index: 2;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.sliderThumb.dragging {
+    cursor: grabbing;
+    transform: scale(1.05);
+}
+
+.sliderThumb:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Mobile touch improvements */
+@media (hover: none) {
+    .sliderThumb {
+        width: 56px;
+        height: 56px;
+        top: 2px;
+        left: 2px;
+    }
+
+    .sliderContainer {
+        height: 64px;
+    }
+}
