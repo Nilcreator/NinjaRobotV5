@@ -11,7 +11,9 @@ from typing import Optional
 
 import qrcode
 import uvicorn
-from fastapi import FastAPI, APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect
+import shutil
+import tempfile
+from fastapi import FastAPI, APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -440,10 +442,6 @@ async def agent_voice(request: Request, file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Agent not active")
 
     # Save to temp file
-    import tempfile
-    import shutil
-    from fastapi import UploadFile, File
-    
     try:
         suffix = Path(file.filename).suffix
         if not suffix:
