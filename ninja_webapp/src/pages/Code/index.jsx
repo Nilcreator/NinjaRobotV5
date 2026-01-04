@@ -4,7 +4,7 @@
  * Mobile-optimized with vertical layout for portrait mode.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBluetooth } from '../../contexts/BluetoothContext';
 import BlocklyWorkspace from '../../components/blockly/BlocklyWorkspace';

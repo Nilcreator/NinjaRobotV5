@@ -43,7 +43,7 @@ function Agent() {
                 wsRef.current.onerror = () => {
                     console.log('Distance WebSocket error');
                 };
-            } catch (e) {
+            } catch {
                 console.log('WebSocket not available');
             }
         };
@@ -77,7 +77,7 @@ function Agent() {
 
             const data = await response.json();
             setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
-        } catch (error) {
+        } catch {
             setMessages(prev => [...prev, {
                 role: 'assistant',
                 content: 'Error: Could not connect to robot.'

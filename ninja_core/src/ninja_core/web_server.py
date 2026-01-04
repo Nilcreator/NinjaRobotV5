@@ -547,20 +547,25 @@ async def system_shutdown(request: Request):
 # --- App ---
 app = FastAPI(lifespan=lifespan)
 
+# Locate built webapp
+# Assumed Structure:
+# NinjaRobotV5/
+#   ninja_webapp/dist/
+#   ninja_core/src/ninja_core/web_server.py
+WEBAPP_DIST = base_dir.parents[2] / "ninja_webapp" / "dist"
+
+print(f"DEBUG: Looking for React SPA at: {WEBAPP_DIST}")
 # Serve React SPA if built, otherwise fall back to legacy templates
 if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
-    print(f"✅ React SPA found at {WEBAPP_DIST}")
-    # Mount assets folder from Vite build
-    if (WEBAPP_DIST / "assets").exists():
-        app.mount("/assets", StaticFiles(directory=str(WEBAPP_DIST / "assets")), name="assets")
+    print("✅ React SPA found. Mounting assets...")
+    app.mount("/assets", StaticFiles(directory=WEBAPP_DIST / "assets"))
     
-    # Keep legacy static mount for backward compatibility
+    # Keep legacy static mount for backward compatibility (images etc maybe used by API?)
     legacy_static = base_dir / "static"
     if legacy_static.exists():
         app.mount("/static", StaticFiles(directory=str(legacy_static)), name="static")
 else:
-    print("⚠️ React SPA not found. Using legacy templates.")
-    print(f"   To build SPA: cd ninja_webapp && npm install && npm run build")
+    print("⚠️ React SPA not found. Falling back to legacy templates.")
     # Legacy static files
     app.mount("/static", StaticFiles(directory=str(base_dir / "static")), name="static")
 
@@ -577,6 +582,7 @@ async def read_root(request: Request):
         return FileResponse(WEBAPP_DIST / "index.html")
     
     # Fallback to legacy template
+    print("Serving Legacy Index (SPA not found)")
     return templates.TemplateResponse("index.html", {"request": request})
 
 # SPA catch-all route for client-side routing (must be after API routes)

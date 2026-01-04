@@ -54,8 +54,13 @@ This package contains the main application logic for NinjaRobot V5. It integrate
 
 - **`hal.py` (Hardware Abstraction Layer):** Initializes and provides a single access point for all hardware drivers.
 - **`config.py` (Configuration Manager):** Manages all robot settings from a central `config.json` file.
+- **`dispatcher.py` (Command Dispatcher):** Central router for BLE and Web commands. Bridges all input sources.
+- **`safe_executor.py` (Safe Execution - Phase 4):** Sandboxed environment for running user/AI-generated Python code safely. Blocks dangerous imports.
+- **`ninja_coder.py` (AI Code Agent - Phase 4):** Gemini-powered agent for code generation, translation, and debugging.
+- **`api_wrappers.py` (Robot API - Phase 4):** High-level wrappers (`RobotWrapper`, `BuzzerWrapper`, `DisplayWrapper`, `DistanceWrapper`) exposed as `robot` in the executor.
 - **`movement_controller.py` (Motion System):** Executes complex, multi-servo movement sequences.
 - **`facial_expressions.py`, `robot_sound.py`, `perception.py`:** High-level controllers for expressions, sounds, and sensing.
+- **`web_server.py` (FastAPI Server):** Web interface with WebSocket support for real-time events (Phase 4: `/ws/events` added).
 
 ---
 
