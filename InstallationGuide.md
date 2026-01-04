@@ -302,8 +302,8 @@ Navigate to your home directory and clone the project:
 
 ```bash
 cd ~
-git clone https://github.com/Nilcreator/NinjaRobotV4.git
-cd NinjaRobotV4
+git clone https://github.com/Nilcreator/NinjaRobotV5.git
+cd NinjaRobotV5
 ```
 
 > [!NOTE]
@@ -318,7 +318,7 @@ uv venv
 source .venv/bin/activate
 ```
 
-You should see `(NinjaRobotV4)` or `(.venv)` appear at the start of your terminal line.
+You should see `(NinjaRobotV5)` or `(.venv)` appear at the start of your terminal line.
 
 ### Step 6.3: Install All Dependencies
 
@@ -663,7 +663,7 @@ Then try running your command again.
 **Solution**:
 Reinstall the project:
 ```bash
-cd ~/NinjaRobotV4
+cd ~/NinjaRobotV5
 uv pip install -e . --force-reinstall
 ```
 
@@ -713,14 +713,14 @@ If you encounter issues not covered here:
 - **Build an Enclosure**: Design a robot body and mount all components
 - **Explore the Code**: Check `ninja_core/README.md` for developer documentation
 
-**Congratulations!** Your NinjaRobotV4 is now ready to use. Enjoy exploring and experimenting with your AI-powered robot! 🤖
+**Congratulations!** Your NinjaRobot V5 is now ready to use. Enjoy exploring and experimenting with your AI-powered robot! 🤖
 
 ---
 ---
 
-# NinjaRobotV4 完全インストールガイド（日本語版）
+# NinjaRobot V5 完全インストールガイド（日本語版）
 
-このガイドでは、Raspberry Pi Zero 2WでNinjaRobotV4を構築して実行するために必要なすべての手順を説明します。プログラミング経験は不要です—各ステップを注意深く従ってください。
+このガイドでは、Raspberry Pi Zero 2WでNinjaRobot V5を構築して実行するために必要なすべての手順を説明します。プログラミング経験は不要です—各ステップを注意深く従ってください。
 
 ---
 
@@ -1025,8 +1025,8 @@ sudo pigpiod
 
 ```bash
 cd ~
-git clone https://github.com/Nilcreator/NinjaRobotV4.git
-cd NinjaRobotV4
+git clone https://github.com/Nilcreator/NinjaRobotV5.git
+cd NinjaRobotV5
 ```
 
 > [!NOTE]
@@ -1041,7 +1041,7 @@ uv venv
 source .venv/bin/activate
 ```
 
-ターミナルの行の先頭に`(NinjaRobotV4)`または`(.venv)`が表示されるはずです。
+ターミナルの行の先頭に`(NinjaRobotV5)`または`(.venv)`が表示されるはずです。
 
 ### ステップ6.3: すべての依存関係のインストール
 
@@ -1389,7 +1389,7 @@ sudo pigpiod
 **解決策**:
 プロジェクトを再インストール:
 ```bash
-cd ~/NinjaRobotV4
+cd ~/NinjaRobotV5
 uv pip install -e . --force-reinstall
 ```
 
@@ -1434,4 +1434,719 @@ uv pip install -e . --force-reinstall
 - **筐体を作る**: ロボットの本体を設計してすべての部品を取り付ける
 - **コードを探索**: 開発者向けドキュメントは`ninja_core/README.md`を確認
 
-**おめでとうございます！** NinjaRobotV4が使用できる状態になりました。AI搭載ロボットの探索と実験を楽しんでください！🤖
+**おめでとうございます！** NinjaRobot V5が使用できる状態になりました。AI搭載ロボットの探索と実験を楽しんでください！🤖
+
+---
+---
+
+# NinjaRobot V5 完整安裝指南（繁體中文版）
+
+本指南將引導您完成在 Raspberry Pi Zero 2W 上建置和運行 NinjaRobot V5 所需的每個步驟。不需要程式設計經驗——只需仔細按照每個步驟操作即可。
+
+> [!NOTE]
+> V5 引入了具有非阻塞驅動程式的模組化架構。所有硬體現在都使用標準化介面。
+
+---
+
+## 目錄
+
+1. [硬體需求](#1-硬體需求)
+2. [硬體接線指南](#2-硬體接線指南)
+3. [Raspberry Pi OS 安裝](#3-raspberry-pi-os-安裝)
+4. [軟體安裝](#4-軟體安裝)
+5. [服務設定（Gemini AI 與 ngrok）](#5-服務設定gemini-ai-與-ngrok)
+6. [專案安裝](#6-專案安裝)
+7. [硬體校準](#7-硬體校準)
+8. [功能測試](#8-功能測試)
+9. [啟動機器人](#9-啟動機器人)
+10. [自動啟動（選用）](#10-自動啟動選用)
+11. [疑難排解](#11-疑難排解)
+
+---
+
+## 1. 硬體需求
+
+### 必要元件
+
+- **Raspberry Pi Zero 2W**（已焊接排針）
+- **MicroSD 卡**（16GB 或更大，建議 Class 10）
+- **電源供應器**（5V 2.5A USB-C 或 Micro-USB）
+- **8 個伺服馬達**（SG90 或類似型號，5V）
+- **伺服馬達外部 5V 電源**（建議：5V 3A 或更高）
+- **ST7789V LCD 顯示器**（240x240 像素，SPI 介面）
+- **VL53L0X 距離感測器**（飛行時間感測器，I2C 介面）
+- **被動蜂鳴器**（3-5V）
+- **杜邦線**（公對母和公對公）
+- **麵包板**（原型製作用，選用）
+- **鍵盤、滑鼠和顯示器**（初始設定用）
+
+### 建議選配
+
+- **Raspberry Pi 保護殼**
+- **散熱片**（Raspberry Pi 用）
+- **USB 集線器**（如果設定期間需要多個 USB 裝置）
+
+---
+
+## 2. 硬體接線指南
+
+### 重要安全注意事項
+
+> [!CAUTION]
+> - **務必在連接或拔除元件前關閉電源**。
+> - **切勿將伺服馬達電源直接連接到 Raspberry Pi 的 5V 腳位**——請使用外部電源。
+> - **在開啟電源前仔細檢查所有連接**以避免損壞。
+
+### GPIO 腳位配置
+
+以下是所有元件的完整接線圖：
+
+```
+Raspberry Pi Zero 2W GPIO 腳位配置（40 針排針）
+┌─────────────────────────────────────┐
+│  3.3V  [1] [2]  5V                  │
+│  SDA   [3] [4]  5V                  │
+│  SCL   [5] [6]  GND                 │
+│  GPIO4 [7] [8]  GPIO14 (DC)         │
+│  GND   [9] [10] GPIO15 (RST)        │
+│  GPIO17[11] [12] GPIO18             │  ← 蜂鳴器 (17)
+│  GPIO27[13] [14] GND                │
+│  GPIO22[15] [16] GPIO23             │
+│  3.3V [17] [18] GPIO24              │
+│  SPI0 MOSI [19] [20] GND            │
+│  GPIO9[21] [22] GPIO25              │
+│  SPI0 SCLK [23] [24] SPI0 CE0       │
+│  GND  [25] [26] SPI0 CE1            │
+│  ID_SD[27] [28] ID_SC               │
+│  GPIO5[29] [30] GND                 │
+│  GPIO6[31] [32] GPIO12              │
+│  GPIO13[33] [34] GND                │
+│  GPIO19[35] [36] GPIO16 (BLK)       │
+│  GPIO26[37] [38] GPIO20             │
+│  GND  [39] [40] GPIO21              │
+└─────────────────────────────────────┘
+```
+
+### 元件連接表
+
+#### 伺服馬達（8 個）
+
+| 伺服編號 | GPIO 腳位 | 訊號線 | 電源（5V） | 接地 |
+|---------|----------|--------|------------|------|
+| 1       | GPIO 20  | 橙/黃色 | 外部 5V | 共用 GND |
+| 2       | GPIO 21  | 橙/黃色 | 外部 5V | 共用 GND |
+| 3       | GPIO 22  | 橙/黃色 | 外部 5V | 共用 GND |
+| 4       | GPIO 23  | 橙/黃色 | 外部 5V | 共用 GND |
+| 5       | GPIO 24  | 橙/黃色 | 外部 5V | 共用 GND |
+| 6       | GPIO 25  | 橙/黃色 | 外部 5V | 共用 GND |
+| 7       | GPIO 26  | 橙/黃色 | 外部 5V | 共用 GND |
+| 8       | GPIO 27  | 橙/黃色 | 外部 5V | 共用 GND |
+
+> [!IMPORTANT]
+> **伺服馬達電源：** 將所有伺服馬達的電源線（紅色）連接到外部 5V 電源（非 Raspberry Pi）。將所有伺服馬達的接地線（棕/黑色）連接到共用接地，該接地也需連接到 Raspberry Pi 的 GND 腳位。
+
+#### ST7789V LCD 顯示器（SPI）
+
+| 顯示器腳位 | Raspberry Pi 腳位 | 說明 |
+|-----------|------------------|------|
+| VCC       | 3.3V             | 電源 |
+| GND       | GND              | 接地 |
+| DIN (MOSI)| SPI0 MOSI        | SPI 資料 |
+| CLK (SCL) | SPI0 SCLK        | SPI 時脈 |
+| CS        | SPI0 CE0         | 晶片選擇 |
+| DC        | GPIO 14          | 資料/命令 |
+| RST       | GPIO 15          | 重置 |
+| BLK       | GPIO 16          | 背光 |
+
+#### VL53L0X 距離感測器（I2C）
+
+| 感測器腳位 | Raspberry Pi 腳位 | 說明 |
+|-----------|------------------|------|
+| VCC       | 腳位 1（3.3V）    | 電源 |
+| GND       | 腳位 6（GND）     | 接地 |
+| SCL       | 腳位 5（GPIO 3 - I2C SCL） | I2C 時脈 |
+| SDA       | 腳位 3（GPIO 2 - I2C SDA） | I2C 資料 |
+
+#### 被動蜂鳴器
+
+| 蜂鳴器腳位 | Raspberry Pi 腳位 | 說明 |
+|-----------|------------------|------|
+| 正極（+） | 腳位 11（GPIO 17）| 訊號 |
+| 負極（-） | GND              | 接地 |
+
+### 接線檢查清單
+
+繼續之前，請確認：
+- [ ] 所有伺服馬達訊號線連接到正確的 GPIO 腳位（20-27）
+- [ ] 伺服馬達電源來自外部 5V 電源（非 Pi）
+- [ ] Pi 與伺服馬達外部電源之間共用接地
+- [ ] 顯示器透過 SPI 連接（SCLK、MOSI、CE0）及 GPIO 14、15、16
+- [ ] 距離感測器透過 I2C 連接（SCL、SDA）
+- [ ] 蜂鳴器連接到 GPIO 17
+- [ ] 沒有鬆脫的線或短路
+
+---
+
+## 3. Raspberry Pi OS 安裝
+
+### 步驟 3.1：下載 Raspberry Pi Imager
+
+1. 在您的電腦上前往：https://www.raspberrypi.com/software/
+2. 為您的作業系統（Windows、macOS 或 Linux）下載 **Raspberry Pi Imager**
+3. 安裝並開啟 Raspberry Pi Imager
+
+### 步驟 3.2：將 OS 燒錄到 MicroSD 卡
+
+1. 將 MicroSD 卡插入電腦（如需要可使用轉接器）
+2. 在 Raspberry Pi Imager 中：
+   - 點擊 **「選擇裝置」** → 選擇 **「Raspberry Pi Zero 2W」**
+   - 點擊 **「選擇作業系統」** → 選擇 **「Raspberry Pi OS（64位元）」**（建議）
+   - 點擊 **「選擇儲存裝置」** → 選擇您的 MicroSD 卡
+
+3. 點擊 **設定（齒輪圖示）** 按鈕進行設定：
+   - **主機名稱**：`ninjarobot`（或您喜歡的名稱）
+   - **啟用 SSH**：勾選此方塊並選擇「使用密碼認證」
+   - **設定使用者名稱和密碼**：
+     - 使用者名稱：`pi`（或您的選擇）
+     - 密碼：（建立安全的密碼）
+   - **設定 WiFi**（如果想使用無線網路）：
+     - SSID：您的 WiFi 網路名稱
+     - 密碼：您的 WiFi 密碼
+     - 無線區域國家：選擇您的國家
+   - **設定地區設定**：選擇您的時區和鍵盤配置
+
+4. 點擊 **「儲存」** 儲存設定
+5. 點擊 **「寫入」** 將 OS 燒錄到卡片
+6. 等待程序完成（可能需要 5-10 分鐘）
+7. 完成後，安全地退出 MicroSD 卡
+
+### 步驟 3.3：啟動 Raspberry Pi
+
+1. 將 MicroSD 卡插入 Raspberry Pi Zero 2W
+2. 連接鍵盤、滑鼠和顯示器（透過 HDMI 轉接器）
+3. 連接電源供應器
+4. 等待 Pi 啟動（首次啟動可能需要 2-3 分鐘）
+5. 使用您先前設定的使用者名稱和密碼登入
+
+---
+
+## 4. 軟體安裝
+
+### 步驟 4.1：更新系統
+
+開啟終端機並執行：
+
+```bash
+sudo apt update && sudo apt upgrade -y
+```
+
+這可能需要 10-20 分鐘，取決於您的網路速度。
+
+### 步驟 4.2：啟用必要介面
+
+1. 開啟 Raspberry Pi 設定工具：
+   ```bash
+   sudo raspi-config
+   ```
+
+2. 導航到 **「3 Interface Options」**
+
+3. 啟用以下項目：
+   - **I2C**：選擇 **「I5 I2C」** → **「是」**
+   - **SPI**：選擇 **「I4 SPI」** → **「是」**
+
+4. 選擇 **「Finish」** 並在提示時重新啟動：
+   ```bash
+   sudo reboot
+   ```
+
+### 步驟 4.3：安裝系統依賴項
+
+重新啟動後，開啟終端機並安裝必要的套件：
+
+```bash
+sudo apt install -y git pigpio python3-pip
+```
+
+### 步驟 4.4：安裝 Python 套件管理員（uv）
+
+我們使用 `uv` 來更快速且更可靠地管理 Python 套件：
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+安裝後，關閉並重新開啟終端機，或執行：
+
+```bash
+source $HOME/.local/bin/env
+```
+
+驗證安裝：
+
+```bash
+uv --version
+```
+
+您應該會看到類似 `uv 0.x.x` 的版本號。
+
+### 步驟 4.5：啟動 pigpio 守護程式
+
+`pigpio` 守護程式必須在背景執行以控制硬體：
+
+```bash
+sudo pigpiod
+```
+
+> [!TIP]
+> 要讓 `pigpiod` 在開機時自動啟動，請執行：
+> ```bash
+> sudo systemctl enable pigpiod
+> sudo systemctl start pigpiod
+> ```
+
+---
+
+## 5. 服務設定（Gemini AI 與 ngrok）
+
+### 步驟 5.1：建立 Google Gemini API 金鑰
+
+機器人使用 Google 的 Gemini AI 進行自然語言理解。
+
+1. **前往 Google AI Studio**：https://aistudio.google.com/
+2. 使用您的 Google 帳戶**登入**
+3. 點擊左側欄的 **「Get API Key」**
+4. 點擊 **「Create API Key」**
+5. 選擇 **「Create API key in new project」** 或選擇現有專案
+6. **複製出現的 API 金鑰**（格式如：`AIzaSy...`）
+7. **將此金鑰儲存在安全的地方**——稍後會需要
+
+> [!WARNING]
+> 請保密您的 API 金鑰！不要公開分享或提交到版本控制系統。
+
+### 步驟 5.2：建立 ngrok 帳戶
+
+`ngrok` 建立公開 URL，讓您可以從任何地方控制機器人。
+
+1. **前往 ngrok**：https://ngrok.com/
+2. 點擊 **「Sign up」** 建立免費帳戶
+3. 登入後，前往：https://dashboard.ngrok.com/get-started/your-authtoken
+4. **複製您的 Authtoken**（格式如：`2a...`）
+5. **儲存此 token**——首次啟動機器人的 Web 伺服器時需要輸入
+
+---
+
+## 6. 專案安裝
+
+### 步驟 6.1：複製儲存庫
+
+導航到您的家目錄並複製專案：
+
+```bash
+cd ~
+git clone https://github.com/Nilcreator/NinjaRobotV5.git
+cd NinjaRobotV5
+```
+
+### 步驟 6.2：建立虛擬環境
+
+最佳做法是在虛擬環境中安裝 Python 套件以避免衝突。
+
+```bash
+uv venv
+source .venv/bin/activate
+```
+
+您應該會在終端機行首看到 `(NinjaRobotV5)` 或 `(.venv)`。
+
+### 步驟 6.3：安裝所有依賴項
+
+現在將專案依賴項安裝到虛擬環境中：
+
+```bash
+uv pip install -e .
+```
+
+這將：
+- 安裝所有 Python 依賴項
+- 以可編輯模式設定機器人的所有函式庫
+- 使所有 CLI 命令可用
+
+安裝可能需要 5-10 分鐘。
+
+### 步驟 6.4：驗證安裝
+
+檢查主命令是否可用：
+
+```bash
+ninja_core --help
+```
+
+您應該會看到可用命令的清單，如 `chat`、`server`、`config` 等。
+
+---
+
+## 7. 硬體校準
+
+在執行機器人之前，您需要校準伺服馬達並設定硬體。
+
+### 步驟 7.1：設定蜂鳴器
+
+告訴系統蜂鳴器連接到哪個 GPIO 腳位：
+
+```bash
+uv run pi0buzzer init 17
+```
+
+測試蜂鳴器：
+
+```bash
+uv run pi0buzzer beep
+```
+
+您應該會聽到一聲短促的嗶聲。
+
+### 步驟 7.2：測試距離感測器
+
+測試感測器：
+
+```bash
+uv run pi0vl53l0x get --count 5 --interval 1.0
+```
+
+您應該會看到 5 個以毫米為單位的距離測量值。
+
+### 步驟 7.3：校準伺服馬達
+
+每個伺服馬達需要校準以定義其最小、中心和最大位置。
+
+對於每個伺服馬達（以 GPIO 20 為例）：
+
+```bash
+uv run pi0servo calib 20
+```
+
+按照螢幕上的指示：
+1. 按 `v` 選擇 **Min**（最小）位置
+2. 使用 **上/下** 方向鍵進行大幅調整，**w/s** 進行微調
+3. 當伺服馬達處於最小位置時，按 **Enter** 儲存
+4. 按 `c` 選擇 **Center**（中心）位置，調整後按 **Enter**
+5. 按 `x` 選擇 **Max**（最大）位置，調整後按 **Enter**
+6. 按 `q` 退出
+
+**對所有 8 個伺服馬達重複此操作**（GPIO 腳位：20 到 27）
+
+### 步驟 7.4：匯入硬體設定
+
+校準所有伺服馬達後，匯入設定：
+
+```bash
+uv run ninja_core config import
+```
+
+您應該會看到：
+```
+Found servo config at 'servo.json'. Importing...
+Found buzzer config at 'buzzer.json'. Importing...
+Configuration updated and saved to config.json!
+```
+
+### 步驟 7.5：設定 Gemini API 金鑰
+
+使用您的 API 金鑰設定 AI 代理（將 `YOUR_API_KEY` 替換為實際金鑰）：
+
+```bash
+uv run ninja_core config set-key gemini YOUR_API_KEY
+```
+
+---
+
+## 8. 功能測試
+
+現在讓我們逐一測試每個元件。
+
+### 測試 8.1：顯示器測試
+
+使用圖片測試 LCD 螢幕：
+
+```bash
+uv run pi0disp image assets/images/sample_face.jpg
+```
+
+您應該會在顯示器上看到一張亮度變化的圖片。
+
+測試動畫：
+
+```bash
+uv run pi0disp ball_anime --num-balls 5
+```
+
+按 **Ctrl+C** 停止。
+
+### 測試 8.2：伺服馬達動作測試
+
+將伺服馬達移動到中心位置：
+
+```bash
+uv run pi0servo servo 20 center
+```
+
+GPIO 20 上的伺服馬達應該移動到 0 度。
+
+嘗試其他位置：
+
+```bash
+uv run pi0servo servo 20 45
+uv run pi0servo servo 20 -45
+uv run pi0servo servo 20 max
+```
+
+### 測試 8.3：聲音測試
+
+播放旋律：
+
+```bash
+uv run pi0buzzer playmusic
+```
+
+### 測試 8.4：距離感測器性能
+
+測量感測器速度：
+
+```bash
+uv run pi0vl53l0x performance --count 100
+```
+
+### 測試 8.5：AI 代理測試（文字聊天）
+
+在終端機模式下測試 AI 聊天：
+
+```bash
+uv run ninja_core chat
+```
+
+嘗試這些命令：
+- `Hello`（機器人應該會問候您）
+- `Show me a happy face`（顯示開心表情和聲音）
+- `こんにちは`（以日語回應）
+- `你好`（以中文回應）
+- 輸入 `quit` 或按 **Ctrl+C** 退出
+
+> [!NOTE]
+> 機器人會持續監測距離，如果您靠得太近（<50mm）會做出反應。
+
+---
+
+## 9. 啟動機器人
+
+### 啟動 Web 伺服器
+
+這是與機器人互動的主要方式：
+
+```bash
+uv run ninja_core server
+```
+
+**首次執行時**，系統會提示您輸入 **ngrok authtoken**（來自步驟 5.2）。貼上並按 Enter。
+
+機器人將會：
+1. 初始化所有硬體
+2. 啟動 Web 伺服器
+3. 透過 ngrok 建立公開 URL
+4. 在螢幕上顯示 QR 碼
+
+### 存取 Web 介面
+
+您有兩個選項：
+
+#### 選項 A：掃描 QR 碼（建議）
+
+使用手機掃描機器人螢幕上顯示的 QR 碼。這將在手機瀏覽器中開啟 Web 介面。
+
+#### 選項 B：區域網路
+
+在同一 WiFi 網路上的任何裝置上，開啟瀏覽器並前往：
+```
+http://ninjarobot.local:8000
+```
+（如果主機名稱不同，請替換 `ninjarobot`）
+
+### Web 介面功能
+
+連接後，您可以：
+
+1. **與機器人聊天**：
+   - 在文字方塊中輸入訊息
+   - 或點擊 **麥克風圖示** 並說話（先選擇語言）
+   - 機器人會以相同語言回應
+
+2. **控制伺服馬達**：
+   - 從下拉選單選擇動作
+   - 點擊 **執行**
+
+3. **顯示表情**：
+   - 選擇表情（開心、難過等）
+   - 點擊 **顯示**
+
+4. **播放聲音**：
+   - 選擇情緒聲音
+   - 點擊 **播放**
+
+5. **監測距離**：
+   - 即時距離讀數顯示在頂部
+
+### 支援的語言
+
+- **English**（en-US）- 英語
+- **日本語**（ja-JP）- 日語
+- **繁體中文**（zh-TW）
+- **简体中文**（zh-CN）- 簡體中文
+
+### 停止伺服器
+
+在終端機中按 **Ctrl+C** 停止伺服器。機器人將安全地關閉所有硬體。
+
+---
+
+## 10. 自動啟動（選用）
+
+如果您希望機器人在開機時自動啟動，請按照以下步驟操作。
+
+> [!IMPORTANT]
+> **前提條件：** 確保您已完成所有先前步驟，包括硬體校準和 API 金鑰設定。在啟用自動啟動之前，機器人必須完全正常運作。
+>
+> **Ngrok 要求：** 要讓自動啟動運作，您**必須**設定有效的 ngrok authtoken。如果缺少 token，服務將無法啟動以避免在背景掛起。
+
+### 步驟 10.1：安裝啟動服務
+
+執行以下命令：
+
+```bash
+uv run ninja_utils install-startup
+```
+
+這將會：
+1. 檢查您的系統是否準備就緒（config 存在、pigpiod 正在執行等）
+2. 建立 systemd 服務檔案
+3. 啟用服務以在開機時啟動
+
+### 步驟 10.2：驗證
+
+您可以檢查服務的狀態：
+
+```bash
+uv run ninja_utils status-startup
+```
+
+### 步驟 10.3：重新啟動
+
+重新啟動您的 Raspberry Pi：
+
+```bash
+sudo reboot
+```
+
+機器人應該會自動啟動。一兩分鐘後，您可以透過 QR 碼或 `http://ninjarobot.local:8000` 存取 Web 介面。
+
+> [!TIP]
+> **安全關機：** 您可以使用 Web 介面底部的電源滑桿安全地關閉機器人。等待 Raspberry Pi 上的綠燈停止閃爍後再拔掉電源。
+
+### 移除自動啟動
+
+如果您想停止機器人自動啟動：
+
+```bash
+uv run ninja_utils remove-startup
+```
+
+---
+
+## 11. 疑難排解
+
+### 問題：「Could not connect to pigpiod daemon」
+
+**解決方案**：
+```bash
+sudo pigpiod
+```
+
+然後再次嘗試執行您的命令。
+
+### 問題：顯示器無法運作
+
+**檢查項目**：
+1. 驗證 SPI 已啟用：`sudo raspi-config` → Interface Options → SPI
+2. 檢查接線是否與第 2 節的腳位表相符
+3. 重新啟動：`sudo reboot`
+
+### 問題：距離感測器沒有回應
+
+**檢查項目**：
+1. 驗證 I2C 已啟用：`sudo raspi-config` → Interface Options → I2C
+2. 檢查感測器是否被偵測到：
+   ```bash
+   sudo i2cdetect -y 1
+   ```
+   輸出中應該會看到 `29` 或 `52`
+3. 檢查接線（VCC 接 3.3V，不是 5V）
+
+### 問題：伺服馬達不動
+
+**檢查項目**：
+1. 確保外部 5V 電源已連接並開啟
+2. 驗證 Pi 與伺服馬達電源之間的共用接地
+3. 檢查伺服馬達訊號線連接
+4. 重新校準伺服馬達：`uv run pi0servo calib <PIN>`
+
+### 問題：「ImportError」或「ModuleNotFoundError」
+
+**解決方案**：
+重新安裝專案：
+```bash
+cd ~/NinjaRobotV5
+uv pip install -e . --force-reinstall
+```
+
+### 問題：Web 伺服器無法啟動
+
+**檢查項目**：
+1. 確保連接埠 8000 沒有被佔用
+2. 檢查 ngrok authtoken 是否正確設定
+3. 使用詳細輸出重新啟動伺服器：
+   ```bash
+   uv run ninja_core server --log-level debug
+   ```
+
+### 問題：AI 代理沒有回應
+
+**檢查項目**：
+1. 驗證 Gemini API 金鑰已設定：
+   ```bash
+   cat config.json | grep gemini
+   ```
+2. 檢查網路連線
+3. 重新設定 API 金鑰：
+   ```bash
+   uv run ninja_core config set-key gemini YOUR_KEY
+   ```
+
+### 取得更多協助
+
+如果您遇到此處未涵蓋的問題：
+
+1. 查看專案的 GitHub Issues 頁面
+2. 查閱 `DevelopmentLog.md` 了解已知問題和修復
+3. 確保所有接線與圖表完全相符
+4. 執行個別元件測試（第 8 節）以隔離問題
+
+---
+
+## 後續步驟
+
+- **錄製自訂動作**：使用 `uv run ninja_core movement-tool` 建立和儲存伺服馬達編排
+- **自訂行為**：編輯 `config.json` 調整設定
+- **製作外殼**：設計機器人外殼並安裝所有元件
+- **探索程式碼**：查看 `ninja_core/README.md` 了解開發者文件
+
+**恭喜！** 您的 NinjaRobot V5 現在已準備就緒。盡情探索和實驗您的 AI 機器人吧！🤖
+

@@ -2,186 +2,116 @@
 
 <div align="center">
 
-**The Next-Gen Modular AI Robot Platform for Research and STEAM Education**
+![NinjaRobot Logo](assets/logo.png)
+
+**The Next-Generation AI-Powered Educational Robot Platform**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Platform: Raspberry Pi](https://img.shields.io/badge/platform-Raspberry%20Pi%20Zero%202W-red.svg)](https://www.raspberrypi.com/)
+[![AI: Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4.svg)](https://ai.google.dev/)
+
+[English](#english) | [日本語](#日本語) | [繁體中文](#繁體中文)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+# English
 
-- [Project Objective](#-project-objective)
-- [NinjaRobot V5 Overview](#-ninjarobot-v5-overview)
-- [New V5 Features](#-new-v5-features)
-- [System Architecture](#-system-architecture)
-- [Library Introduction](#-library-introduction)
-- [Getting Started](#-getting-started)
-- [Documentation](#-documentation)
-- [Current Status](#-current-status)
-- [License](#-license)
+## 🎯 Project Overview
 
----
+**NinjaRobot V5** is an advanced, modular AI robot platform designed for Research and STEAM Education. Built on the Raspberry Pi Zero 2W, it combines cutting-edge AI capabilities with an intuitive web interface, making robotics accessible to learners of all ages.
 
-## 🎯 Project Objective
+Unlike traditional educational robots, NinjaRobot features an **Agentic AI** powered by Google Gemini that can understand natural language, execute commands, and even generate code to learn new behaviors autonomously.
 
-**NinjaRobot V5** represents the evolution of the NinjaRobot platform. While maintaining the core mission of accessible **AI-integrated Robot Research and STEAM Education**, V5 shifts focus to **modularity**, **connectivity**, and **agentic AI**.
+## 🤖 Robot Specifications
 
-We aim to create a robot that:
-- **Adapts to Hardware**: Users can swap sensors and actuators as easily as installing a plugin.
-- **Connects Instantly**: No complex WiFi setup required—connect directly via Bluetooth for instant local control.
-- **Teaches Visually**: Programs can be built with blocks, making logic accessible to beginners.
-- **Codes Itself**: The AI doesn't just chat; it writes code to learn new skills on the fly.
+### Hardware
 
----
+| Component | Specification |
+|-----------|---------------|
+| **Brain** | Raspberry Pi Zero 2W (Quad-core ARM Cortex-A53, 512MB RAM) |
+| **Display** | 1.3" ST7789V TFT LCD (240×240 pixels) |
+| **Distance Sensor** | VL53L0X Time-of-Flight (up to 2m range) |
+| **Sound** | Passive Buzzer (GPIO 17) |
+| **Movement** | 8× Servo Motors (GPIO 20-27) |
+| **Connectivity** | WiFi 802.11n, Bluetooth 4.2 LE |
 
-## 🤖 NinjaRobot V5 Overview
+### Software Stack
 
-### What is NinjaRobot V5?
+| Layer | Technology |
+|-------|------------|
+| **Backend** | FastAPI + Uvicorn |
+| **AI Agent** | Google Gemini (gemini-3-flash-preview) |
+| **Frontend** | React 18 + Vite + react-i18next |
+| **BLE Service** | bless (GATT Server) |
+| **Hardware Control** | pigpio + Custom Drivers |
 
-NinjaRobot V5 is an advanced, plugin-based robotics platform powered by a **Raspberry Pi Zero 2W**. It utilizes **Google Gemini** not just for conversation, but as a "coding partner" that runs directly on the robot. It features a new **Hardware Abstraction Layer (HAL)** that allows for dynamic driver loading, making it fully sensor-agnostic.
+## ✨ Key Features
 
-### Key Features (V5)
+### 🧠 Agentic AI
+- **Natural Language Understanding**: Chat with your robot in English, Japanese, or Chinese
+- **Action Planning**: AI automatically translates requests into robot actions
+- **Code Generation**: AI can write Python code to create new robot behaviors
+- **Voice Input**: Speak commands using your device's microphone
 
-#### 🧩 **Hyper-Modularity**
-- **Plugin-Based HAL**: Hardware drivers are loaded dynamically from `config.json`.
-- **Sensor Agnostic**: Swap the VL53L0X Time-of-Flight sensor for an Ultrasonic sensor or LiDAR without rewriting application code.
-- **Unified Interfaces**: All components adhere to strict `Sensor` and `Actuator` protocols.
+### 📱 Modern Web Interface
+- **Mobile-First Design**: Optimized for smartphones and tablets
+- **Real-Time Feedback**: WebSocket-powered distance sensor display
+- **Hardware Controls**: Trigger expressions, sounds, and movements
+- **System Log Panel**: Monitor robot activities in real-time
+- **Multi-Language UI**: Switch between EN, JA, ZH-TW, ZH-CN
 
-#### 🔗 **Dual Connectivity (Hybrid Mode)**
-NinjaRobot V5 offers two simultaneous ways to connect, ensuring flexibility for any scenario:
-1.  **Local Bluetooth (BLE)**: Instant, zero-setup control via Web Bluetooth or mobile app. Best for classrooms and quick demos.
-2.  **Remote Web Control (ngrok)**: Full AI interaction and telepresence via a secure public tunnel. Best for remote research.
-**Both modes work simultaneously** via a unified Command Dispatcher.
+### 🔗 Dual Connectivity
+- **Local Wi-Fi**: Direct control via `http://ninjarobot.local:8000`
+- **Bluetooth LE**: Zero-setup mobile app connection
+- **Remote Access**: ngrok tunnel for telepresence
 
-#### 🧩 **Visual Programming (Blockly)**
-- **Drag-and-Drop Coding**: Integrated **Google Blockly** interface allows users to program robot movements, sounds, and logic visually.
-- **Real-time Deployment**: Blocks are converted to Python and executed safely on the robot instantly.
-- **Education First**: Perfect for STEAM workshops to teach programming concepts without syntax errors.
+### 🛡️ Safety First
+- **Sandboxed Execution**: User/AI-generated code runs in a restricted environment
+- **Emergency Stop**: Instant halt capability for all motors
+- **Graceful Shutdown**: Safe power-off via web interface slider
 
-#### 🧠 **Agentic AI Coding**
-- **Self-Programming**: The AI agent can generate executable Python code to create new behaviors (e.g., "Create a dance that reacts to loud noises").
-- **Sandboxed Execution**: Generated code runs in a safe, restricted environment.
-- **Context Awareness**: The agent understands the robot's current hardware configuration and API availability.
-
----
-
-## 🏗️ System Architecture
-
-NinjaRobot V5 introduces a modular architecture with a new Bluetooth layer and dynamic driver loading.
-
-```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                           USER INTERFACES                                 │
-│  ┌────────────────┐  ┌───────────────┐  ┌─────────────┐  ┌────────────┐   │
-│  │ Blockly Editor │  │  Web Client   │  │ Mobile APP  │  │ Voice / CLI│   │
-│  │ (Visual Code)  │  │  (WebSocket)  │  │ (Bluetooth) │  │ (Term)     │   │
-│  └───────┬────────┘  └──────┬────────┘  └──────┬──────┘  └──────┬─────┘   │
-└──────────┼──────────────────┼──────────────────┼────────────────┼─────────┘
-           │                  │                  │                │
-┌──────────▼──────────────────▼──────────────────▼────────────────▼─────────┐
-│                          APPLICATION LAYER                                │
-│  ┌────────────────────────────────────────────────────────────────────┐   │
-│  │           ninja_core (Unified Orchestration)                       │   │
-│  │  ┌──────────────────────────────────────────────────────────────┐  │   │
-│  │  │         Command Dispatcher & Safe Executor                   │  │   │
-│  │  └──────┬──────────────┬───────────────┬───────────┬────────────┘  │   │
-│  │         │              │               │           │               │   │
-│  │  ┌──────▼─────┐  ┌─────▼──────┐  ┌─────▼───────┐ ┌─▼─────────┐     │   │
-│  │  │ Web Server │  │ BLE Service│  │ NinjaAgent  │ │Code Sandbox│    │   │
-│  │  └────────────┘  └────────────┘  └─────────────┘ └───────────┘     │   │
-│  └────────────────────────────────────────────────────────────────────┘   │
-│  ┌────────────────────────────────────────────────────────────────────┐   │
-│  │     Hardware Abstraction Layer (Dynamic HAL)                       │   │
-│  │       (Loads drivers based on config.json)                         │   │
-│  └────────────────────────────────────────────────────────────────────┘   │
-│             ▲                    ▲                   ▲                    │
-└─────────────┼────────────────────┼───────────────────┼────────────────────┘
-              │ Implements         │ Implements        │                    │
-┌─────────────▼──────┐   ┌─────────▼───────┐   ┌───────▼──────┐             │
-│   ninja_interfaces │   │ ninja_interfaces│   │ ...          │             │
-│      (Sensor)      │   │   (Actuator)    │   │              │             │
-└─────────────┬──────┘   └─────────┬───────┘   └──────────────┘             │
-              │                    │                                        │
-┌─────────────▼──────┐   ┌─────────▼───────┐   ┌──────────────┐             │
-│  pi0vl53l0x        │   │  pi0servo       │   │ pi0disp      │             │
-│  (Driver)          │   │  (Driver)       │   │ (Driver)     │             │
-└─────────────┬──────┘   └─────────┬───────┘   └───────┬──────┘             │
-                                   │                   │                    │
-┌──────────────────────────────────▼───────────────────▼────────────────────┐
-│                    HARDWARE (Raspberry Pi)                                │
-└───────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📚 Library Introduction
-
-NinjaRobot V5 consists of specific packages optimized for modularity.
-
-### 🧩 Core & Utils
-
-- **`ninja_core`**: The brain. Contains the Agent, Web Server, BLE Service, and Dynamic HAL.
-- **`ninja_utils`**: Shared utilities and **new Interface Definitions** (`Sensor`, `Actuator`).
-- **`ninja_ble`** *(New - Phase 2)*: Bluetooth Low Energy GATT server for wireless control.
-
-### 🛠️ Hardware Drivers (Plugins)
-
-These libraries now implement standard interfaces:
-
-- **`pi0servo`**: Servo controller (implements `Actuator`).
-- **`pi0disp`**: ST7789V Display driver (implements `Actuator`).
-- **`pi0vl53l0x`**: Distance sensor driver (implements `Sensor`).
-- **`pi0buzzer`**: Sound driver (implements `Actuator`).
-
----
-
-## 🚀 Getting Started
-
-### Quick Installation
+## 🚀 Quick Start
 
 ```bash
 # Clone the repository
 git clone https://github.com/Nilcreator/NinjaRobotV5.git
 cd NinjaRobotV5
 
-# Install everything (using uv)
+# Install dependencies (using uv)
 uv pip install -e .
 
-# Configure your hardware (V5 Style)
-# Create a config that specifies which drivers to use
-uv run ninja_core config init --defaults
+# Build the web interface
+cd ninja_webapp && npm install && npm run build && cd ..
 
-# Start the robot (BLE + Web)
-uv run ninja_core start
+# Start the robot
+uv run ninja_core server
 ```
 
-### Documentation Links
-- **[Development Plan (V5)](DevelopmentPlan.md)** - The roadmap for V5 features.
-- **[Development Guide](DevelopmentGuide.md)** - Technical API reference.
-- **[Installation Guide](InstallationGuide.md)** - Setup instructions.
+Then open `http://ninjarobot.local:8000` in your browser!
 
----
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](InstallationGuide.md) | Hardware setup and software installation |
+| [Development Guide](DevelopmentGuide.md) | API reference and architecture overview |
+| [Development Plan](DevelopmentPlan.md) | Project roadmap and phase details |
+| [Development Log](DevelopmentLog.md) | Change history and version notes |
 
 ## 📊 Current Status
 
-**Development Phase:** **V5 Phase 5 Complete ✅**
+**Version:** 5.1.0  
+**Status:** Phase 5 Complete ✅
 
-Phase 5 (Web Interface) has been implemented and verified.
-
-- ✅ **V4 Base**: Stable web control, ngrok remote access, basic AI agent.
-- ✅ **Health Check**: Comprehensive codebase review completed (2025-12-30).
-- ✅ **Modularity (Phase 1)**: ABCs created, HAL refactored, all drivers updated. **VERIFIED.**
-- ✅ **Connectivity (Phase 2)**: BLE integration complete. AI Chat via Bluetooth working! **VERIFIED (2025-12-31)**
-- ✅ **Protocol (Phase 3)**: BLE chunking protocol, unified command routing. **VERIFIED (2026-01-03)**
-- ✅ **Backend Intelligence (Phase 4)**: SafeExecutor, NinjaCoderAgent, API Wrappers. **VERIFIED (2026-01-04)**
-- ✅ **Web Interface (Phase 5)**: React SPA (`ninja_webapp`) with Agent chat, hardware controls, slidable log panel. **VERIFIED (2026-01-04)**
-
-
----
+All core features have been implemented and verified:
+- ✅ Modular Hardware Abstraction Layer
+- ✅ Dual Connectivity (Wi-Fi + BLE)
+- ✅ Agentic AI with Action Planning
+- ✅ Safe Code Execution Engine
+- ✅ React Web Application
 
 ## 📄 License
 
@@ -190,139 +120,102 @@ This project is licensed under the **MIT License**.
 **Copyright © 2025 Chihkuang Chang**
 
 ---
----
 
-# NinjaRobot V5 (日本語版)
+# 日本語
 
-<div align="center">
+## 🎯 プロジェクト概要
 
-**研究とSTEAM教育のための、次世代モジュール型AIロボットプラットフォーム**
+**NinjaRobot V5**は、研究およびSTEAM教育向けに設計された先進的なモジュール式AIロボットプラットフォームです。Raspberry Pi Zero 2Wをベースに構築され、最先端のAI機能と直感的なWebインターフェースを組み合わせ、あらゆる年齢の学習者がロボット工学にアクセスできるようにしています。
 
-</div>
+従来の教育用ロボットとは異なり、NinjaRobotはGoogle Geminiを搭載した**エージェント型AI**を特徴とし、自然言語を理解し、コマンドを実行し、さらには自律的に新しい動作を学習するためのコードを生成することができます。
 
----
+## 🤖 ロボット仕様
 
-## 📋 目次
+### ハードウェア
 
-- [プロジェクトの目的](#-プロジェクトの目的)
-- [NinjaRobot V5の概要](#-ninjarobot-v5の概要)
-- [V5の新機能](#-v5の新機能)
-- [システム構成](#-システム構成-1)
-- [ライブラリの紹介](#-ライブラリの紹介-1)
-- [はじめに](#-はじめに-1)
-- [現在の状況](#-現在の状況-1)
+| コンポーネント | 仕様 |
+|---------------|------|
+| **頭脳** | Raspberry Pi Zero 2W（クアッドコアARM Cortex-A53、512MB RAM） |
+| **ディスプレイ** | 1.3インチ ST7789V TFT LCD（240×240ピクセル） |
+| **距離センサー** | VL53L0X ToF（最大2m測定可能） |
+| **音声** | パッシブブザー（GPIO 17） |
+| **動作** | 8×サーボモーター（GPIO 20-27） |
+| **接続** | WiFi 802.11n、Bluetooth 4.2 LE |
 
----
+### ソフトウェアスタック
 
-## 🎯 プロジェクトの目的
+| レイヤー | 技術 |
+|---------|------|
+| **バックエンド** | FastAPI + Uvicorn |
+| **AIエージェント** | Google Gemini（gemini-3-flash-preview） |
+| **フロントエンド** | React 18 + Vite + react-i18next |
+| **BLEサービス** | bless（GATTサーバー） |
+| **ハードウェア制御** | pigpio + カスタムドライバー |
 
-**NinjaRobot V5**は、NinjaRobotプラットフォームの進化形です。**AI統合ロボット研究とSTEAM教育**という核心的な使命を維持しながら、V5では**モジュール性**、**接続性**、そして**エージェント型AI**に焦点を移します。
+## ✨ 主な機能
 
-私たちが目指すロボット:
-- **ハードウェアへの適応**: プラグインをインストールするように、センサーやアクチュエーターを簡単に交換できる。
-- **瞬時の接続**: 複雑なWiFi設定は不要。Bluetoothで直接接続してローカルですぐに制御できる。
-- **視覚的に学ぶ**: ブロックを使ってプログラムを構築できるので、初心者でもプログラミングの論理を学べる。
-- **自己プログラミング**: AIは単におしゃべりするだけでなく、コードを書いて新しいスキルをその場で学習する。
+### 🧠 エージェント型AI
+- **自然言語理解**: 英語、日本語、中国語でロボットと会話
+- **アクションプランニング**: AIがリクエストを自動的にロボットのアクションに変換
+- **コード生成**: AIが新しいロボットの動作を作成するPythonコードを記述
+- **音声入力**: デバイスのマイクを使用してコマンドを話す
 
----
+### 📱 モダンなWebインターフェース
+- **モバイルファーストデザイン**: スマートフォンやタブレット向けに最適化
+- **リアルタイムフィードバック**: WebSocket対応の距離センサー表示
+- **ハードウェアコントロール**: 表情、音、動きをトリガー
+- **システムログパネル**: ロボットの活動をリアルタイムで監視
+- **多言語UI**: EN、JA、ZH-TW、ZH-CNで切り替え
 
-## 🤖 NinjaRobot V5の概要
+### 🔗 デュアル接続
+- **ローカルWi-Fi**: `http://ninjarobot.local:8000`経由で直接制御
+- **Bluetooth LE**: セットアップ不要のモバイルアプリ接続
+- **リモートアクセス**: テレプレゼンス用ngrokトンネル
 
-### NinjaRobot V5とは？
+### 🛡️ 安全第一
+- **サンドボックス実行**: ユーザー/AI生成コードは制限された環境で実行
+- **緊急停止**: すべてのモーターを即座に停止する機能
+- **安全なシャットダウン**: Webインターフェースのスライダーによる安全な電源オフ
 
-NinjaRobot V5は、**Raspberry Pi Zero 2W**で動作する、高度なプラグインベースのロボットプラットフォームです。**Google Gemini**を単なる会話相手としてだけでなく、ロボット上で直接動作する「コーディングパートナー」として活用します。動的ドライバー読み込みを可能にする新しい**ハードウェア抽象化レイヤー (HAL)** を備えており、センサーの種類に依存しません。
-
-### 主な機能 (V5)
-
-#### 🧩 **超モジュール性 (Hyper-Modularity)**
-- **プラグインベースHAL**: ハードウェアドライバーは`config.json`から動的に読み込まれます。
-- **センサー非依存**: アプリケーションコードを書き換えることなく、VL53L0X距離センサーを超音波センサーやLiDARに交換できます。
-- **統一インターフェース**: すべてのコンポーネントは厳格な`Sensor`および`Actuator`プロトコルに準拠します。
-
-#### 🔗 **デュアル接続 (ハイブリッドモード)**
-NinjaRobot V5は、あらゆるシナリオに対応するために、2つの同時接続方法を提供します:
-1.  **ローカルBluetooth (BLE)**: Web Bluetoothやモバイルアプリで瞬時に接続。教室やデモに最適。
-2.  **リモートWeb制御 (ngrok)**: ngrok経由の安全なトンネルで、どこからでもAI対話や制御が可能。
-
-#### 🧩 **ビジュアルプログラミング (Blockly)**
-- **ドラッグ＆ドロップ**: **Google Blockly**インターフェースを統合し、ロボットの動作や音、ロジックを視覚的にプログラムできます。
-- **リアルタイム実行**: ブロックはPythonに変換され、瞬時にロボット上で安全に実行されます。
-- **教育ファースト**: 構文エラーを気にせずプログラミング概念を教えるSTEAMワークショップに最適です。
-
-#### 🧠 **エージェント型AIコーディング**
-- **自己プログラミング**: AIエージェントは実行可能なPythonコードを生成して、新しい振る舞いを作成できます（例：「大きな音に反応して踊るダンスを作って」）。
-- **サンドボックス実行**: 生成されたコードは、安全で制限された環境で実行されます。
-- **文脈認識**: エージェントはロボットの現在のハードウェア構成とAPIの可用性を理解しています。
-
----
-
-## 🏗️ システム構成
-
-NinjaRobot V5は、新しいBluetoothレイヤーと動的ドライバー読み込みを備えたモジュール型アーキテクチャを導入しています。
-
-*(アーキテクチャ図は英語版を参照してください)*
-
----
-
-## 📚 ライブラリの紹介
-
-NinjaRobot V5は、モジュール性のために最適化された特定のパッケージで構成されています。
-
-### 🧩 コア & ユーティリティ
-
-- **`ninja_core`**: 頭脳。エージェント、Webサーバー、BLEサービス、動的HALを含みます。
-- **`ninja_utils`**: 共有ユーティリティと**新しいインターフェース定義** (`Sensor`, `Actuator`)。
-- **`ninja_ble`** *(新規)*: 専用のBluetooth Low Energyスタック。
-
-### 🛠️ ハードウェアドライバー (プラグイン)
-
-これらのライブラリは、標準インターフェースを実装するようになります:
-
-- **`pi0servo`**: サーボコントローラー (`Actuator`を実装)。
-- **`pi0disp`**: ST7789Vディスプレイドライバー (`Actuator`を実装)。
-- **`pi0vl53l0x`**: 距離センサードライバー (`Sensor`を実装)。
-- **`pi0buzzer`**: サウンドドライバー (`Actuator`を実装)。
-
----
-
-## 🚀 はじめに
-
-### クイックインストール
+## 🚀 クイックスタート
 
 ```bash
 # リポジトリをクローン
 git clone https://github.com/Nilcreator/NinjaRobotV5.git
 cd NinjaRobotV5
 
-# すべてをインストール (uvを使用)
+# 依存関係をインストール（uvを使用）
 uv pip install -e .
 
-# ハードウェアの設定 (V5スタイル)
-# どのドライバーを使用するかを指定する設定を作成
-uv run ninja_core config init --defaults
+# Webインターフェースをビルド
+cd ninja_webapp && npm install && npm run build && cd ..
 
-# ロボットを起動 (BLE + Web)
-uv run ninja_core start
+# ロボットを起動
+uv run ninja_core server
 ```
 
----
+ブラウザで `http://ninjarobot.local:8000` を開いてください！
 
-## 📊 現在の状況
+## 📚 ドキュメント
 
-**開発フェーズ:** **V5 フェーズ4 完了 ✅**
+| ドキュメント | 説明 |
+|-------------|------|
+| [インストールガイド](InstallationGuide.md) | ハードウェアセットアップとソフトウェアインストール |
+| [開発ガイド](DevelopmentGuide.md) | APIリファレンスとアーキテクチャ概要 |
+| [開発計画](DevelopmentPlan.md) | プロジェクトロードマップとフェーズ詳細 |
+| [開発ログ](DevelopmentLog.md) | 変更履歴とバージョンノート |
 
-フェーズ4（バックエンドコア＆エージェント知能）の実装と検証が完了しました。
+## 📊 現在のステータス
 
-- ✅ **V4ベース**: 安定したWeb制御、ngrokリモートアクセス、基本的なAIエージェント。
-- ✅ **ヘルスチェック**: 包括的なコードベースレビュー完了 (2025-12-30)。
-- ✅ **モジュール性（フェーズ1)**: ABC作成、HALリファクタリング、全ドライバー更新完了。**検証済み。**
-- ✅ **接続性（フェーズ2)**: BLE統合完了。Bluetooth経由のAIチャット動作確認済み！**(2025-12-31検証済み)**
-- ✅ **プロトコル（フェーズ3)**: BLEチャンキング、統一コマンドルーティング。**(2026-01-03検証済み)**
-- ✅ **バックエンド知能（フェーズ4)**: SafeExecutor、NinjaCoderAgent、APIラッパー、WebSocketイベント。**(2026-01-04検証済み)**
-- 📅 **ビジュアルプログラミング（フェーズ5)**: Web UI刷新とBlockly統合を計画中。
+**バージョン:** 5.1.0  
+**ステータス:** フェーズ5完了 ✅
 
-
----
+すべてのコア機能が実装・検証されました：
+- ✅ モジュール式ハードウェア抽象化レイヤー
+- ✅ デュアル接続（Wi-Fi + BLE）
+- ✅ アクションプランニング付きエージェント型AI
+- ✅ 安全なコード実行エンジン
+- ✅ React Webアプリケーション
 
 ## 📄 ライセンス
 
@@ -331,3 +224,113 @@ uv run ninja_core start
 **Copyright © 2025 Chihkuang Chang**
 
 ---
+
+# 繁體中文
+
+## 🎯 專案概述
+
+**NinjaRobot V5**是一個為研究與STEAM教育設計的先進模組化AI機器人平台。基於Raspberry Pi Zero 2W構建，結合尖端AI功能與直覺的網頁介面，讓各年齡層的學習者都能輕鬆接觸機器人技術。
+
+與傳統教育機器人不同，NinjaRobot搭載由Google Gemini驅動的**代理式AI**，能夠理解自然語言、執行指令，甚至自主生成程式碼來學習新行為。
+
+## 🤖 機器人規格
+
+### 硬體
+
+| 元件 | 規格 |
+|------|------|
+| **大腦** | Raspberry Pi Zero 2W（四核心 ARM Cortex-A53，512MB RAM） |
+| **顯示器** | 1.3吋 ST7789V TFT LCD（240×240像素） |
+| **距離感測器** | VL53L0X ToF（最遠2公尺） |
+| **音效** | 被動蜂鳴器（GPIO 17） |
+| **動作** | 8×伺服馬達（GPIO 20-27） |
+| **連線** | WiFi 802.11n、藍牙 4.2 LE |
+
+### 軟體架構
+
+| 層級 | 技術 |
+|------|------|
+| **後端** | FastAPI + Uvicorn |
+| **AI代理** | Google Gemini（gemini-3-flash-preview） |
+| **前端** | React 18 + Vite + react-i18next |
+| **BLE服務** | bless（GATT伺服器） |
+| **硬體控制** | pigpio + 自訂驅動程式 |
+
+## ✨ 主要功能
+
+### 🧠 代理式AI
+- **自然語言理解**：用英文、日文或中文與機器人對話
+- **動作規劃**：AI自動將請求轉換為機器人動作
+- **程式碼生成**：AI能撰寫Python程式碼來創建新的機器人行為
+- **語音輸入**：使用裝置麥克風說出指令
+
+### 📱 現代化網頁介面
+- **行動優先設計**：針對智慧型手機和平板優化
+- **即時回饋**：WebSocket驅動的距離感測器顯示
+- **硬體控制**：觸發表情、音效和動作
+- **系統日誌面板**：即時監控機器人活動
+- **多語言介面**：支援EN、JA、ZH-TW、ZH-CN切換
+
+### 🔗 雙重連線
+- **本地Wi-Fi**：透過`http://ninjarobot.local:8000`直接控制
+- **藍牙LE**：免設定的行動應用程式連線
+- **遠端存取**：ngrok通道實現遠端遙控
+
+### 🛡️ 安全至上
+- **沙盒執行**：使用者/AI生成的程式碼在受限環境中執行
+- **緊急停止**：即時停止所有馬達的功能
+- **安全關機**：透過網頁介面滑桿安全關閉電源
+
+## 🚀 快速開始
+
+```bash
+# 複製儲存庫
+git clone https://github.com/Nilcreator/NinjaRobotV5.git
+cd NinjaRobotV5
+
+# 安裝相依套件（使用uv）
+uv pip install -e .
+
+# 建置網頁介面
+cd ninja_webapp && npm install && npm run build && cd ..
+
+# 啟動機器人
+uv run ninja_core server
+```
+
+然後在瀏覽器開啟 `http://ninjarobot.local:8000`！
+
+## 📚 文件
+
+| 文件 | 說明 |
+|------|------|
+| [安裝指南](InstallationGuide.md) | 硬體設定與軟體安裝 |
+| [開發指南](DevelopmentGuide.md) | API參考與架構概述 |
+| [開發計畫](DevelopmentPlan.md) | 專案路線圖與階段詳情 |
+| [開發日誌](DevelopmentLog.md) | 變更歷史與版本說明 |
+
+## 📊 目前狀態
+
+**版本：** 5.1.0  
+**狀態：** 第五階段完成 ✅
+
+所有核心功能已實作並驗證：
+- ✅ 模組化硬體抽象層
+- ✅ 雙重連線（Wi-Fi + BLE）
+- ✅ 具動作規劃的代理式AI
+- ✅ 安全程式碼執行引擎
+- ✅ React網頁應用程式
+
+## 📄 授權
+
+本專案採用**MIT授權**。
+
+**Copyright © 2025 Chihkuang Chang**
+
+---
+
+<div align="center">
+
+Made with ❤️ for Education and Research
+
+</div>

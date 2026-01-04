@@ -16,7 +16,7 @@ import tempfile
 from fastapi import FastAPI, APIRouter, Request, HTTPException, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+
 from pydantic import BaseModel
 from pyngrok import ngrok, conf
 
@@ -31,7 +31,7 @@ from .ninja_coder import NinjaCoderAgent
 
 # --- Configuration ---
 base_dir = Path(__file__).parent
-templates = Jinja2Templates(directory=str(base_dir / "templates"))
+
 
 # React SPA dist path (built from ninja_webapp)
 WEBAPP_DIST = base_dir.parents[2] / "ninja_webapp" / "dist"
@@ -615,15 +615,9 @@ if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
     if legacy_static.exists():
         app.mount("/static", StaticFiles(directory=str(legacy_static)), name="static")
 else:
-    print("⚠️ React SPA not found. Falling back to legacy templates.")
-    print("   👉 ACTION REQUIRED: The 'dist' folder is missing on the robot.")
-    print("   1. If using git: I have updated .gitignore. Please commit 'ninja_webapp/dist' and pull on the robot.")
-    print("   2. Or manually copy 'ninja_webapp/dist' to the robot.")
-
-    # Legacy static files
-    legacy_static = base_dir / "static" # Define legacy_static here for the else block
-    if legacy_static.exists():
-        app.mount("/static", StaticFiles(directory=str(base_dir / "static")), name="static")
+    print("⚠️ React SPA not found at:", WEBAPP_DIST)
+    print("   👉 ACTION REQUIRED: Build ninja_webapp first!")
+    print("   cd ninja_webapp && npm run build")
 
 app.include_router(api_router)
 
@@ -637,9 +631,12 @@ async def read_root(request: Request):
     if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
         return FileResponse(WEBAPP_DIST / "index.html")
     
-    # Fallback to legacy template
-    print("Serving Legacy Index (SPA not found)")
-    return templates.TemplateResponse("index.html", {"request": request})
+    # SPA not available - return error
+    return HTMLResponse(
+        content="<html><body><h1>NinjaRobot Web Interface</h1>"
+                "<p>React SPA not built. Run: <code>cd ninja_webapp && npm run build</code></p></body></html>",
+        status_code=503
+    )
 
 # SPA catch-all route for client-side routing (must be after API routes)
 @app.get("/{full_path:path}")
@@ -657,8 +654,11 @@ async def serve_spa(full_path: str, request: Request):
     if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
         return FileResponse(WEBAPP_DIST / "index.html")
     
-    # Fallback to legacy template
-    return templates.TemplateResponse("index.html", {"request": request})
+    # SPA not available
+    return HTMLResponse(
+        content="<html><body><h1>404 - Page Not Found</h1><p>SPA not built.</p></body></html>",
+        status_code=404
+    )
 
 @app.websocket("/ws/distance")
 async def websocket_distance(websocket: WebSocket):
