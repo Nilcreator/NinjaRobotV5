@@ -1,6 +1,6 @@
 /**
  * @file Home/index.jsx
- * @description Home page with quick action buttons and power-off slider.
+ * @description Home page with hero image and power-off slider.
  */
 
 import { Link } from 'react-router-dom';
@@ -13,27 +13,30 @@ function Home() {
     const { t } = useTranslation();
 
     return (
-        <div className={styles.home}>
-            <div className={styles.hero}>
-                <span className={styles.logo}>🥷</span>
-                <h1>{t('home.welcome')}</h1>
+        <div className={styles.homePage}>
+            {/* Hero Section */}
+            <div className={styles.heroSection}>
+                <img
+                    src="/robot-hero.png"
+                    alt="NinjaRobot"
+                    className={styles.heroImage}
+                />
+                <h1 className={styles.title}>{t('home.welcome')}</h1>
                 <p className={styles.subtitle}>{t('home.subtitle')}</p>
 
-                <div className={styles.actions}>
-                    <Link to="/agent">
-                        <Button variant="cta" size="large">
-                            💬 {t('home.chatButton')}
-                        </Button>
-                    </Link>
-                </div>
+                <Link to="/agent" className={styles.ctaLink}>
+                    <Button variant="cta" size="large">
+                        💬 {t('home.chatButton')}
+                    </Button>
+                </Link>
+            </div>
 
-                {/* System Control - Power Off Slider */}
-                <div className={styles.systemControl}>
-                    <h3 className={styles.controlTitle}>
-                        ⚡ {t('home.systemTitle') || 'System Control'}
-                    </h3>
-                    <PowerOffSlider />
-                </div>
+            {/* System Control Section */}
+            <div className={styles.systemSection}>
+                <h3 className={styles.sectionTitle}>
+                    ⚡ {t('home.systemTitle') || 'System Control'}
+                </h3>
+                <PowerOffSlider />
             </div>
         </div>
     );
