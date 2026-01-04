@@ -228,9 +228,37 @@ function Agent() {
         fetchCapabilities();
     }, []);
 
-    // ... (keep sendMessage, handleKeyPress, toggleVoiceRecording, auto-scroll logs)
+    // Trigger Action - Makes API call to execute hardware action
+    const triggerAction = async (type, name) => {
+        let apiPath = '';
+        switch (type) {
+            case 'expressions':
+                apiPath = `/api/display/expressions/${name}`;
+                break;
+            case 'sounds':
+                apiPath = `/api/sound/emotions/${name}`;
+                break;
+            case 'movements':
+                apiPath = `/api/servos/movements/${name}/execute`;
+                break;
+            default:
+                console.error("Unknown action type:", type);
+                return;
+        }
 
-    // Trigger Action Wrapper
+        try {
+            const res = await fetch(apiPath, { method: 'POST' });
+            const data = await res.json();
+            const timestamp = new Date().toLocaleTimeString();
+            setLogs(prev => [...prev, `[${timestamp}] ${type}: ${name} - ${data.status || 'done'}`].slice(-50));
+        } catch (error) {
+            console.error(`Failed to trigger ${type}/${name}:`, error);
+            const timestamp = new Date().toLocaleTimeString();
+            setLogs(prev => [...prev, `[${timestamp}] Error: ${type}/${name} failed`].slice(-50));
+        }
+    };
+
+    // Execute handler - maps dropdown selection to API call
     const handleExecute = (type) => {
         let name = '';
         if (type === 'expressions') name = selectedExpr;
@@ -239,9 +267,7 @@ function Agent() {
 
         if (!name) return;
         triggerAction(type, name);
-    }
-
-    // ...
+    };
 
     return (
         <div className={styles.agent}>

@@ -6,10 +6,71 @@
 
 import * as Blockly from 'blockly';
 
-// ... (existing code)
+// ============================================
+// MOTION BLOCKS (Servos)
+// ============================================
 
+Blockly.Blocks['ninja_servo_set'] = {
+    init: function () {
+        this.appendDummyInput()
+            .appendField('Set servo')
+            .appendField(new Blockly.FieldDropdown([
+                ['1', '0'],
+                ['2', '1'],
+                ['3', '2'],
+                ['4', '3'],
+                ['5', '4'],
+                ['6', '5'],
+                ['7', '6'],
+                ['8', '7']
+            ]), 'SERVO');
+        this.appendValueInput('ANGLE')
+            .setCheck('Number')
+            .appendField('to');
+        this.appendDummyInput()
+            .appendField('°');
+        this.setInputsInline(true);
+        this.setPreviousStatement(true, null);
+        this.setNextStatement(true, null);
+        this.setColour(160);
+        this.setTooltip('Set servo to a specific angle (0-180)');
+    }
+};
+
+Blockly.Blocks['ninja_servo_sweep'] = {
+    init: function () {
+        this.appendDummyInput()
+            .appendField('Sweep servo')
+            .appendField(new Blockly.FieldDropdown([
+                ['1', '0'],
+                ['2', '1'],
+                ['3', '2'],
+                ['4', '3'],
+                ['5', '4'],
+                ['6', '5'],
+                ['7', '6'],
+                ['8', '7']
+            ]), 'SERVO');
+        this.appendValueInput('FROM')
+            .setCheck('Number')
+            .appendField('from');
+        this.appendValueInput('TO')
+            .setCheck('Number')
+            .appendField('to');
+        this.appendValueInput('SPEED')
+            .setCheck('Number')
+            .appendField('speed');
+        this.setInputsInline(true);
+        this.setPreviousStatement(true, null);
+        this.setNextStatement(true, null);
+        this.setColour(160);
+        this.setTooltip('Smoothly sweep servo from one angle to another');
+    }
+};
+
+// ============================================
 // DISPLAY BLOCKS (ST7789)
-// ...
+// ============================================
 
 Blockly.Blocks['ninja_display_text'] = {
     init: function () {

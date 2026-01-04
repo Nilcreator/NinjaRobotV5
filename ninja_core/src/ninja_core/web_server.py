@@ -549,6 +549,15 @@ def get_distance_api(request: Request):
         return {"distance_mm": request.app.state.ninja.distance_monitor.get_continuous_distance()}
     return {"distance_mm": -1}
 
+
+@api_router.get("/ble/status")
+def get_ble_status(request: Request):
+    """Returns BLE service connection status for frontend indicator."""
+    ble = getattr(request.app.state.ninja, 'ble', None)
+    if ble and ble._running:
+        return {"connected": True, "service_name": "NinjaRobot"}
+    return {"connected": False, "service_name": None}
+
 @api_router.post("/system/shutdown")
 async def system_shutdown(request: Request):
     """Safely shuts down the Raspberry Pi."""
@@ -674,9 +683,9 @@ async def websocket_events(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Keep connection alive, maybe receive client pings/commands later?
-            # For now, just listen.
-            await websocket.receive_text()
+            # Keep connection alive - broadcasts are pushed via manager.broadcast()
+            # Using sleep instead of receive to allow async broadcasts to work
+            await asyncio.sleep(1)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 

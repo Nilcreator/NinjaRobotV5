@@ -8,22 +8,26 @@ function Header() {
     const { t } = useTranslation();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isServerActive, setIsServerActive] = useState(false);
+    const [isBleConnected, setIsBleConnected] = useState(false);
 
-    // Simple Server Health Check
+    // BLE Connection Status Check
     useEffect(() => {
-        const checkStatus = async () => {
+        const checkBleStatus = async () => {
             try {
-                const res = await fetch('/api/agent/status');
-                if (res.ok) setIsServerActive(true);
-                else setIsServerActive(false);
+                const res = await fetch('/api/ble/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    setIsBleConnected(data.connected);
+                } else {
+                    setIsBleConnected(false);
+                }
             } catch {
-                setIsServerActive(false);
+                setIsBleConnected(false);
             }
         };
 
-        checkStatus();
-        const interval = setInterval(checkStatus, 10000); // Check every 10s
+        checkBleStatus();
+        const interval = setInterval(checkBleStatus, 5000); // Check every 5s
         return () => clearInterval(interval);
     }, []);
 
@@ -72,12 +76,12 @@ function Header() {
 
                     <LanguageSelector />
 
-                    {/* Robot Connection Status */}
+                    {/* Bluetooth Connection Status */}
                     <div
-                        className={`${styles.bleStatus} ${isServerActive ? styles.connected : ''}`}
-                        title={isServerActive ? 'Robot Connection: Connected' : 'Robot Connection: Disconnected'}
+                        className={`${styles.bleStatus} ${isBleConnected ? styles.connected : ''}`}
+                        title={isBleConnected ? 'Bluetooth: Connected' : 'Bluetooth: Disconnected'}
                     >
-                        <span className={styles.bleIcon}>{isServerActive ? '🟢' : '🔴'}</span>
+                        <span className={styles.bleIcon}>{isBleConnected ? '🟢' : '⚫'}</span>
                         <span className={styles.bleDot} />
                     </div>
                 </nav>
