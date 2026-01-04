@@ -8,21 +8,22 @@ function Header() {
     const { t } = useTranslation();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isBleConnected, setIsBleConnected] = useState(false);
+    const [isBleAdvertising, setIsBleAdvertising] = useState(false);
 
-    // BLE Connection Status Check
+    // BLE Advertising Status Check
+    // Note: This checks if the BLE service is advertising, not if a client is connected
     useEffect(() => {
         const checkBleStatus = async () => {
             try {
                 const res = await fetch('/api/ble/status');
                 if (res.ok) {
                     const data = await res.json();
-                    setIsBleConnected(data.connected);
+                    setIsBleAdvertising(data.advertising || false);
                 } else {
-                    setIsBleConnected(false);
+                    setIsBleAdvertising(false);
                 }
             } catch {
-                setIsBleConnected(false);
+                setIsBleAdvertising(false);
             }
         };
 
@@ -76,12 +77,12 @@ function Header() {
 
                     <LanguageSelector />
 
-                    {/* Bluetooth Connection Status */}
+                    {/* Bluetooth Status Indicator */}
                     <div
-                        className={`${styles.bleStatus} ${isBleConnected ? styles.connected : ''}`}
-                        title={isBleConnected ? 'Bluetooth: Connected' : 'Bluetooth: Disconnected'}
+                        className={`${styles.bleStatus} ${isBleAdvertising ? styles.connected : ''}`}
+                        title={isBleAdvertising ? 'BLE: Advertising' : 'BLE: Off'}
                     >
-                        <span className={styles.bleIcon}>{isBleConnected ? '🟢' : '⚫'}</span>
+                        <span className={styles.bleIcon}>{isBleAdvertising ? '📶' : '⚫'}</span>
                         <span className={styles.bleDot} />
                     </div>
                 </nav>

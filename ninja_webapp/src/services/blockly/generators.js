@@ -11,18 +11,18 @@ import { pythonGenerator, Order } from 'blockly/python';
 // ============================================
 
 pythonGenerator.forBlock['ninja_servo_set'] = function (block) {
-    const servoNum = block.getFieldValue('SERVO_NUM');
-    const angle = block.getFieldValue('ANGLE');
-    // V5 API: robot.servo is MultiServo, 0-indexed
-    return `robot.servo[${servoNum - 1}].set_angle(${angle})\n`;
+    const servo = block.getFieldValue('SERVO');
+    const angle = pythonGenerator.valueToCode(block, 'ANGLE', Order.ATOMIC) || '90';
+    // V5 API: robot.servo is MultiServo, value from dropdown is already 0-indexed
+    return `robot.servo[${servo}].set_angle(${angle})\n`;
 };
 
 pythonGenerator.forBlock['ninja_servo_sweep'] = function (block) {
-    const servoNum = block.getFieldValue('SERVO_NUM');
-    const startAngle = pythonGenerator.valueToCode(block, 'START_ANGLE', Order.ATOMIC) || '0';
-    const endAngle = pythonGenerator.valueToCode(block, 'END_ANGLE', Order.ATOMIC) || '180';
+    const servo = block.getFieldValue('SERVO');
+    const fromAngle = pythonGenerator.valueToCode(block, 'FROM', Order.ATOMIC) || '0';
+    const toAngle = pythonGenerator.valueToCode(block, 'TO', Order.ATOMIC) || '180';
     const speed = pythonGenerator.valueToCode(block, 'SPEED', Order.ATOMIC) || '50';
-    return `robot.servo[${servoNum - 1}].sweep(${startAngle}, ${endAngle}, ${speed})\n`;
+    return `robot.servo[${servo}].sweep(${fromAngle}, ${toAngle}, ${speed})\n`;
 };
 
 // ============================================

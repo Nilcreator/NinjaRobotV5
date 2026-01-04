@@ -547,11 +547,11 @@ def get_distance_api(request: Request):
 
 @api_router.get("/ble/status")
 def get_ble_status(request: Request):
-    """Returns BLE service connection status for frontend indicator."""
+    """Returns BLE service advertising status for frontend indicator."""
     ble = getattr(request.app.state.ninja, 'ble', None)
     if ble and ble._running:
-        return {"connected": True, "service_name": "NinjaRobot"}
-    return {"connected": False, "service_name": None}
+        return {"advertising": True, "service_name": "NinjaRobot"}
+    return {"advertising": False, "service_name": None}
 
 @api_router.post("/system/shutdown")
 async def system_shutdown(request: Request):
