@@ -400,6 +400,11 @@ async def agent_chat(payload: AgentChatRequest, request: Request):
     result = await state.agent.process_command(payload.message)
     
     if result.get("action_plan"):
+        # Log the plan to WS
+        await request.app.state.ninja.connection_manager.broadcast({
+            "type": "log", 
+            "message": f"Agent Plan: {result['action_plan']}"
+        })
         await execute_action_plan(state, result["action_plan"])
         
     return {"response": result.get("response"), "log": result.get("log")}
@@ -486,6 +491,13 @@ async def execute_movement(name: str, request: Request):
 
     def run():
         try:
+            # Broadcast start
+            asyncio.run_coroutine_threadsafe(
+                request.app.state.ninja.connection_manager.broadcast({
+                    "type": "log", "message": f"Executing Movement: {name}"
+                }), 
+                loop=asyncio.get_event_loop()
+            )
             state.movement.execute_movement(name, abort_check=lambda: safety_check(state))
             return "executed"
         except EmergencyStop:
@@ -509,6 +521,11 @@ def get_expressions(request: Request):
 def show_expression(name: str, request: Request):
     if request.app.state.ninja.faces:
         request.app.state.ninja.faces.play(name, duration_s=3.0)
+        asyncio.create_task(
+            request.app.state.ninja.connection_manager.broadcast({
+                "type": "log", "message": f"Displaying Expression: {name}"
+            })
+        )
     return {"status": "displayed"}
 
 @api_router.get("/sound/emotions")
@@ -521,6 +538,9 @@ def get_sounds(request: Request):
 async def play_sound(name: str, request: Request):
     if request.app.state.ninja.sound:
         await asyncio.to_thread(request.app.state.ninja.sound.play, name)
+        await request.app.state.ninja.connection_manager.broadcast({
+            "type": "log", "message": f"Playing Sound: {name}"
+        })
     return {"status": "played"}
 
 @api_router.get("/sensor/distance")

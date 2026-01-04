@@ -105,6 +105,8 @@ function Agent() {
             setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
             if (data.log) {
                 console.log("Agent Log:", data.log);
+                const timestamp = new Date().toLocaleTimeString();
+                setLogs(prev => [...prev, `[${timestamp}] Agent: ${data.log}`].slice(-50));
             }
         } catch {
             setMessages(prev => [...prev, {
@@ -123,63 +125,60 @@ function Agent() {
         }
     };
 
-    // Voice Input Handler
-    const toggleVoiceRecording = async () => {
+    // Voice Input Handler (SpeechRecognition)
+    const toggleVoiceRecording = () => {
         if (isRecording) {
-            // Stop recording
-            mediaRecorderRef.current?.stop();
+            // Manual stop (though it auto-stops usually)
+            window.speechRecognitionInstance?.stop();
             setIsRecording(false);
-        } else {
-            // Start recording
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mediaRecorder = new MediaRecorder(stream);
-                mediaRecorderRef.current = mediaRecorder;
-                audioChunksRef.current = [];
-
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) {
-                        audioChunksRef.current.push(event.data);
-                    }
-                };
-
-                mediaRecorder.onstop = async () => {
-                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' }); // or 'audio/webm' depending on browser
-                    // In a real implementation, we would send this blob to /api/agent/voice
-                    // For now, let's assume the API accepts formData
-                    const formData = new FormData();
-                    formData.append('file', audioBlob);
-
-                    setIsLoading(true);
-                    try {
-                        const response = await fetch('/api/agent/voice', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const data = await response.json();
-                        if (data.transcription) {
-                            setMessages(prev => [...prev, { role: 'user', content: `🎤 ${data.transcription}` }]);
-                        }
-                        if (data.response) {
-                            setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
-                        }
-                    } catch (error) {
-                        console.error("Voice upload failed", error);
-                        setMessages(prev => [...prev, { role: 'assistant', content: "Error processing voice command." }]);
-                    } finally {
-                        setIsLoading(false);
-                        // Stop tracks to release mic
-                        stream.getTracks().forEach(track => track.stop());
-                    }
-                };
-
-                mediaRecorder.start();
-                setIsRecording(true);
-            } catch (err) {
-                console.error("Error accessing microphone:", err);
-                alert("Could not access microphone.");
-            }
+            return;
         }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert(t('agent.speechNotSupported') || "Speech Recognition not supported in this browser.");
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        window.speechRecognitionInstance = recognition;
+
+        // Detect language based on current i18n setting
+        // Map i18n codes to Speech API codes
+        const langMap = {
+            'en': 'en-US',
+            'jp': 'ja-JP',
+            'zh-TW': 'zh-TW',
+            'zh-CN': 'zh-CN'
+        };
+        recognition.lang = langMap[i18n.language] || 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            setIsRecording(true);
+        };
+
+        recognition.onend = () => {
+            setIsRecording(false);
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            if (transcript) {
+                setInput(transcript);
+                // Optional: Auto-send? No, user wants to explicitly send.
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error("Speech Recognition Error", event.error);
+            setIsRecording(false);
+            setLogs(prev => [...prev, `[Error] Speech: ${event.error}`].slice(-50));
+        };
+
+        recognition.start();
     };
 
     // Auto-scroll logs
