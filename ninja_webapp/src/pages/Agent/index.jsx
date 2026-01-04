@@ -187,40 +187,66 @@ function Agent() {
         logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [logs]);
 
-    const triggerAction = async (type, name) => {
-        // Map simplified types to actual API endpoints
-        // 'expressions' -> 'display/expressions'
-        // 'sounds' -> 'sound/emotions'
-        // 'movements' -> 'servos/movements'
+    // State for Dynamic Lists
+    const [expressionsList, setExpressionsList] = useState([]);
+    const [soundsList, setSoundsList] = useState([]);
+    const [movementsList, setMovementsList] = useState([]);
 
-        let apiPath = '';
-        let method = 'POST';
+    // State for Selections
+    const [selectedExpr, setSelectedExpr] = useState('');
+    const [selectedSound, setSelectedSound] = useState('');
+    const [selectedMove, setSelectedMove] = useState('');
 
-        switch (type) {
-            case 'expressions':
-                apiPath = `/api/display/expressions/${name}`;
-                break;
-            case 'sounds':
-                apiPath = `/api/sound/emotions/${name}`;
-                break;
-            case 'movements':
-                apiPath = `/api/servos/movements/${name}/execute`;
-                break;
-            default:
-                console.error("Unknown action type:", type);
-                return;
-        }
+    // Fetch Capabilities on Mount
+    useEffect(() => {
+        const fetchCapabilities = async () => {
+            try {
+                const [expRes, sndRes, movRes] = await Promise.all([
+                    fetch('/api/display/expressions'),
+                    fetch('/api/sound/emotions'),
+                    fetch('/api/servos/movements')
+                ]);
 
-        try {
-            await fetch(apiPath, { method });
-        } catch (error) {
-            console.error(`Failed to trigger ${type}/${name}:`, error);
-        }
-    };
+                if (expRes.ok) {
+                    const data = await expRes.json();
+                    setExpressionsList(data.expressions || []);
+                    if (data.expressions?.length > 0) setSelectedExpr(data.expressions[0]);
+                }
+                if (sndRes.ok) {
+                    const data = await sndRes.json();
+                    setSoundsList(data.emotions || []);
+                    if (data.emotions?.length > 0) setSelectedSound(data.emotions[0]);
+                }
+                if (movRes.ok) {
+                    const data = await movRes.json();
+                    setMovementsList(data.movements || []);
+                    if (data.movements?.length > 0) setSelectedMove(data.movements[0]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch robot capabilities:", error);
+            }
+        };
+        fetchCapabilities();
+    }, []);
+
+    // ... (keep sendMessage, handleKeyPress, toggleVoiceRecording, auto-scroll logs)
+
+    // Trigger Action Wrapper
+    const handleExecute = (type) => {
+        let name = '';
+        if (type === 'expressions') name = selectedExpr;
+        else if (type === 'sounds') name = selectedSound;
+        else if (type === 'movements') name = selectedMove;
+
+        if (!name) return;
+        triggerAction(type, name);
+    }
+
+    // ...
 
     return (
         <div className={styles.agent}>
-            {/* Main Content Area - Split into Chat and Logs if needed, but for now just Chat */}
+            {/* ... (Chat Area same as before) ... */}
             <div className={styles.chatArea}>
                 <div className={styles.messages}>
                     {messages.length === 0 && (
@@ -297,45 +323,51 @@ function Agent() {
                 {/* Expressions */}
                 <div className={styles.controlSection}>
                     <h3>😊 {t('agent.expressions')}</h3>
-                    <div className={styles.buttonGrid}>
-                        {['idle', 'happy', 'laughing', 'sad', 'cry', 'angry', 'surprising', 'sleepy', 'speaking', 'shy', 'scary', 'exciting', 'confusing'].map(expr => (
-                            <IconButton
-                                key={expr}
-                                icon="😊"
-                                label={expr}
-                                onClick={() => triggerAction('expressions', expr)}
-                            />
-                        ))}
+                    <div className={styles.controlRow}>
+                        <select
+                            className={styles.select}
+                            value={selectedExpr}
+                            onChange={(e) => setSelectedExpr(e.target.value)}
+                        >
+                            {expressionsList.map(expr => (
+                                <option key={expr} value={expr}>{expr}</option>
+                            ))}
+                        </select>
+                        <Button onClick={() => handleExecute('expressions')}>Execute</Button>
                     </div>
                 </div>
 
                 {/* Sounds */}
                 <div className={styles.controlSection}>
                     <h3>🔊 {t('agent.sounds')}</h3>
-                    <div className={styles.buttonGrid}>
-                        {['startup', 'happy', 'sad', 'exciting', 'angry', 'confusing', 'cry', 'embarrassing', 'idle', 'laughing', 'scary', 'shy', 'sleepy', 'speaking', 'surprising'].map(sound => (
-                            <IconButton
-                                key={sound}
-                                icon="🎵"
-                                label={sound}
-                                onClick={() => triggerAction('sounds', sound)}
-                            />
-                        ))}
+                    <div className={styles.controlRow}>
+                        <select
+                            className={styles.select}
+                            value={selectedSound}
+                            onChange={(e) => setSelectedSound(e.target.value)}
+                        >
+                            {soundsList.map(sound => (
+                                <option key={sound} value={sound}>{sound}</option>
+                            ))}
+                        </select>
+                        <Button onClick={() => handleExecute('sounds')}>Execute</Button>
                     </div>
                 </div>
 
                 {/* Movements */}
                 <div className={styles.controlSection}>
                     <h3>🤖 {t('agent.movements')}</h3>
-                    <div className={styles.buttonGrid}>
-                        {['wave', 'bow', 'dance', 'look_around', 'nod', 'shake_head'].map(move => (
-                            <IconButton
-                                key={move}
-                                icon="🎭"
-                                label={move}
-                                onClick={() => triggerAction('movements', move)}
-                            />
-                        ))}
+                    <div className={styles.controlRow}>
+                        <select
+                            className={styles.select}
+                            value={selectedMove}
+                            onChange={(e) => setSelectedMove(e.target.value)}
+                        >
+                            {movementsList.map(move => (
+                                <option key={move} value={move}>{move}</option>
+                            ))}
+                        </select>
+                        <Button onClick={() => handleExecute('movements')}>Execute</Button>
                     </div>
                 </div>
             </div>

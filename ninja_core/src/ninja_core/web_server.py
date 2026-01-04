@@ -430,15 +430,43 @@ async def analyze_code(payload: CodeAnalyzeRequest, request: Request):
     analysis = await agent.analyze_code(payload.code)
     return {"analysis": analysis}
 
-# Note: Voice chat requires saving file and passing to agent. 
-# V4 agent doesn't have process_audio_command yet in the interface shown in previous turns?
-# Checking ninja_agent.py in previous turns... 
-# The user didn't explicitly ask for voice in V4 yet, but V3 had it. 
-# I will implement the endpoint structure but might need to stub it if Agent doesn't support it yet.
-# Actually, looking at V3, it used `process_audio_command`. 
-# I'll omit voice for now to avoid errors if not implemented in V4 Agent, 
-# or I can add it if I verify Agent has it. 
-# For now, I will stick to text chat as per "Chat" requirement.
+# Note: Voice chat requires saving file and passing to agent.
+@api_router.post("/agent/voice")
+async def agent_voice(request: Request, file: UploadFile = File(...)):
+    state = request.app.state.ninja
+    await handle_first_interaction(state)
+
+    if not state.agent:
+        raise HTTPException(status_code=400, detail="Agent not active")
+
+    # Save to temp file
+    import tempfile
+    import shutil
+    from fastapi import UploadFile, File
+    
+    try:
+        suffix = Path(file.filename).suffix
+        if not suffix:
+            suffix = ".webm" # Default to webm if unknown
+            
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+        
+        # Process
+        result = await state.agent.process_audio_command(tmp_path)
+        
+        # Cleanup
+        os.unlink(tmp_path)
+        
+        if result.get("action_plan"):
+             await execute_action_plan(state, result["action_plan"])
+             
+        return {"response": result.get("response"), "transcription": "Voice Processed", "log": result.get("log")}
+
+    except Exception as e:
+        print(f"Voice processing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/servos/movements")
 def get_movements(request: Request):
@@ -598,6 +626,11 @@ async def serve_spa(full_path: str, request: Request):
     if full_path.startswith("api/") or full_path.startswith("ws/"):
         raise HTTPException(status_code=404, detail="Not found")
     
+    # Check if a static file exists in dist (e.g., logo.png, manifest.json)
+    potential_file = WEBAPP_DIST / full_path
+    if WEBAPP_DIST.exists() and potential_file.exists() and potential_file.is_file():
+        return FileResponse(potential_file)
+
     # Serve React SPA for all other routes
     if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
         return FileResponse(WEBAPP_DIST / "index.html")
