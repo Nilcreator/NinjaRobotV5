@@ -5,146 +5,168 @@ from .config import NinjaConfig
 
 log = logging.getLogger(__name__)
 
+
 class NinjaCoderAgent:
     """
     A specialized AI agent for generating and analyzing Python code for NinjaRobot.
-    Uses 'gemini-3-flash-preview' for high-speed coding tasks.
+    Uses 'gemini-2.0-flash' for high-speed coding tasks.
     """
 
     def __init__(self, config: NinjaConfig):
         self.api_key = config.api_keys.get("gemini")
-        self.model = None # Default to None
-        
+        self.model = None  # Default to None
+
         if not self.api_key:
             log.warning("Gemini API key missing. NinjaCoderAgent disabled.")
             return
 
         genai.configure(api_key=self.api_key)
-        
+
         self.system_prompt = self._create_system_prompt()
-        
+
         self.model = genai.GenerativeModel(
-            model_name="gemini-3-flash-preview",
-            generation_config=GenerationConfig(temperature=0.2), # Lower temp for coding
+            model_name="gemini-2.0-flash",
+            generation_config=GenerationConfig(temperature=0.1),  # Low temp for coding
             system_instruction=self.system_prompt,
         )
-        log.info("NinjaCoderAgent initialized with gemini-3-flash-preview.")
+        log.info("NinjaCoderAgent initialized with gemini-2.0-flash.")
 
     def _create_system_prompt(self) -> str:
-        return """You are the NinjaRobot V5 Code Optimizer. Your ONLY job is to rewrite incoming user code so it runs correctly on the V5 hardware.
+        return """You are the NinjaRobot V5 Code Optimizer. Your ONLY job is to validate and fix incoming user code so it runs correctly on the V5 hardware.
+
+## CRITICAL RULES
+1. **DO NOT invent or change API methods** - Only use the exact methods documented below.
+2. **Preserve user intent** - Keep the logic structure identical, only fix invalid API calls.
+3. **Minimal changes** - If code is already valid, return it unchanged.
+4. **Remove disallowed imports** - Only `time`, `math`, `random` are allowed.
 
 ## Execution Environment
 - Runs inside `SafeExecutor` (restricted sandbox).
-- **Available**: `robot` (RobotWrapper), `time`, `math`, `print`, `check_stop()`.
-- **BLOCKED**: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`.
+- **Available globals**: `robot` (RobotWrapper), `time`, `math`, `print`.
+- **BLOCKED imports**: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`, `numbers`.
 
-## RobotWrapper API Reference
+---
+
+## RobotWrapper API Reference (EXACT methods available)
+
+### `robot.servo` (List of 8 servos, index 0-7)
+| Usage | Description |
+|-------|-------------|
+| `robot.servo[n].angle = x` | Set servo n (0-7) to angle x (0-180). |
+
+**Example:**
+```python
+robot.servo[0].angle = 90   # Set servo 1 to 90 degrees
+robot.servo[7].angle = 45   # Set servo 8 to 45 degrees
+```
+
+**INVALID (do not use):**
+- `robot.servos.move_angle_sync()` - DOES NOT EXIST
+- `robot.servo.move_all_angles()` - DOES NOT EXIST for user code
+
+---
 
 ### `robot.buzzer`
 | Method | Args | Description |
 |--------|------|-------------|
 | `play(name)` | `name: str` | Play predefined emotion sound. |
-| `tone(freq, dur)` | `freq: int, dur: float` | Play raw frequency for duration. |
+| `tone(freq, dur)` | `freq: int, dur: float` | Play raw frequency (Hz) for duration (seconds). |
 
-**Valid sound names for `play()`**:
+**Valid sound names for `play()`:**
 `happy`, `sad`, `exciting`, `angry`, `confusing`, `cry`, `embarrassing`, `idle`, `laughing`, `scary`, `shy`, `sleepy`, `speaking`, `surprising`
 
-**Sound Mapping (convert invalid names)**:
-| Input | Convert To |
-|-------|------------|
-| `"startup"` | `robot.buzzer.tone(523, 0.1); time.sleep(0.05); robot.buzzer.tone(659, 0.1); time.sleep(0.05); robot.buzzer.tone(784, 0.15)` |
-| `"success"` | `robot.buzzer.play("happy")` |
-| `"error"` | `robot.buzzer.play("sad")` |
-| `"alert"` | `robot.buzzer.play("scary")` |
-| `"beep"` | `robot.buzzer.tone(1000, 0.2)` |
-| `"warning"` | `robot.buzzer.play("confusing")` |
+**Sound Mapping (convert invalid names):**
+| Invalid Input | Convert To |
+|---------------|------------|
+| `"startup"` | `"happy"` |
+| `"success"` | `"exciting"` |
+| `"error"` | `"sad"` |
+| `"alert"` | `"surprising"` |
 
-### `robot.display`
+---
+
+### `robot.expression(name)`
 | Method | Args | Description |
 |--------|------|-------------|
-| `image(name)` | `name: str` | Show asset image. |
-| `clear()` | - | Clear display. |
+| `expression(name)` | `name: str` | Show animated facial expression on display. |
 
-**Valid image names**: `star`, `heart`  
-**Image Mapping (convert invalid names)**:
-| Input | Convert To |
-|-------|------------|
-| `"happy"` | `robot.display.clear()` (no asset, use clear) |
-| `"surprised"` | `robot.display.clear()` |
-| Any unknown | `robot.display.clear()` |
+**Valid expression names:**
+`happy`, `sad`, `sleepy`, `surprising`, `angry`, `shy`, `confusing`, `scary`, `exciting`, `cry`, `laughing`, `speaking`, `idle`
+
+---
+
+### `robot.display`
+| Method | Description |
+|--------|-------------|
+| `clear()` | Clear the display (fill with black). |
+
+**INVALID (do not use):**
+- `robot.display.text()` - DOES NOT EXIST
+- `robot.display.image()` - May not have images available
+
+---
 
 ### `robot.distance`
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `read()` | `int` | Distance in millimeters. |
+| `read()` | `int` | Distance in millimeters from VL53L0X sensor. |
 
-### `robot.servo`
-| Method | Args | Description |
-|--------|------|-------------|
-| `move_angle_sync(ch, angle)` | `ch: int, angle: int` | Move servo channel. |
+---
 
-## Translation Rules
-1. **DO NOT** add explanations, comments about changes, or print statements about conversions.
-2. **DO NOT** explain your changes. Output ONLY the final code block.
-3. Preserve ALL user logic (loops, conditionals, variables).
-4. If you see `from ninja_core import robot`, keep it as-is (it's valid).
-5. If you see `import time`, keep it as-is.
-6. Always output valid Python that can be executed immediately.
+## Output Format
+Return ONLY the corrected Python code. No explanations, no markdown code fences.
+If code is already valid, return it exactly as received.
 """
 
     async def translate_code(self, code: str) -> str:
-        """Translates/Fixes user code to match the actual Robot API."""
+        """Translates/validates user code for V5 hardware compatibility."""
         if not self.model:
-            return code  # Return original if agent disabled
+            log.warning("NinjaCoderAgent not initialized. Returning original code.")
+            return code
 
-        prompt = f"""Rewrite this NinjaRobot code to be V5 API compatible.
+        prompt = f"""Validate and fix this code for NinjaRobot V5. 
+Only fix invalid API calls. Keep logic unchanged.
+Return ONLY the corrected Python code, no explanations.
 
-RULES:
-1. Convert invalid `robot.buzzer.play(name)` using the Sound Mapping table.
-2. Convert invalid `robot.display.image(name)` using the Image Mapping table.
-3. Keep all imports, logic, loops, and conditionals unchanged.
-4. Output ONLY the final Python code block. NO explanations.
-
-INPUT:
-```python
+Code:
 {code}
-```
-
-OUTPUT (code only):"""
-
+"""
         try:
             response = await self.model.generate_content_async(prompt)
             text = response.text.strip()
 
-            # Extract code block
+            # Extract code block if wrapped in markdown
             if "```python" in text:
                 start = text.find("```python") + 9
                 end = text.find("```", start)
                 if end != -1:
                     return text[start:end].strip()
+                return text[start:].strip()
             elif "```" in text:
                 start = text.find("```") + 3
                 end = text.find("```", start)
                 if end != -1:
                     return text[start:end].strip()
-            
-            # If no code block, assume raw code
+
             return text
         except Exception as e:
             log.error(f"Code translation error: {e}")
-            return code  # Fallback to original
+            # Return original code on error
+            return code
 
-
-    async def generate_code(self, query: str) -> str:
-        """Generates Python code from a natural language description."""
+    async def generate_code(self, user_request: str) -> str:
+        """Generates Python code from a natural language request."""
         if not self.model:
-            return "# Error: AI Agent not initialized (Missing API Key)"
-        
-        prompt = f"Write Python code to: {query}"
+            return "# NinjaCoderAgent not initialized."
+
+        prompt = f"""Generate Python code for the NinjaRobot V5 based on this request:
+"{user_request}"
+
+Use ONLY the documented API. Return ONLY the Python code."""
         try:
             response = await self.model.generate_content_async(prompt)
             text = response.text.strip()
-            
+
             # Extract code block
             if "```python" in text:
                 start = text.find("```python") + 9
@@ -157,7 +179,7 @@ OUTPUT (code only):"""
                 end = text.find("```", start)
                 if end != -1:
                     return text[start:end].strip()
-            
+
             return text
         except Exception as e:
             log.error(f"Code generation error: {e}")
@@ -167,7 +189,7 @@ OUTPUT (code only):"""
         """Analyzes code for bugs or improvements."""
         if not self.model:
             return "AI Agent not initialized."
-            
+
         prompt = f"""Analyze the following Python code for the NinjaRobot. 
 Find bugs, safety issues, or improvements. 
 Explain clearly.
@@ -186,7 +208,7 @@ Code:
         """Explains an execution error in simple terms."""
         if not self.model:
             return "AI Agent not initialized."
-            
+
         prompt = f"""The following user code failed on the NinjaRobot.
 Error: "{error_msg}"
 Code:
