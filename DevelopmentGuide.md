@@ -2258,18 +2258,18 @@ The interface is designed to feel premium, futuristic, and highly responsive. It
 
 | Component | Pin Type | Default GPIO |
 |-----------|----------|--------------|
-| Servo 1   | PWM      | 5            |
-| Servo 2   | PWM      | 17           |
-| Servo 3   | PWM      | 21           |
-| Servo 4   | PWM      | 22           |
-| Servo 5   | PWM      | 23           |
-| Servo 6   | PWM      | 24           |
-| Servo 7   | PWM      | 25           |
+| Servo 1   | PWM      | 20           |
+| Servo 2   | PWM      | 21           |
+| Servo 3   | PWM      | 22           |
+| Servo 4   | PWM      | 23           |
+| Servo 5   | PWM      | 24           |
+| Servo 6   | PWM      | 25           |
+| Servo 7   | PWM      | 26           |
 | Servo 8   | PWM      | 27           |
-| Buzzer    | PWM      | 26           |
-| Display DC | GPIO    | 18           |
-| Display RST | GPIO   | 19           |
-| Display BLK | PWM    | 20           |
+| Buzzer    | PWM      | 17           |
+| Display DC | GPIO    | 14           |
+| Display RST | GPIO   | 15           |
+| Display BLK | PWM    | 26           |
 | Display SCL | SPI    | 11 (SPI0 SCLK) |
 | Display SDA | SPI    | 10 (SPI0 MOSI) |
 | Sensor SCL | I2C     | 3 (I2C1 SCL) |
