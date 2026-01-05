@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 class NinjaCoderAgent:
     """
     A specialized AI agent for generating and analyzing Python code for NinjaRobot.
-    Uses 'gemini-2.0-flash' for high-speed coding tasks.
+    Uses 'gemini-3-flash-preview' for high-speed coding tasks.
     """
 
     def __init__(self, config: NinjaConfig):
@@ -25,11 +25,11 @@ class NinjaCoderAgent:
         self.system_prompt = self._create_system_prompt()
 
         self.model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-3-flash-preview",
             generation_config=GenerationConfig(temperature=0.1),  # Low temp for coding
             system_instruction=self.system_prompt,
         )
-        log.info("NinjaCoderAgent initialized with gemini-2.0-flash.")
+        log.info("NinjaCoderAgent initialized with gemini-3-flash-preview.")
 
     def _create_system_prompt(self) -> str:
         return """You are the NinjaRobot V5 Code Optimizer. Your ONLY job is to validate and fix incoming user code so it runs correctly on the V5 hardware.
