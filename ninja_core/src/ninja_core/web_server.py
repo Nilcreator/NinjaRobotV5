@@ -1,5 +1,6 @@
 import asyncio
 import os
+import signal
 import sys
 import socket
 import subprocess
@@ -32,6 +33,8 @@ from .ninja_coder import NinjaCoderAgent
 # --- Configuration ---
 base_dir = Path(__file__).parent
 
+# Module-level reference for signal handler cleanup
+_app_state: Optional["AppState"] = None
 
 # React SPA dist path (built from ninja_webapp)
 WEBAPP_DIST = base_dir.parents[2] / "ninja_webapp" / "dist"
@@ -90,6 +93,8 @@ class ConnectionManager:
 # --- Lifecycle ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _app_state
+    
     # --- Startup ---
     print("Initializing NinjaRobot V4 Web Server...")
 
@@ -163,6 +168,8 @@ async def lifespan(app: FastAPI):
     network_task = asyncio.create_task(setup_network_and_display(app))
     app.state.ninja.tasks.add(network_task)
     network_task.add_done_callback(app.state.ninja.tasks.discard)
+
+    _app_state = app.state.ninja  # Store for signal handler
 
     yield
 
@@ -818,6 +825,52 @@ def run_server(autostart: bool = False):
         if token:
             print("Setting ngrok authtoken...")
             ngrok.set_auth_token(token)
+    
+    # --- Set up emergency cleanup signal handler ---
+    def emergency_cleanup():
+        """Emergency cleanup when SIGINT is received."""
+        global _app_state
+        print("🧹 Running emergency cleanup...")
+        if _app_state:
+            _app_state.shutdown_event.set()
+            # Stop faces animation
+            if _app_state.faces:
+                try:
+                    _app_state.faces.stop()
+                except Exception:
+                    pass
+            # Stop distance monitor
+            if _app_state.distance_monitor:
+                try:
+                    _app_state.distance_monitor.stop_continuous()
+                except Exception:
+                    pass
+            # Shutdown HAL (turns off display)
+            if _app_state.hal:
+                try:
+                    _app_state.hal.shutdown()
+                except Exception:
+                    pass
+        # Kill ngrok
+        try:
+            ngrok.kill()
+        except Exception:
+            pass
+    
+    # Capture and wrap original signal handler
+    original_sigint = signal.getsignal(signal.SIGINT)
+    
+    def sigint_handler(signum, frame):
+        print("\n🛑 Ctrl+C received. Shutting down...")
+        emergency_cleanup()
+        # Restore and call original handler to let uvicorn proceed
+        signal.signal(signal.SIGINT, original_sigint)
+        if callable(original_sigint) and original_sigint not in (signal.SIG_IGN, signal.SIG_DFL):
+            original_sigint(signum, frame)
+        else:
+            raise KeyboardInterrupt
+    
+    signal.signal(signal.SIGINT, sigint_handler)
     
     print(f"Starting uvicorn on {host}:{port}...")
     try:

@@ -9,15 +9,20 @@
 - **Affected Sections**: English, Japanese (日本語), Traditional Chinese (繁體中文).
 - **Related Files**: `InstallationGuide.md`.
 
-## 2026-01-08: Server Shutdown Hang Fix (V2)
+## 2026-01-08: Server Shutdown Hang Fix (V3)
 - **Action**: Fixed server hanging on Ctrl+C during shutdown.
 - **Details**:
-    - **Root Cause (V1 Misdiagnosis)**: The initial fix targeted `asyncio.gather()` but missed the real issue: WebSocket handlers (`/ws/distance`, `/ws/events`) run `while True` loops managed by Uvicorn, not by our lifespan.
-    - **Root Cause (V2 Correct)**: Uvicorn's "Waiting for background tasks" message refers to active HTTP/WebSocket connections, not asyncio tasks.
-    - **Fix (V2)**: Added `shutdown_event = asyncio.Event()` to `AppState`. WebSocket handlers now check `shutdown_event.is_set()` in their loops and exit gracefully when the event is set during shutdown.
-    - **V1 fixes retained**: Timeout on `asyncio.wait()`, timeout on thread `join()` calls.
+    - **V1 (failed)**: Targeted `asyncio.gather()` with timeout—problem persisted.
+    - **V2 (failed)**: Added `shutdown_event` for WebSocket handlers—lifespan shutdown ran TOO LATE (after connections closed).
+    - **V3 (solution)**: Registered a custom SIGINT signal handler that runs BEFORE Uvicorn's. On Ctrl+C:
+        1. `shutdown_event.set()` → WebSocket handlers exit loops
+        2. `faces.stop()` → Animation thread stops
+        3. `distance_monitor.stop_continuous()` → Sensor thread stops
+        4. `hal.shutdown()` → Display turns off
+        5. `ngrok.kill()` → Tunnel closes
+        6. Uvicorn proceeds with normal shutdown
 - **Verification**: `ruff check` passed.
-- **Related Files**: `web_server.py`, `facial_expressions.py`, `perception.py`.
+- **Related Files**: `web_server.py`.
 
 ## 2026-01-07: Phase 5.2 - Educational 2-Agent Workflow & API Optimization - COMPLETE
 - **Action**: Enhanced Backend & Frontend for Code Platform (`app`) Integration.
