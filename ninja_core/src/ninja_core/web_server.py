@@ -120,8 +120,8 @@ async def lifespan(app: FastAPI):
         from ninja_ble.service import NinjaBLEService
         app.state.ninja.ble = NinjaBLEService(dispatcher)
         ble_task = asyncio.create_task(app.state.ninja.ble.start())
-        app.state.tasks.add(ble_task)
-        ble_task.add_done_callback(app.state.tasks.discard)
+        app.state.ninja.tasks.add(ble_task)
+        ble_task.add_done_callback(app.state.ninja.tasks.discard)
         print("BLE Service started.")
     except ImportError as e:
         print(f"BLE modules not found, skipping BLE: {e}")
@@ -160,8 +160,8 @@ async def lifespan(app: FastAPI):
 
     # Network & ngrok
     network_task = asyncio.create_task(setup_network_and_display(app))
-    app.state.tasks.add(network_task)
-    network_task.add_done_callback(app.state.tasks.discard)
+    app.state.ninja.tasks.add(network_task)
+    network_task.add_done_callback(app.state.ninja.tasks.discard)
 
     yield
 
@@ -180,11 +180,11 @@ async def lifespan(app: FastAPI):
                 print(f"⚠️ BLE shutdown error: {e}")
         
         # Cancel all background tasks
-        if hasattr(app.state, 'tasks'):
-            print(f"Cancelling {len(app.state.tasks)} background tasks...")
-            for task in app.state.tasks:
+        if hasattr(app.state.ninja, 'tasks'):
+            print(f"Cancelling {len(app.state.ninja.tasks)} background tasks...")
+            for task in app.state.ninja.tasks:
                 task.cancel()
-            await asyncio.gather(*app.state.tasks, return_exceptions=True)
+            await asyncio.gather(*app.state.ninja.tasks, return_exceptions=True)
 
         # Stop Faces
         if app.state.ninja.faces:
