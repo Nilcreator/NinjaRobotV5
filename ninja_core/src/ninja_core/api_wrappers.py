@@ -164,6 +164,24 @@ class ServoArrayWrapper:
 
     def __len__(self):
         return len(self._servos)
+    
+    def move_all(self, angles: list, duration: float = 0.5):
+        """Move all servos simultaneously.
+        
+        Args:
+            angles (list): List of 8 angles (0-180).
+            duration (float): Movement duration in seconds.
+        """
+        # Pad or truncate to 8 servos
+        target_angles = angles[:8]
+        if len(target_angles) < 8:
+            target_angles.extend([90] * (8 - len(target_angles)))
+            
+        self._servos.move_all_angles_sync(target_angles, duration=duration)
+
+    def center(self):
+        """Reset all servos to center (90 degrees)."""
+        self._servos.move_all_angles([90] * 8)
 
 
 class RobotWrapper:
@@ -189,6 +207,7 @@ class RobotWrapper:
         # Servos: wrap MultiServo to provide list-like access
         # robot.servo[n].angle = x
         self.servo = ServoArrayWrapper(hal.servos)
+        self.servos = self.servo  # Alias for plural access (semantic sugar)
         
         # Facial expressions engine
         self._faces = AnimatedFaces(hal)

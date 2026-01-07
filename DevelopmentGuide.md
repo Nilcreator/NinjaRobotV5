@@ -1843,7 +1843,14 @@ def __init__(self, hal: HardwareAbstractionLayer)
 - `buzzer` (BuzzerWrapper): Sound control.
 - `display` (DisplayWrapper): Screen control.
 - `distance` (DistanceWrapper): Sensor reading.
-- `servo` (MultiServo): Direct servo access.
+- `servo` (ServoArrayWrapper): Direct servo access (indexable 0-7 or batch).
+
+##### Class: `ServoArrayWrapper`
+
+**Methods:**
+- `__getitem__(index)`: Access individual servo (e.g., `robot.servo[0]`).
+- `move_all(angles: list, duration: float)`: Move all 8 servos.
+- `center()`: Reset all servos to 90°.
 
 ##### Class: `BuzzerWrapper`
 

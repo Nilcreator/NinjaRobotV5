@@ -277,7 +277,9 @@ class CommandDispatcher:
                     await self.broadcast({
                         "type": "chat",
                         "sender": "ninja",
-                        "text": "✅ Code optimized for V5 hardware. Executing now..."
+                        "text": "✅ I optimized your code for smoother movement! Executing now...",
+                        "optimized_code": translated_code,
+                        "original_code": code
                     })
                     code = translated_code
                 else:

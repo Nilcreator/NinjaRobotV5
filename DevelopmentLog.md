@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-01-07: Phase 5.2 - Educational 2-Agent Workflow & API Optimization - COMPLETE
+- **Action**: Enhanced Backend & Frontend for Code Platform (`app`) Integration.
+- **Details**:
+    - **Backend (ninja_core)**:
+        - Added `move_all()` and `center()` batch methods to `ServoArrayWrapper`.
+        - Updated `NinjaCoderAgent` prompt to strictly enforce optimization of sequential servo commands.
+        - Updated `CommandDispatcher` to enforce `Code Agent -> Executor` pipeline for all code execution and broadcast "Optimized Code" feedback.
+    - **Code Platform (app)**:
+        - Updated `ninja_servo_all` generator to use `move_all()` API.
+        - Updated `useBluetooth` hook to expose received messages.
+        - Updated `Editor` UI to display "AI Optimization" alerts when code is improved by the backend.
+- **Related Files**: `api_wrappers.py`, `ninja_coder.py`, `dispatcher.py`, `generators.js`, `Editor/index.jsx`.
+
 ## 2026-01-04: Phase 5 Web Interface - COMPLETE
 - **Action**: Implemented complete React-based Web Application (`ninja_webapp`).
 - **Details**:

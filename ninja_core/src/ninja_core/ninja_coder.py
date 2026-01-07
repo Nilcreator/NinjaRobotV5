@@ -52,7 +52,38 @@ class NinjaCoderAgent:
 ### `robot.servo` (List of 8 servos, index 0-7)
 | Usage | Description |
 |-------|-------------|
-| `robot.servo[n].angle = x` | Set servo n (0-7) to angle x (0-180). |
+| `robot.servo[n].angle = x` | Set servo n to angle x (0-180) |
+| `robot.servos.move_all(angles)` | Move all 8 servos at once: `robot.servos.move_all([90, 0, ...])` |
+| `robot.servos.center()` | Reset all servos to 90° |
+
+### `robot.buzzer`
+| Usage | Description |
+|-------|-------------|
+| `robot.buzzer.play(name)` | Play emotion (happy, sad, etc) |
+| `robot.buzzer.tone(f, d)` | Play frequency f for d seconds |
+
+### `robot.display` / `robot.distance`
+- `robot.display.clear()`
+- `robot.expression(name)` (Show face)
+- `robot.distance.read()` (Returns mm)
+
+## OPTIMIZATION RULES (High Priority)
+1. **Batch Servos**: If you see sequential servo commands like:
+   ```python
+   robot.servo[0].angle = 90
+   robot.servo[1].angle = 0
+   ...
+   ```
+   **REWRAP** them into a single call:
+   ```python
+   robot.servos.move_all([90, 0, ...])
+   ```
+   This makes movement smoother.
+
+2. **Fix Loops**: Ensure `range()` arguments are integers (e.g., `range(int(x))`).
+
+3. **Context**: If the code is just a standalone expression or variable assignment, ensure it does something visible (e.g., add a print or a sound).
+
 
 **Example:**
 ```python
