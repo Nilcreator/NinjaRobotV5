@@ -16,9 +16,11 @@
 ## 2026-01-07: Health Check & Optimization Implementation - COMPLETE
 - **Action**: Resolved Agent Feedback, Movement Pipelining, and Shutdown issues.
 - **Details**:
-    - **Agent Feedback**: `NinjaCoderAgent` now returns structured JSON with an "explanation" field. `CommandDispatcher` parses this and broadcasts accurate natural language explanations of optimized code (e.g., "Batching movements for smoothness").
-    - **Pipelining**: Updated `NinjaCoderAgent` prompt with optimization rules to enforce `robot.servos.move_all()` for batches and `time.sleep()` for sequential moves, preventing "instant" execution of discrete commands.
-    - **Robust Shutdown**: Updated `web_server.py` to use `try...finally` blocks and `asyncio.wait_for` on BLE stop, ensuring `hal.shutdown()` is always called even if BLE hangs. Handled `OSError` in `perception.py` to suppress shutdown noise.
+    - **Agent Feedback**: `NinjaCoderAgent` returns structured JSON; `CommandDispatcher` parsing added.
+    - **Pipelining**: Updated Agent rules for `move_all` batching.
+    - **Robust Shutdown**: Updated `web_server.py` with task cancellation and timeout logic.
+    - **Fixes**: Corrected `ServoArrayWrapper.move_all` bug (`self._multi_servo`), added ngrok connection feedback.
+- **Verification**: `ruff` passed. `RuntimeError` resolved.
 - **Verification**: `ruff` linting passed for all core files.
 - **Related Files**: `ninja_core/ninja_coder.py`, `ninja_core/dispatcher.py`, `ninja_core/web_server.py`, `ninja_core/perception.py`.
 

@@ -143,7 +143,7 @@ class ServoWrapper:
             except Exception as e:
                 log.error(f"Failed to set servo {self._index} to {value}°: {e}")
         else:
-            log.warning(f"Servos not available")
+            log.warning("Servos not available")
 
 
 class ServoArrayWrapper:
@@ -177,7 +177,7 @@ class ServoArrayWrapper:
         if len(target_angles) < 8:
             target_angles.extend([90] * (8 - len(target_angles)))
             
-        self._servos.move_all_angles_sync(target_angles, duration=duration)
+        self._multi_servo.move_all_angles_sync(target_angles, duration=duration)
 
     def center(self):
         """Reset all servos to center (90 degrees)."""

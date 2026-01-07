@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI):
     try:
         from ninja_ble.service import NinjaBLEService
         app.state.ninja.ble = NinjaBLEService(dispatcher)
-        asyncio.create_task(app.state.ninja.ble.start())
+        app.state.ninja_ble_task = asyncio.create_task(app.state.ninja.ble.start())
         print("BLE Service started.")
     except ImportError as e:
         print(f"BLE modules not found, skipping BLE: {e}")
@@ -169,7 +169,13 @@ async def lifespan(app: FastAPI):
             try:
                 await asyncio.wait_for(app.state.ninja.ble.stop(), timeout=2.0)
             except asyncio.TimeoutError:
-                print("⚠️ BLE shutdown timed out! Moving on...")
+                print("⚠️ BLE shutdown timed out! Forcing task cancellation...")
+                if hasattr(app.state, 'ninja_ble_task') and app.state.ninja_ble_task:
+                     app.state.ninja_ble_task.cancel()
+                     try:
+                         await app.state.ninja_ble_task
+                     except asyncio.CancelledError:
+                         print("BLE Task Cancelled.")
             except Exception as e:
                 print(f"⚠️ BLE shutdown error: {e}")
 
@@ -214,6 +220,13 @@ async def setup_network_and_display(app: FastAPI):
         try:
             public_url = ngrok.connect(port, "http").public_url
             print(f"Public Access: {public_url}")
+            
+            # Ngrok Success - Trigger Feedback
+            try:
+                if app.state and hasattr(app.state, 'ninja'):
+                     asyncio.create_task(trigger_welcome(app.state.ninja))
+            except Exception as e:
+                print(f"Feedback trigger failed: {e}")
             break
         except Exception as e:
             print(f"ngrok attempt {attempt+1} failed: {e}")
