@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-01-08: Installation Guide Update - Node.js & Web Interface Build
+- **Action**: Updated `InstallationGuide.md` to include Node.js and ninja_webapp build instructions.
+- **Details**:
+    - Added **Step 4.6: Install Node.js** using NodeSource LTS.
+    - Added **Step 6.4: Build the Web Interface** (`npm install && npm run build`).
+    - Renumbered subsequent steps in all three language versions.
+- **Affected Sections**: English, Japanese (日本語), Traditional Chinese (繁體中文).
+- **Related Files**: `InstallationGuide.md`.
+
+## 2026-01-08: Server Shutdown Hang Fix
+- **Action**: Fixed server hanging on Ctrl+C during shutdown.
+- **Details**:
+    - **Root Cause**: `asyncio.gather()` in lifespan shutdown waited indefinitely for tasks that didn't cleanly respond to cancellation. Blocking `join()` calls in `AnimatedFaces` and `DistanceMonitor` could also hang.
+    - **Fix**: Replaced `asyncio.gather()` with `asyncio.wait(timeout=3.0)` for graceful cancellation.
+    - **Fix**: Added `timeout=1.0` to `threading.Thread.join()` in `perception.py` and `facial_expressions.py`.
+    - **Fix**: Tracked `trigger_welcome` task in `app.state.ninja.tasks` for proper cancellation.
+- **Verification**: `ruff check` passed.
+- **Related Files**: `web_server.py`, `facial_expressions.py`, `perception.py`.
+
 ## 2026-01-07: Phase 5.2 - Educational 2-Agent Workflow & API Optimization - COMPLETE
 - **Action**: Enhanced Backend & Frontend for Code Platform (`app`) Integration.
 - **Details**:

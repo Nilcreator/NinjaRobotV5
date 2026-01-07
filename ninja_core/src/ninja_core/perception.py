@@ -76,7 +76,9 @@ class DistanceMonitor:
 
         self._stop_event.set()
         if self._monitor_thread:
-            self._monitor_thread.join()  # Wait for the thread to finish
+            self._monitor_thread.join(timeout=1.0)
+            if self._monitor_thread.is_alive():
+                print("⚠️ Distance monitor thread did not stop in time.")
         self._is_running = False
         print("Continuous distance monitoring stopped.")
 

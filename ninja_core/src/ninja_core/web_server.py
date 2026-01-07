@@ -179,12 +179,20 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 print(f"⚠️ BLE shutdown error: {e}")
         
-        # Cancel all background tasks
-        if hasattr(app.state.ninja, 'tasks'):
+        # Cancel all background tasks with timeout
+        if hasattr(app.state.ninja, 'tasks') and app.state.ninja.tasks:
             print(f"Cancelling {len(app.state.ninja.tasks)} background tasks...")
-            for task in app.state.ninja.tasks:
-                task.cancel()
-            await asyncio.gather(*app.state.ninja.tasks, return_exceptions=True)
+            for task in list(app.state.ninja.tasks):
+                if not task.done():
+                    task.cancel()
+            
+            # Wait with timeout to prevent hang
+            _, pending = await asyncio.wait(
+                app.state.ninja.tasks,
+                timeout=3.0
+            )
+            if pending:
+                print(f"⚠️ {len(pending)} tasks did not finish in time, forcing exit...")
 
         # Stop Faces
         if app.state.ninja.faces:
@@ -712,8 +720,10 @@ async def websocket_events(websocket: WebSocket):
     manager = websocket.app.state.ninja.connection_manager
     await manager.connect(websocket)
     
-    # Broadcast welcome on connection
-    asyncio.create_task(trigger_welcome(websocket.app.state.ninja))
+    # Broadcast welcome on connection (tracked for clean shutdown)
+    welcome_task = asyncio.create_task(trigger_welcome(websocket.app.state.ninja))
+    websocket.app.state.ninja.tasks.add(welcome_task)
+    welcome_task.add_done_callback(websocket.app.state.ninja.tasks.discard)
     
     try:
         while True:

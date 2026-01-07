@@ -263,6 +263,23 @@ sudo pigpiod
 > sudo systemctl start pigpiod
 > ```
 
+### Step 4.6: Install Node.js
+
+The web interface (`ninja_webapp`) requires Node.js to be built. Install it using NodeSource:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+Verify installation:
+
+```bash
+node -v && npm -v
+```
+
+You should see version numbers like `v20.x.x` and `10.x.x`.
+
 ---
 
 ## 5. Service Setup (Gemini AI & ngrok)
@@ -335,7 +352,23 @@ This will:
 
 The installation may take 5-10 minutes.
 
-### Step 6.4: Verify Installation
+### Step 6.4: Build the Web Interface
+
+The robot's web interface is built with React. Build it with:
+
+```bash
+cd ninja_webapp
+npm install
+npm run build
+cd ..
+```
+
+This creates the `ninja_webapp/dist/` folder that the server will use.
+
+> [!NOTE]
+> If you see errors during `npm install`, ensure Node.js was installed correctly (Step 4.6).
+
+### Step 6.5: Verify Installation
 
 Check that the main command is available:
 
@@ -986,6 +1019,23 @@ sudo pigpiod
 > sudo systemctl start pigpiod
 > ```
 
+### ステップ4.6: Node.jsのインストール
+
+Webインターフェース（`ninja_webapp`）のビルドにはNode.jsが必要です。NodeSourceを使用してインストール:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+インストールを確認:
+
+```bash
+node -v && npm -v
+```
+
+`v20.x.x`と`10.x.x`のようなバージョン番号が表示されるはずです。
+
 ---
 
 ## 5. サービスのセットアップ（Gemini AIとngrok）
@@ -1058,7 +1108,23 @@ uv pip install -e .
 
 インストールには5〜10分かかる場合があります。
 
-### ステップ6.4: インストールの確認
+### ステップ6.4: Webインターフェースのビルド
+
+ロボットのWebインターフェースはReactで構築されています。次のコマンドでビルド:
+
+```bash
+cd ninja_webapp
+npm install
+npm run build
+cd ..
+```
+
+これにより、サーバーが使用する`ninja_webapp/dist/`フォルダーが作成されます。
+
+> [!NOTE]
+> `npm install`中にエラーが表示される場合は、Node.jsが正しくインストールされているか確認してください（ステップ4.6）。
+
+### ステップ6.5: インストールの確認
 
 メインコマンドが使用可能か確認:
 
@@ -1705,6 +1771,23 @@ sudo pigpiod
 > sudo systemctl start pigpiod
 > ```
 
+### 步驟 4.6：安裝 Node.js
+
+網頁介面（`ninja_webapp`）需要 Node.js 來建置。使用 NodeSource 安裝：
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+驗證安裝：
+
+```bash
+node -v && npm -v
+```
+
+您應該會看到類似 `v20.x.x` 和 `10.x.x` 的版本號。
+
 ---
 
 ## 5. 服務設定（Gemini AI 與 ngrok）
@@ -1774,7 +1857,23 @@ uv pip install -e .
 
 安裝可能需要 5-10 分鐘。
 
-### 步驟 6.4：驗證安裝
+### 步驟 6.4：建置網頁介面
+
+機器人的網頁介面是用 React 建置的。使用以下命令建置：
+
+```bash
+cd ninja_webapp
+npm install
+npm run build
+cd ..
+```
+
+這會建立伺服器使用的 `ninja_webapp/dist/` 資料夾。
+
+> [!NOTE]
+> 如果 `npm install` 期間出現錯誤，請確保 Node.js 已正確安裝（步驟 4.6）。
+
+### 步驟 6.5：驗證安裝
 
 檢查主命令是否可用：
 

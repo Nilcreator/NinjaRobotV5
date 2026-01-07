@@ -81,7 +81,9 @@ class AnimatedFaces:
         """Stops the current animation thread and waits for it to exit."""
         if self._animation_thread and self._animation_thread.is_alive():
             self._stop_event.set()
-            self._animation_thread.join()
+            self._animation_thread.join(timeout=1.0)
+            if self._animation_thread.is_alive():
+                print("⚠️ Animation thread did not stop in time.")
 
     def _get_blank_image(self):
         return Image.new("RGB", (self.width, self.height), self.bg_color)
