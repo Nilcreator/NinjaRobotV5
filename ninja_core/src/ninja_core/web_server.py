@@ -62,7 +62,9 @@ class AppState:
         self.first_interaction: bool = True
         self.has_greeted: bool = False
         self.last_reaction_time: float = 0.0
+        self.last_reaction_time: float = 0.0
         self.connection_manager = ConnectionManager()
+        self.tasks = set() # Track background tasks
 
 # --- Connection Manager ---
 class ConnectionManager:
@@ -117,7 +119,9 @@ async def lifespan(app: FastAPI):
     try:
         from ninja_ble.service import NinjaBLEService
         app.state.ninja.ble = NinjaBLEService(dispatcher)
-        app.state.ninja_ble_task = asyncio.create_task(app.state.ninja.ble.start())
+        ble_task = asyncio.create_task(app.state.ninja.ble.start())
+        app.state.tasks.add(ble_task)
+        ble_task.add_done_callback(app.state.tasks.discard)
         print("BLE Service started.")
     except ImportError as e:
         print(f"BLE modules not found, skipping BLE: {e}")
@@ -155,7 +159,9 @@ async def lifespan(app: FastAPI):
          print(f"Ninja Coder Agent failed to start: {e}")
 
     # Network & ngrok
-    asyncio.create_task(setup_network_and_display(app))
+    network_task = asyncio.create_task(setup_network_and_display(app))
+    app.state.tasks.add(network_task)
+    network_task.add_done_callback(app.state.tasks.discard)
 
     yield
 
@@ -170,14 +176,15 @@ async def lifespan(app: FastAPI):
                 await asyncio.wait_for(app.state.ninja.ble.stop(), timeout=2.0)
             except asyncio.TimeoutError:
                 print("⚠️ BLE shutdown timed out! Forcing task cancellation...")
-                if hasattr(app.state, 'ninja_ble_task') and app.state.ninja_ble_task:
-                     app.state.ninja_ble_task.cancel()
-                     try:
-                         await app.state.ninja_ble_task
-                     except asyncio.CancelledError:
-                         print("BLE Task Cancelled.")
             except Exception as e:
                 print(f"⚠️ BLE shutdown error: {e}")
+        
+        # Cancel all background tasks
+        if hasattr(app.state, 'tasks'):
+            print(f"Cancelling {len(app.state.tasks)} background tasks...")
+            for task in app.state.tasks:
+                task.cancel()
+            await asyncio.gather(*app.state.tasks, return_exceptions=True)
 
         # Stop Faces
         if app.state.ninja.faces:
@@ -220,13 +227,6 @@ async def setup_network_and_display(app: FastAPI):
         try:
             public_url = ngrok.connect(port, "http").public_url
             print(f"Public Access: {public_url}")
-            
-            # Ngrok Success - Trigger Feedback
-            try:
-                if app.state and hasattr(app.state, 'ninja'):
-                     asyncio.create_task(trigger_welcome(app.state.ninja))
-            except Exception as e:
-                print(f"Feedback trigger failed: {e}")
             break
         except Exception as e:
             print(f"ngrok attempt {attempt+1} failed: {e}")
@@ -660,8 +660,7 @@ app.include_router(api_router)
 # Root route - serves SPA or legacy template
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    # Trigger welcome greeting on page load
-    asyncio.create_task(trigger_welcome(request.app.state.ninja))
+
     
     # Serve React SPA if available
     if WEBAPP_DIST.exists() and (WEBAPP_DIST / "index.html").exists():
@@ -712,6 +711,10 @@ async def websocket_distance(websocket: WebSocket):
 async def websocket_events(websocket: WebSocket):
     manager = websocket.app.state.ninja.connection_manager
     await manager.connect(websocket)
+    
+    # Broadcast welcome on connection
+    asyncio.create_task(trigger_welcome(websocket.app.state.ninja))
+    
     try:
         while True:
             # Keep connection alive - broadcasts are pushed via manager.broadcast()
