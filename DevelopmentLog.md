@@ -9,13 +9,13 @@
 - **Affected Sections**: English, Japanese (日本語), Traditional Chinese (繁體中文).
 - **Related Files**: `InstallationGuide.md`.
 
-## 2026-01-08: Server Shutdown Hang Fix
+## 2026-01-08: Server Shutdown Hang Fix (V2)
 - **Action**: Fixed server hanging on Ctrl+C during shutdown.
 - **Details**:
-    - **Root Cause**: `asyncio.gather()` in lifespan shutdown waited indefinitely for tasks that didn't cleanly respond to cancellation. Blocking `join()` calls in `AnimatedFaces` and `DistanceMonitor` could also hang.
-    - **Fix**: Replaced `asyncio.gather()` with `asyncio.wait(timeout=3.0)` for graceful cancellation.
-    - **Fix**: Added `timeout=1.0` to `threading.Thread.join()` in `perception.py` and `facial_expressions.py`.
-    - **Fix**: Tracked `trigger_welcome` task in `app.state.ninja.tasks` for proper cancellation.
+    - **Root Cause (V1 Misdiagnosis)**: The initial fix targeted `asyncio.gather()` but missed the real issue: WebSocket handlers (`/ws/distance`, `/ws/events`) run `while True` loops managed by Uvicorn, not by our lifespan.
+    - **Root Cause (V2 Correct)**: Uvicorn's "Waiting for background tasks" message refers to active HTTP/WebSocket connections, not asyncio tasks.
+    - **Fix (V2)**: Added `shutdown_event = asyncio.Event()` to `AppState`. WebSocket handlers now check `shutdown_event.is_set()` in their loops and exit gracefully when the event is set during shutdown.
+    - **V1 fixes retained**: Timeout on `asyncio.wait()`, timeout on thread `join()` calls.
 - **Verification**: `ruff check` passed.
 - **Related Files**: `web_server.py`, `facial_expressions.py`, `perception.py`.
 

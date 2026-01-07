@@ -65,6 +65,7 @@ class AppState:
         self.last_reaction_time: float = 0.0
         self.connection_manager = ConnectionManager()
         self.tasks = set() # Track background tasks
+        self.shutdown_event = asyncio.Event()  # Signal for graceful shutdown
 
 # --- Connection Manager ---
 class ConnectionManager:
@@ -169,6 +170,11 @@ async def lifespan(app: FastAPI):
     print("Shutting down Web Server...")
     
     try:
+        # Signal all WebSocket handlers to exit their loops
+        print("Signaling WebSocket handlers to exit...")
+        app.state.ninja.shutdown_event.set()
+        await asyncio.sleep(0.5)  # Give handlers time to exit
+        
         # Stop BLE with timeout to prevent hang
         if hasattr(app.state.ninja, 'ble') and app.state.ninja.ble:
             print("Stopping BLE Service...")
@@ -707,7 +713,7 @@ async def serve_spa(full_path: str, request: Request):
 async def websocket_distance(websocket: WebSocket):
     await websocket.accept()
     try:
-        while True:
+        while not websocket.app.state.ninja.shutdown_event.is_set():
             if websocket.app.state.ninja.distance_monitor:
                 dist = websocket.app.state.ninja.distance_monitor.get_continuous_distance()
                 await websocket.send_json({"distance_mm": dist})
@@ -726,7 +732,7 @@ async def websocket_events(websocket: WebSocket):
     welcome_task.add_done_callback(websocket.app.state.ninja.tasks.discard)
     
     try:
-        while True:
+        while not websocket.app.state.ninja.shutdown_event.is_set():
             # Keep connection alive - broadcasts are pushed via manager.broadcast()
             # Using sleep instead of receive to allow async broadcasts to work
             await asyncio.sleep(1)
