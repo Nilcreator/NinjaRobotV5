@@ -148,6 +148,9 @@ class DistanceMonitor:
                     else:
                         self._current_velocity = 0.0
 
+            except OSError:
+                 # I2C or IO error (happens during shutdown)
+                 pass
             except Exception as e:
                 print(f"Error in distance monitoring loop: {e}")
                 # In case of sensor error, stop the loop

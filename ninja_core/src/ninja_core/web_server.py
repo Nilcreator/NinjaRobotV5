@@ -161,17 +161,40 @@ async def lifespan(app: FastAPI):
 
     # --- Shutdown ---
     print("Shutting down Web Server...")
-    # Stop BLE
-    if hasattr(app.state.ninja, 'ble') and app.state.ninja.ble:
-        await app.state.ninja.ble.stop()
+    
+    try:
+        # Stop BLE with timeout to prevent hang
+        if hasattr(app.state.ninja, 'ble') and app.state.ninja.ble:
+            print("Stopping BLE Service...")
+            try:
+                await asyncio.wait_for(app.state.ninja.ble.stop(), timeout=2.0)
+            except asyncio.TimeoutError:
+                print("⚠️ BLE shutdown timed out! Moving on...")
+            except Exception as e:
+                print(f"⚠️ BLE shutdown error: {e}")
 
-    if app.state.ninja.faces:
-        app.state.ninja.faces.stop()
-    if app.state.ninja.distance_monitor:
-        app.state.ninja.distance_monitor.stop_continuous()
-    if app.state.ninja.hal:
-        app.state.ninja.hal.shutdown()
-    ngrok.kill()
+        # Stop Faces
+        if app.state.ninja.faces:
+            app.state.ninja.faces.stop()
+
+        # Stop Distance Monitor
+        if app.state.ninja.distance_monitor:
+            app.state.ninja.distance_monitor.stop_continuous()
+            
+    except Exception as e:
+        print(f"Error during shutdown sequence: {e}")
+    finally:
+        # Stop HAL (Hardware Abstraction Layer) - CRITICAL: Must be last
+        if app.state.ninja.hal:
+            print("Shutting down HAL...")
+            try:
+                app.state.ninja.hal.shutdown()
+            except Exception as e:
+                print(f"HAL shutdown error: {e}")
+
+        # Stop ngrok
+        ngrok.kill()
+        print("Shutdown complete.")
 
 async def setup_network_and_display(app: FastAPI):
     port = 8000

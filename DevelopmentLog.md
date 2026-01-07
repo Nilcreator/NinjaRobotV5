@@ -13,6 +13,15 @@
         - Updated `Editor` UI to display "AI Optimization" alerts when code is improved by the backend.
 - **Related Files**: `api_wrappers.py`, `ninja_coder.py`, `dispatcher.py`, `generators.js`, `Editor/index.jsx`.
 
+## 2026-01-07: Health Check & Optimization Implementation - COMPLETE
+- **Action**: Resolved Agent Feedback, Movement Pipelining, and Shutdown issues.
+- **Details**:
+    - **Agent Feedback**: `NinjaCoderAgent` now returns structured JSON with an "explanation" field. `CommandDispatcher` parses this and broadcasts accurate natural language explanations of optimized code (e.g., "Batching movements for smoothness").
+    - **Pipelining**: Updated `NinjaCoderAgent` prompt with optimization rules to enforce `robot.servos.move_all()` for batches and `time.sleep()` for sequential moves, preventing "instant" execution of discrete commands.
+    - **Robust Shutdown**: Updated `web_server.py` to use `try...finally` blocks and `asyncio.wait_for` on BLE stop, ensuring `hal.shutdown()` is always called even if BLE hangs. Handled `OSError` in `perception.py` to suppress shutdown noise.
+- **Verification**: `ruff` linting passed for all core files.
+- **Related Files**: `ninja_core/ninja_coder.py`, `ninja_core/dispatcher.py`, `ninja_core/web_server.py`, `ninja_core/perception.py`.
+
 ## 2026-01-04: Phase 5 Web Interface - COMPLETE
 - **Action**: Implemented complete React-based Web Application (`ninja_webapp`).
 - **Details**:

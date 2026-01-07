@@ -170,7 +170,7 @@ class CommandDispatcher:
 
     def _on_execution_complete(self, result: dict):
         """Callback when SafeExecutor finishes/fails."""
-        status = result.get("status")
+
         
         # Broadcast status update
         # We need to run incomplete broadcast on loop
@@ -267,7 +267,9 @@ class CommandDispatcher:
 
             try:
                 # Ask Agent to translate/fix the code
-                translated_code = await self.coder_agent.translate_code(code)
+                result_data = await self.coder_agent.translate_code(code)
+                translated_code = result_data.get("code", code)
+                explanation = result_data.get("explanation", "Code optimized.")
 
                 # If code changed, notify
                 if translated_code != code:
@@ -277,7 +279,7 @@ class CommandDispatcher:
                     await self.broadcast({
                         "type": "chat",
                         "sender": "ninja",
-                        "text": "✅ I optimized your code for smoother movement! Executing now...",
+                        "text": f"✅ {explanation}", 
                         "optimized_code": translated_code,
                         "original_code": code
                     })
@@ -286,7 +288,7 @@ class CommandDispatcher:
                     await self.broadcast({
                         "type": "chat",
                         "sender": "ninja",
-                        "text": "✅ Code is V5-compatible. Executing now..."
+                        "text": f"✅ Code looks good! {explanation}"
                     })
 
             except Exception as e:

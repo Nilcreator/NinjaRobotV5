@@ -67,8 +67,8 @@ class NinjaCoderAgent:
 - `robot.expression(name)` (Show face)
 - `robot.distance.read()` (Returns mm)
 
-## OPTIMIZATION RULES (High Priority)
-1. **Batch Servos**: If you see sequential servo commands like:
+## OPTIMIZATION & PIPELINING RULES (High Priority)
+1. **Batch Movements**: If you see sequential servo commands like:
    ```python
    robot.servo[0].angle = 90
    robot.servo[1].angle = 0
@@ -80,15 +80,20 @@ class NinjaCoderAgent:
    ```
    This makes movement smoother.
 
-2. **Fix Loops**: Ensure `range()` arguments are integers (e.g., `range(int(x))`).
+2. **Sequential Timing**: If discrete movements are required logic logic implies one after another (e.g. wave), you MUST inject `time.sleep(0.5)` (or appropriate duration) after each non-blocking command.
 
-3. **Context**: If the code is just a standalone expression or variable assignment, ensure it does something visible (e.g., add a print or a sound).
+3. **Fix Loops**: Ensure `range()` arguments are integers (e.g., `range(int(x))`).
 
+4. **Context**: If the code is just a standalone expression or variable assignment, ensure it does something visible (e.g., add a print or a sound).
 
 **Example:**
 ```python
 robot.servo[0].angle = 90   # Set servo 1 to 90 degrees
 robot.servo[7].angle = 45   # Set servo 8 to 45 degrees
+```
+**Optimized:**
+```python
+robot.servos.move_all([90, -1, -1, -1, -1, -1, -1, 45]) # Use -1 to keep others same
 ```
 
 **INVALID (do not use):**
@@ -144,46 +149,69 @@ robot.servo[7].angle = 45   # Set servo 8 to 45 degrees
 
 ---
 
-## Output Format
-Return ONLY the corrected Python code. No explanations, no markdown code fences.
-If code is already valid, return it exactly as received.
+## OUTPUT FORMAT (STRICT)
+You must return a **single JSON object** (no markdown formatting outside the JSON).
+Structure:
+{
+  "explanation": "A concise, natural language summary of what the code does (e.g., 'Moving servo 5 to 45 degrees and playing a tone'). Do not mention 'optimization' technically, just describe the action.",
+  "code": "The full, valid, optimized Python code string. Use \\n for newlines."
+}
 """
 
-    async def translate_code(self, code: str) -> str:
-        """Translates/validates user code for V5 hardware compatibility."""
+    async def translate_code(self, code: str) -> dict:
+        """
+        Translates/Optimizes user code into V5-compatible Python code with explanation.
+        
+        Returns:
+            dict: {"explanation": str, "code": str}
+        """
         if not self.model:
-            log.warning("NinjaCoderAgent not initialized. Returning original code.")
-            return code
+            return {"explanation": "AI Agent disabled.", "code": code}
 
-        prompt = f"""Validate and fix this code for NinjaRobot V5. 
-Only fix invalid API calls. Keep logic unchanged.
-Return ONLY the corrected Python code, no explanations.
-
-Code:
+        prompt = f"""Validate and optimize this code for NinjaRobot V5.
+User Code:
+```python
 {code}
+```
+Remember the JSON output format.
 """
         try:
             response = await self.model.generate_content_async(prompt)
             text = response.text.strip()
-
-            # Extract code block if wrapped in markdown
-            if "```python" in text:
-                start = text.find("```python") + 9
+            
+            # Clean up potential markdown code blocks around the JSON
+            if "```json" in text:
+                start = text.find("```json") + 7
                 end = text.find("```", start)
                 if end != -1:
-                    return text[start:end].strip()
-                return text[start:].strip()
+                    text = text[start:end].strip()
+                else:
+                    text = text[start:].strip()
             elif "```" in text:
+                 # Generic code block
                 start = text.find("```") + 3
                 end = text.find("```", start)
                 if end != -1:
-                    return text[start:end].strip()
+                    text = text[start:end].strip()
 
-            return text
+            # Parse JSON
+            import json
+            try:
+                data = json.loads(text)
+                # Fallback if keys missing
+                if "code" not in data:
+                    data["code"] = code
+                if "explanation" not in data:
+                    data["explanation"] = "Code optimized for execution."
+                return data
+            except json.JSONDecodeError:
+                log.warning(f"Failed to parse JSON from agent: {text[:100]}...")
+                # Attempt to salvage if it looks like just code
+                return {"explanation": "Optimized code (Auto-recovered)", "code": text}
+
         except Exception as e:
-            log.error(f"Code translation error: {e}")
-            # Return original code on error
-            return code
+            log.error(f"Code generation error: {e}")
+            return {"explanation": f"Optimization failed: {e}", "code": code}
 
     async def generate_code(self, user_request: str) -> str:
         """Generates Python code from a natural language request."""
