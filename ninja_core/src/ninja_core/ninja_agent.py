@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from typing import Dict, List
 
 import google.generativeai as genai
@@ -8,6 +9,8 @@ from google.generativeai.types import GenerationConfig, Tool
 from .config import NinjaConfig
 from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
+
+log = logging.getLogger(__name__)
 
 
 class MissingAPIKeyError(Exception):
@@ -248,3 +251,98 @@ Example Interactions:
                 "response": "I had trouble hearing that.",
                 "log": error_message,
             }
+
+    async def explain_code(self, code: str) -> str:
+        """Generates a natural language explanation of the code (Low temp)."""
+        prompt = f"""Explain what this Python code does for the NinjaRobot.
+Be concise (1-2 sentences). Use simple language a student would understand.
+Do NOT suggest improvements. Just describe the actions.
+
+Code:
+```python
+{code}
+```
+"""
+        try:
+            # Override temp for precision
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=GenerationConfig(temperature=0.1)
+            )
+            return response.text.strip()
+        except Exception as e:
+            log.error(f"Error explaining code: {e}")
+            return f"Unable to explain code: {e}"
+
+    async def generate_code(self, user_request: str) -> str:
+        """Generates Python code from a natural language request (Migrated)."""
+        prompt = f"""Generate Python code for the NinjaRobot V5 based on this request:
+"{user_request}"
+
+Use ONLY the documented API (robot.servo, robot.buzzer, etc). Return ONLY the Python code."""
+        
+        try:
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=GenerationConfig(temperature=0.1)
+            )
+            text = response.text.strip()
+            return self._extract_code(text)
+        except Exception as e:
+            log.error(f"Code generation error: {e}")
+            return f"# Error generating code: {e}"
+
+    async def analyze_error(self, code: str, error_msg: str) -> str:
+        """Explains an execution error in simple terms (Migrated)."""
+        prompt = f"""The following user code failed on the NinjaRobot.
+Error: "{error_msg}"
+Code:
+```python
+{code}
+```
+Explain WHY it failed and fix the code in a single concise paragraph.
+Then provide the corrected code block.
+"""
+        try:
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=GenerationConfig(temperature=0.1)
+            )
+            return response.text.strip()
+        except Exception as e:
+            log.error(f"Error analysis failed: {e}")
+            return f"Error analyzing failure: {e}"
+
+    async def analyze_code(self, code: str) -> str:
+        """Analyzes code for bugs or improvements (Migrated)."""
+        prompt = f"""Analyze the following Python code for the NinjaRobot. 
+Find bugs, safety issues, or improvements. 
+Explain clearly.
+Code:
+```python
+{code}
+```"""
+        try:
+            response = await self.model.generate_content_async(
+                prompt,
+                generation_config=GenerationConfig(temperature=0.1)
+            )
+            return response.text.strip()
+        except Exception as e:
+            log.error(f"Code analysis error: {e}")
+            return f"Error analyzing code: {e}"
+
+    def _extract_code(self, text: str) -> str:
+        """Helper to extract code from markdown blocks."""
+        if "```python" in text:
+            start = text.find("```python") + 9
+            end = text.find("```", start)
+            if end != -1:
+                return text[start:end].strip()
+            return text[start:].strip()
+        elif "```" in text:
+            start = text.find("```") + 3
+            end = text.find("```", start)
+            if end != -1:
+                return text[start:end].strip()
+        return text

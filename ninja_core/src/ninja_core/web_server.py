@@ -28,7 +28,7 @@ from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
 from .movement_controller import MovementController, EmergencyStop
 from .perception import DistanceMonitor
-from .ninja_coder import NinjaCoderAgent
+
 
 # --- Configuration ---
 base_dir = Path(__file__).parent
@@ -61,7 +61,7 @@ class AppState:
         self.sound: Optional[RobotSoundPlayer] = None
         self.movement: Optional[MovementController] = None
         self.distance_monitor: Optional[DistanceMonitor] = None
-        self.coder_agent: Optional[NinjaCoderAgent] = None
+        self.distance_monitor: Optional[DistanceMonitor] = None
         self.first_interaction: bool = True
         self.has_greeted: bool = False
         self.last_reaction_time: float = 0.0
@@ -156,13 +156,7 @@ async def lifespan(app: FastAPI):
     except ValueError as e:
         print(f"Ninja AI Agent not initialized: {e}")
 
-    # Initialize NinjaCoderAgent
-    try:
-        app.state.ninja.coder_agent = NinjaCoderAgent(config)
-        dispatcher.attach_coder_agent(app.state.ninja.coder_agent) # Attach for error loop
-        print("Ninja Coder Agent initialized.")
-    except Exception as e:
-         print(f"Ninja Coder Agent failed to start: {e}")
+
 
     # Network & ngrok
     network_task = asyncio.create_task(setup_network_and_display(app))

@@ -1,6 +1,15 @@
 # Development Log
 
-## 2026-01-08: Installation Guide Update - Node.js & Web Interface Build
+
+## 2026-01-09: Blockly Execution Flow & Agent Merger
+- **Action**: Modified code execution to bypass `NinjaCoderAgent` and merged its capabilities into `NinjaAgent`.
+- **Details**:
+    - **Direct Execution**: `dispatcher.py` now executes code immediately via `SafeExecutor`.
+    - **Parallel Explanation**: `dispatcher.py` triggers async `NinjaAgent.explain_code()` for instant feedback.
+    - **Agent Merger**: Migrated `generate_code`, `analyze_error`, `analyze_code` to `NinjaAgent` using dynamic `temperature=0.1`.
+    - **Cleanup**: Deleted `ninja_coder.py` and removed references in `web_server.py`.
+- **Related Files**: `dispatcher.py`, `ninja_agent.py`, `web_server.py`, `ninja_coder.py` (deleted).
+
 - **Action**: Updated `InstallationGuide.md` to include Node.js and ninja_webapp build instructions.
 - **Details**:
     - Added **Step 4.6: Install Node.js** using NodeSource LTS.

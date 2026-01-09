@@ -34,7 +34,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | Component | Change |
 |---|---|
 | `ninja_core/safe_executor.py` | **NEW** - Sandboxed Python execution engine |
-| `ninja_core/ninja_coder.py` | **NEW** - AI Agent for code generation (Gemini 3 Flash) |
+
 | `ninja_core/web_server.py` | Added `/api/code/*` endpoints for remote execution |
 
 ### Key Changes (Phase 5 - Web Interface):
@@ -186,7 +186,7 @@ NinjaRobotV5/
         ├── robot_sound.py      # Auditory feedback
         ├── perception.py       # Distance monitoring
         ├── safe_executor.py    # Sandboxed execution (V5 Phase 4)
-        ├── ninja_coder.py      # AI Code Agent (V5 Phase 4)
+
         ├── web_server.py       # FastAPI server (BLE + Web)
         ├── static/             # Web UI assets
         └── templates/          # HTML templates
@@ -1298,6 +1298,19 @@ def __init__(self, config: NinjaConfig)
     }
     ```
   - `response` (str): AI's text response
+  - `log` (str): Debug information
+
+**`async explain_code(code: str) -> str`**
+- Generates a concise natural language explanation of Python code.
+
+**`async generate_code(user_request: str) -> str`**
+- Generates Python code from a natural language request.
+
+**`async analyze_error(code: str, error_msg: str) -> str`**
+- Analyzes runtime errors and suggests fixes.
+
+**`async analyze_code(code: str) -> str`**
+- Analyzes code for potential issues.
   - `logs` (str): Debug log messages
 
 **`async process_audio_command(audio_file_path: str) -> dict`**
@@ -1784,47 +1797,7 @@ result = executor.execute("robot.buzzer.play('happy')")
 
 ---
 
-#### 3.6.11 `ninja_coder.py` (New Phase 4)
 
-**Module:** `ninja_core.ninja_coder`
-
-**Purpose:** AI-powered code generation, translation, and debugging agent. Uses `gemini-3-flash-preview` for fast coding tasks.
-
-##### Class: `NinjaCoderAgent`
-
-**Constructor:**
-```python
-def __init__(self, config: NinjaConfig)
-```
-
-**Methods:**
-
-**`async translate_code(code: str) -> str`**
-- Rewrites user code to match the V5 Robot API.
-- **Use Case:** Converts `robot.buzzer.play("startup")` → tone sequence.
-- **Returns:** Translated Python code string.
-
-**`async generate_code(query: str) -> str`**
-- Generates Python code from natural language description.
-- **Returns:** Generated Python code string.
-
-**`async analyze_code(code: str) -> str`**
-- Analyzes code for bugs and improvements.
-- **Returns:** Human-readable analysis text.
-
-**`async analyze_error(code: str, error_msg: str) -> str`**
-- Explains an execution error and suggests a fix.
-- **Returns:** Diagnostic text with corrected code.
-
-**Sound Mapping (built into system prompt):**
-| Invalid Input | Translated Output |
-|---------------|-------------------|
-| `"startup"` | Tone sequence (C5→E5→G5) |
-| `"success"` | `play("happy")` |
-| `"error"` | `play("sad")` |
-| `"alert"` | `play("scary")` |
-
----
 
 #### 3.6.12 `api_wrappers.py` (New Phase 4)
 

@@ -188,7 +188,7 @@ class CommandDispatcher:
             "message": result.get("message", "")
         })
         
-        # If error, ask NinjaCoderAgent to explain
+        # If error, ask NinjaAgent to explain
         if status == "error":
             error_msg = result.get("message", "Unknown error")
             code = result.get("code", "")
@@ -200,28 +200,17 @@ class CommandDispatcher:
                 "text": f"⚠️ Error executing code: {error_msg}"
             })
             
-            # Then analyze if we have an agent
-            if self.agent: # Use attached NinjaAgent? Or CoderAgent? 
-                # Ideally we use NinjaCoderAgent, but Dispatcher doesn't hold reference to it currently.
-                # It holds NinjaAgent.
-                # We should probably pass CoderAgent to Dispatcher too?
-                # Or just let NinjaAgent handle it? NinjaAgent is "general".
-                # Let's attach CoderAgent to Dispatcher via attach_coder_agent method.
-                if hasattr(self, "coder_agent") and self.coder_agent:
-                     analysis = await self.coder_agent.analyze_error(code, error_msg)
-                     await self.broadcast({
-                        "type": "chat", 
-                        "sender": "ninja", 
-                        "text": f"💡 Diagnosis: {analysis}"
-                     })
-                     
-    def attach_coder_agent(self, agent):
-        """Attach the NinjaCoderAgent."""
-        self.coder_agent = agent
-        log.info("NinjaCoderAgent attached to Dispatcher.")
+            # Use MAIN agent for analysis
+            if self.agent:
+                 analysis = await self.agent.analyze_error(code, error_msg)
+                 await self.broadcast({
+                    "type": "chat", 
+                    "sender": "ninja", 
+                    "text": f"💡 Diagnosis: {analysis}"
+                 })
 
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
-        """Handle code execution commands (Phase 4 - SafeExecutor + AI Agent)."""
+        """Handle code execution commands (Direct Execution + AI Explanation)."""
         action = cmd_data.get("action", "run")
 
         if action == "stop":
@@ -236,78 +225,38 @@ class CommandDispatcher:
         if not code:
             return {"status": "error", "message": "No code provided"}
 
-        # Broadcast received confirmation with FULL code for system log
+        # 1. Broadcast "received" (Instant feedback)
         await self.broadcast({
             "type": "execute_received",
             "code_length": len(code),
             "full_code": code,
         })
 
-        # --- AI Translation / Optimization Step ---
-        if self.coder_agent:
-            # Notify Chat with a detailed message about what was received
-            # Extract key actions from code for description
-            actions_found = []
-            if "buzzer.play" in code or "buzzer.tone" in code:
-                actions_found.append("🔊 Sound")
-            if "display.image" in code or "display.clear" in code:
-                actions_found.append("🖼️ Display")
-            if "distance.read" in code:
-                actions_found.append("📏 Distance Sensor")
-            if "servo" in code.lower():
-                actions_found.append("🦾 Servo")
-            
-            actions_desc = ", ".join(actions_found) if actions_found else "custom logic"
-            
-            await self.broadcast({
-                "type": "chat",
-                "sender": "ninja",
-                "text": f"📥 Code received! Detected: {actions_desc}. Optimizing..."
-            })
-
-            try:
-                # Ask Agent to translate/fix the code
-                result_data = await self.coder_agent.translate_code(code)
-                translated_code = result_data.get("code", code)
-                explanation = result_data.get("explanation", "Code optimized.")
-
-                # If code changed, notify
-                if translated_code != code:
-                    log.info("Agent optimized the code.")
-                    log.debug(f"Original:\n{code}\nTranslated:\n{translated_code}")
-                    
-                    await self.broadcast({
-                        "type": "chat",
-                        "sender": "ninja",
-                        "text": f"✅ {explanation}", 
-                        "optimized_code": translated_code,
-                        "original_code": code
-                    })
-                    code = translated_code
-                else:
-                    await self.broadcast({
-                        "type": "chat",
-                        "sender": "ninja",
-                        "text": f"✅ Code looks good! {explanation}"
-                    })
-
-            except Exception as e:
-                log.error(f"Translation failed: {e}")
-                await self.broadcast({
-                    "type": "chat",
-                    "sender": "ninja",
-                    "text": f"⚠️ Optimization failed ({e}). Running original code..."
-                })
+        # 2. Trigger Parallel AI Explanation (Non-blocking)
+        if self.agent:
+            # Fire and forget explanation task
+            asyncio.create_task(self._explain_code_async(code))
         else:
-            log.warning("No CoderAgent attached, skipping translation.")
-            await self.broadcast({
+             await self.broadcast({
                 "type": "chat",
                 "sender": "ninja",
-                "text": "📥 Code received. Executing directly..."
+                "text": "🚀 Executing code..."
             })
 
-        # Execute SafeExecutor with callback
+        # 3. Execute Immediately (Bypass Optimization)
         result = self.safe_executor.execute(code, on_complete=self._on_execution_complete)
 
         return result
+
+    async def _explain_code_async(self, code: str):
+        """Helper to run code explanation in background."""
+        try:
+            explanation = await self.agent.explain_code(code)
+            await self.broadcast({
+                "type": "chat",
+                "sender": "ninja",
+                "text": f"🤖 Logic: {explanation}"
+            })
+        except Exception as e:
+            log.error(f"Explanation failed: {e}")
 
