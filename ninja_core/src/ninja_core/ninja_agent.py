@@ -255,8 +255,8 @@ Example Interactions:
     async def explain_code(self, code: str) -> str:
         """Generates a natural language explanation of the code (Low temp)."""
         prompt = f"""Explain what this Python code does for the NinjaRobot.
-Be concise (1-2 sentences). Use simple language a student would understand.
-Do NOT suggest improvements. Just describe the actions.
+Be concise (2-3 sentences). Use simple language a student would understand.
+If you see potential bugs or unused variables, politely suggest a fix.
 
 Code:
 ```python

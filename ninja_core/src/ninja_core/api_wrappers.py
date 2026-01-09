@@ -14,6 +14,7 @@ Available API:
 """
 
 import logging
+import time
 from pathlib import Path
 from PIL import Image
 from .robot_sound import RobotSoundPlayer
@@ -138,12 +139,42 @@ class ServoWrapper:
         internal_angle = value - 90
         
         if self._multi_servo and hasattr(self._multi_servo, 'servo'):
-            try:
-                self._multi_servo.servo[self._index].move_angle(internal_angle)
-            except Exception as e:
-                log.error(f"Failed to set servo {self._index} to {value}°: {e}")
+            # Use move() with default blocking duration (0.5s) to ensure sequential execution
+            self.move(value, duration=0.5)
         else:
             log.warning("Servos not available")
+
+    def move(self, angle: float, duration: float = 0.5):
+        """Move this servo to angle over duration (blocking).
+        
+        Args:
+            angle: Target angle (0-180).
+            duration: Movement time in seconds (default 0.5).
+        """
+        # Clamp to valid range
+        angle = max(0, min(180, angle))
+        self._angle = angle
+        
+        # Convert 0-180 to -90 to +90
+        internal_angle = angle - 90
+        
+        if self._multi_servo:
+            try:
+                # Construct list for MultiServo.move_all_angles_sync
+                # None = don't move other servos
+                # Note: We need target_angles for ALL servos, but we only want to move THIS one.
+                # MultiServo.move_all_angles_sync takes a list where None means "keep current".
+                
+                target_angles = [None] * 8
+                # We need to ensure we don't index out of bounds if self._index is weird, 
+                # but it should be 0-7.
+                if 0 <= self._index < 8:
+                    target_angles[self._index] = internal_angle
+                    self._multi_servo.move_all_angles_sync(target_angles, move_sec=duration)
+                else:
+                    log.error(f"Servo index {self._index} out of range")
+            except Exception as e:
+                log.error(f"Failed to move servo {self._index}: {e}")
 
 
 class ServoArrayWrapper:
@@ -226,6 +257,8 @@ class RobotWrapper:
             try:
                 # AnimatedFaces uses play() method
                 self._faces.play(name, duration_s=duration)
+                # Block for duration to ensure animation completes before next command
+                time.sleep(duration)
             except Exception as e:
                 log.error(f"Failed to show expression '{name}': {e}")
         else:
