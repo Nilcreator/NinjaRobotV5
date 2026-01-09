@@ -101,7 +101,12 @@ class AnimatedFaces:
             draw = ImageDraw.Draw(image)
             frame_logic(draw, time.time() - start_time)
             try:
-                self.lcd.display(image)
+                # Check for display validity
+                if self.lcd:
+                    self.lcd.display(image)
+            except RuntimeError as e: # Catch concurrent access errors if SPI is locked
+                print(f"Display busy: {e}")
+                time.sleep(0.01)
             except (AttributeError, Exception):
                 # If display fails (likely during shutdown), exit loop cleanly
                 break

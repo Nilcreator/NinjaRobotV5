@@ -251,12 +251,16 @@ class CommandDispatcher:
     async def _explain_code_async(self, code: str):
         """Helper to run code explanation in background."""
         try:
+            log.info("Starting background code explanation...")
             explanation = await self.agent.explain_code(code)
+            log.info(f"Explanation ready: {explanation[:30]}...")
+            
             await self.broadcast({
                 "type": "chat",
                 "sender": "ninja",
                 "text": f"🤖 Logic: {explanation}"
             })
+            log.info("Explanation broadcast sent.")
         except Exception as e:
-            log.error(f"Explanation failed: {e}")
+            log.error(f"Explanation failed: {e}", exc_info=True)
 

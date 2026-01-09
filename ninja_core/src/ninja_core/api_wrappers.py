@@ -200,15 +200,27 @@ class ServoArrayWrapper:
         """Move all servos simultaneously.
         
         Args:
-            angles (list): List of 8 angles (0-180).
-            duration (float): Movement duration in seconds.
+            angles (list): List of 8 angles (0-180). None to skip.
+            duration (float): Time in seconds (default 0.5).
         """
-        # Pad or truncate to 8 servos
-        target_angles = angles[:8]
-        if len(target_angles) < 8:
-            target_angles.extend([90] * (8 - len(target_angles)))
-            
-        self._multi_servo.move_all_angles_sync(target_angles, move_sec=duration)
+        if not self._multi_servo:
+            return
+
+        internal_angles = []
+        for a in angles:
+            if a is not None:
+                # Clamp 0-180
+                val = max(0, min(180, a))
+                # Convert to -90 to +90
+                internal_angles.append(val - 90)
+            else:
+                internal_angles.append(None)
+        
+        try:
+            self._multi_servo.move_all_angles_sync(internal_angles, move_sec=duration)
+        except Exception as e:
+            log.error(f"Failed to move_all: {e}")
+        
 
     def center(self):
         """Reset all servos to center (90 degrees)."""
