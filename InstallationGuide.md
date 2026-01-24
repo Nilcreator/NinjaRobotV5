@@ -226,6 +226,86 @@ After reboot, open a terminal and install required packages:
 sudo apt install -y git pigpio python3-pip
 ```
 
+*For the lastest Raspberry Pi Bookworm 64-bit OS your will encounter "Package 'pigpio' has no installation candidate" error.
+You can only install pigpio from the sorce, here is the step-by-step solution:
+
+Step1:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential unzip wget python3-pigpio
+```
+
+Step2: download zip file
+
+```bash
+wget https://github.com/joan2937/pigpio/archive/master.zip
+```
+
+Stpe3: Unzip
+
+```bash
+unzip master.zip
+```
+
+Step4: 
+```bash
+cd pigpio-master
+```
+
+Step5: install
+```bash
+make
+sudo make install
+```
+
+Step6: remove installer
+```bash
+cd ..
+rm -rf pigpio-master master.zip
+```
+
+Step7 varification
+```bash
+sudo pigpiod
+```
+
+and run following command to test, if you see a series number, it works
+```bash
+pigs t
+```
+
+Step8: find the path where pigpio is installed
+```bash
+which pigpiod
+```
+copy the path and run
+```bash
+sudo nano /etc/systemd/system/pigpiod.service
+```
+
+Paste the following code into the service file
+```bash
+[Unit]
+Description=Pigpio daemon
+Documentation=https://github.com/joan2937/pigpio
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/pigpiod
+# 如果您只想允許本機存取（安全性較高），請將上一行改成：ExecStart=/usr/local/bin/pigpiod -l
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Reload systemd setting
+```bash
+sudo systemctl daemon-reload
+```
+
+
 ### Step 4.4: Install Python Package Manager (uv)
 
 We use `uv` for faster and more reliable Python package management:
