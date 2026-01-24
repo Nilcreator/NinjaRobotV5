@@ -262,6 +262,44 @@ async def setup_network_and_display(app: FastAPI):
             app.state.ninja.faces.play("idle", duration_s=float('inf'))
 
 # --- Helper Functions ---
+
+def _perform_shutdown_animation(app_state: "AppState") -> None:
+    """
+    Perform graceful shutdown animation: sleepy face + sound → Poweroff pose.
+    This function blocks until all animations complete.
+    """
+    if not app_state:
+        return
+
+    print("💤 Starting shutdown animation...")
+
+    # 1. Start face animation (runs in background thread)
+    if app_state.faces:
+        try:
+            app_state.faces.play("sleepy", duration_s=3.0)
+        except Exception as e:
+            print(f"  ⚠️ Face animation failed: {e}")
+
+    # 2. Play sound (non-blocking, queued in background)
+    if app_state.sound:
+        try:
+            app_state.sound.play("sleepy")
+        except Exception as e:
+            print(f"  ⚠️ Sound playback failed: {e}")
+
+    # 3. Execute Poweroff movement (blocking - waits for servos)
+    if app_state.movement:
+        try:
+            print("  🤖 Moving to Poweroff pose...")
+            app_state.movement.execute_movement("Poweroff")
+            print("  ✅ Poweroff pose complete.")
+        except Exception as e:
+            print(f"  ⚠️ Poweroff movement failed: {e}")
+
+    # 4. Brief delay to ensure face animation completes
+    time.sleep(0.5)
+    print("✅ Shutdown animation complete.")
+
 async def handle_first_interaction(app_state: AppState):
     if app_state.first_interaction:
         app_state.first_interaction = False
@@ -606,41 +644,49 @@ def get_ble_status(request: Request):
 
 @api_router.post("/system/shutdown")
 async def system_shutdown(request: Request):
-    """Safely shuts down the Raspberry Pi."""
+    """Safely shuts down the Raspberry Pi with graceful animation."""
     print("Received shutdown request via Web UI.")
     try:
-        # Run shutdown command in a separate thread to avoid blocking the response
-        # giving time for the response to be sent back to the client.
-        async def delayed_shutdown():
-            # 1. Stop high-level threads first (Critical to prevent race condition)
-            if request.app.state.ninja.faces:
-                request.app.state.ninja.faces.stop()
-            if request.app.state.ninja.distance_monitor:
-                request.app.state.ninja.distance_monitor.stop_continuous()
+        # Run shutdown sequence in a separate thread to avoid blocking the response
+        def shutdown_with_animation():
+            app_state = request.app.state.ninja
 
-            # 2. Clear display to black (so even if backlight flickers back on, it's black)
-            if request.app.state.ninja.hal and request.app.state.ninja.hal.display:
+            # 1. Perform shutdown animation (blocks until complete)
+            _perform_shutdown_animation(app_state)
+
+            # 2. Stop high-level threads
+            if app_state.faces:
+                try:
+                    app_state.faces.stop()
+                except Exception:
+                    pass
+            if app_state.distance_monitor:
+                try:
+                    app_state.distance_monitor.stop_continuous()
+                except Exception:
+                    pass
+
+            # 3. Clear display to black
+            if app_state.hal and app_state.hal.display:
                 try:
                     from PIL import Image
-                    # Create a black image matching the display size
-                    width = request.app.state.ninja.hal.display.width
-                    height = request.app.state.ninja.hal.display.height
+                    width = app_state.hal.display.width
+                    height = app_state.hal.display.height
                     black_screen = Image.new("RGB", (width, height), (0, 0, 0))
-                    request.app.state.ninja.hal.display.display(black_screen)
+                    app_state.hal.display.display(black_screen)
                 except Exception as e:
                     print(f"Failed to clear display: {e}")
 
-            # 3. Shutdown HAL (turns off backlight, servos, buzzer)
-            if request.app.state.ninja.hal:
-                request.app.state.ninja.hal.shutdown()
+            # 4. Shutdown HAL
+            if app_state.hal:
+                app_state.hal.shutdown()
 
-            await asyncio.sleep(1)
+            time.sleep(1)
             print("Executing shutdown command...")
-            # sudo is required, and user must have passwordless sudo for shutdown
             subprocess.run(["sudo", "shutdown", "-h", "now"])
 
-        asyncio.create_task(delayed_shutdown())
-        return {"status": "shutting_down", "message": "System is shutting down..."}
+        threading.Thread(target=shutdown_with_animation, daemon=True).start()
+        return {"status": "shutting_down", "message": "Shutdown animation started..."}
     except Exception as e:
         print(f"Shutdown failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -825,6 +871,10 @@ def run_server(autostart: bool = False):
         """Emergency cleanup when SIGINT is received."""
         global _app_state
         print("🧹 Running emergency cleanup...")
+
+        # Perform shutdown animation first (blocks until complete)
+        _perform_shutdown_animation(_app_state)
+
         if _app_state:
             _app_state.shutdown_event.set()
             # Stop faces animation

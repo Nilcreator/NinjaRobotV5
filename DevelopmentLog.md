@@ -1,6 +1,17 @@
 # Development Log
 
 
+## 2026-01-25: Graceful Shutdown Animation
+- **Action**: Implemented shutdown animation sequence for server termination.
+- **Details**:
+    - Created `_perform_shutdown_animation()` helper function in `web_server.py`.
+    - Sequence: "sleepy" face + "sleepy" sound (parallel) → "Poweroff" pose (blocking).
+    - Integrated with Ctrl+C handler (`emergency_cleanup`) for SIGINT shutdown.
+    - Integrated with `/api/system/shutdown` endpoint for web interface poweroff.
+    - All servo movements complete before system shutdown proceeds.
+- **Verification**: `ruff check` passed.
+- **Related Files**: `web_server.py`, `config.json` (Poweroff movement definition).
+
 ## 2026-01-09: Blockly Execution Flow & Agent Merger
 - **Action**: Modified code execution to bypass `NinjaCoderAgent` and merged its capabilities into `NinjaAgent`.
 - **Details**:
