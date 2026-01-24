@@ -71,7 +71,8 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 ### 🛡️ Safety First
 - **Sandboxed Execution**: User/AI-generated code runs in a restricted environment
 - **Emergency Stop**: Instant halt capability for all motors
-- **Graceful Shutdown**: Safe power-off via web interface slider
+- **Graceful Shutdown**: Safe power-off with "sleepy" animation (face, sound, and pose)
+- **Shutdown Animation**: Robot displays sleepy face, plays sleepy sound, and moves to rest position before powering off
 
 ## 🚀 Quick Start
 
@@ -175,7 +176,8 @@ This project is licensed under the **MIT License**.
 ### 🛡️ 安全第一
 - **サンドボックス実行**: ユーザー/AI生成コードは制限された環境で実行
 - **緊急停止**: すべてのモーターを即座に停止する機能
-- **安全なシャットダウン**: Webインターフェースのスライダーによる安全な電源オフ
+- **安全なシャットダウン**: 「眠い」アニメーション付きの安全な電源オフ（表情、音、姿勢）
+- **シャットダウンアニメーション**: 電源オフ前に眠い顔を表示、眠い音を再生、休憩姿勢に移動
 
 ## 🚀 クイックスタート
 
@@ -279,7 +281,8 @@ uv run ninja_core server
 ### 🛡️ 安全至上
 - **沙盒執行**：使用者/AI生成的程式碼在受限環境中執行
 - **緊急停止**：即時停止所有馬達的功能
-- **安全關機**：透過網頁介面滑桿安全關閉電源
+- **安全關機**：透過「睏倦」動畫安全關閉電源（表情、音效和姿勢）
+- **關機動畫**：電源關閉前顯示睡眠表情、播放睡眠音效並移動至休息姿勢
 
 ## 🚀 快速開始
 

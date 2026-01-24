@@ -677,7 +677,11 @@ Once connected, you can:
 
 ### Stopping the Server
 
-Press **Ctrl+C** in the terminal to stop the server. The robot will safely shut down all hardware.
+Press **Ctrl+C** in the terminal to stop the server. The robot will perform a **graceful shutdown animation**:
+1. Display a "sleepy" face on the LCD
+2. Play a "sleepy" sound melody
+3. Move servos to the "Poweroff" rest position
+4. Safely shut down all hardware
 
 ---
 
@@ -722,7 +726,7 @@ sudo reboot
 The robot should start automatically. You can access the web interface via the QR code or `http://ninjarobot.local:8000` after a minute or two.
 
 > [!TIP]
-> **Safe Shutdown:** You can safely shut down the robot using the "Power Off Robot" button at the bottom of the web interface. Wait for the green light on the Raspberry Pi to stop flashing before unplugging the power.
+> **Safe Shutdown:** You can safely shut down the robot using the "Power Off Robot" button at the bottom of the web interface. The robot will display a "sleepy" face, play a sound, and move to its rest position before powering off. Wait for the green light on the Raspberry Pi to stop flashing before unplugging the power.
 
 ### Removing Autostart
 
@@ -1434,7 +1438,11 @@ http://ninjarobot.local:8000
 
 ### サーバーの停止
 
-ターミナルで**Ctrl+C**を押してサーバーを停止します。ロボットはすべてのハードウェアを安全にシャットダウンします。
+ターミナルで**Ctrl+C**を押してサーバーを停止します。ロボットは**グレースフルシャットダウンアニメーション**を実行します：
+1. LCDに「眠い」顔を表示
+2. 「眠い」音のメロディーを再生
+3. サーボを「Poweroff」休憩位置に移動
+4. すべてのハードウェアを安全にシャットダウン
 
 ---
 
@@ -1481,7 +1489,7 @@ sudo reboot
 ロボットは自動的に起動するはずです。1〜2分後にQRコードまたは`http://ninjarobot.local:8000`からWebインターフェースにアクセスできます。
 
 > [!TIP]
-> **安全なシャットダウン:** Webインターフェースの下部にある「Power Off Robot」（ロボットの電源オフ）ボタンを使用して、ロボットを安全にシャットダウンできます。Raspberry Piの緑色のライトの点滅が止まるまで待ってから、電源を抜いてください。
+> **安全なシャットダウン:** Webインターフェースの下部にある「Power Off Robot」（ロボットの電源オフ）ボタンを使用して、ロボットを安全にシャットダウンできます。ロボットは「眠い」顔を表示し、音を再生し、休憩位置に移動してから電源を切ります。Raspberry Piの緑色のライトの点滅が止まるまで待ってから、電源を抜いてください。
 
 ### 自動起動の削除
 

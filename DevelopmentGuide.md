@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.1.0  
-**Last Updated:** 2026-01-04  
+**Version:** 5.2.0  
+**Last Updated:** 2026-01-25  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -44,6 +44,14 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_webapp/src/pages/Agent/` | Chat dialog, hardware controls, slidable log panel |
 | `ninja_webapp/src/pages/Home/` | Hero image, power-off slider |
 | `ninja_core/web_server.py` | SPA serving from `ninja_webapp/dist`, `/api/system/shutdown` |
+
+### Key Changes (V5.2 - Graceful Shutdown):
+| Component | Change |
+|---|---|
+| `ninja_core/web_server.py` | **NEW** - `_perform_shutdown_animation()` helper for graceful shutdown |
+| Shutdown Sequence | "sleepy" face + sound (parallel) → "Poweroff" pose (blocking) → HAL cleanup |
+| Ctrl+C Handler | Modified `emergency_cleanup()` to include shutdown animation |
+| `/api/system/shutdown` | Now performs animation before system poweroff |
 
 ### Required Setup:
 ```bash
