@@ -723,23 +723,153 @@ cd pi0buzzer && uv run pytest tests/ -v
 
 > **Goal:** Enable any developer to implement this plan with zero friction.
 
-### A.1 Prerequisites
+### A.0 Development Workflow (Two-Stage Approach)
+
+> **IMPORTANT:** All development is performed on PC/Mac, NOT on the Raspberry Pi.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    STAGE 1: DEVELOPMENT (PC/Mac)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Write all code on PC/Mac                                         │
+│  • Run linting: uv run ruff check src/                              │
+│  • Run unit tests with mocked pigpio                                │
+│  • No hardware required                                              │
+└─────────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              STAGE 2: VALIDATION (Raspberry Pi Zero 2W)             │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Deploy code to Pi via git pull or scp                            │
+│  • Run hardware integration tests                                   │
+│  • Test CLI commands with physical servos                           │
+│  • Verify ninja_core integration                                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why This Approach?**
+1. **Faster iteration** - No need to wait for Pi boot/deploy cycles
+2. **Better tooling** - Full IDE support on PC/Mac
+3. **Avoid hardware damage** - Untested code doesn't touch servos
+4. **CI/CD compatible** - Unit tests run in GitHub Actions
+
+---
+
+### A.1 Stage 1: Development Environment (PC/Mac)
+
+#### Prerequisites (PC/Mac)
 
 ```bash
 # 1. Ensure uv is installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 2. Navigate to project root
-cd NinjaRobotV5
+# 2. Clone/navigate to project
+cd NinjaRobotV5/pi0servo
 
-# 3. Verify pigpio daemon is running (on Raspberry Pi)
-sudo pigpiod
+# 3. Create and activate virtual environment (REQUIRED)
+uv venv
+source .venv/bin/activate  # macOS/Linux
+# .venv\Scripts\activate   # Windows
 
-# 4. Verify current library works
-cd pi0servo && uv run pi0servo --help
+# 4. Install dependencies within venv
+uv sync
+
+# 5. Verify setup
+uv run python -c "import pi0servo; print('OK')"
 ```
 
-### A.2 Implementation Phases (Detailed)
+> [!IMPORTANT]
+> **Always activate the virtual environment first** before running any `uv` commands.
+> This keeps dependencies isolated and avoids polluting your system Python.
+
+#### Mocking pigpio for Development
+
+Create `tests/conftest.py` for unit testing without hardware:
+
+```python
+import pytest
+from unittest.mock import MagicMock
+
+@pytest.fixture(autouse=True)
+def mock_pigpio(monkeypatch):
+    """Mock pigpio for all tests - no hardware required."""
+    mock_pi = MagicMock()
+    mock_pi.connected = True
+    mock_pi.get_servo_pulsewidth.return_value = 1500
+    
+    mock_module = MagicMock()
+    mock_module.pi.return_value = mock_pi
+    
+    monkeypatch.setattr("pigpio.pi", lambda: mock_pi)
+    return mock_pi
+```
+
+#### Development Commands (PC/Mac Only)
+
+```bash
+# Lint code
+uv run ruff check src/
+
+# Run unit tests (mocked, no hardware)
+uv run pytest tests/ -v
+
+# Format code
+uv run ruff format src/
+
+# Type check (optional)
+uv run mypy src/
+```
+
+---
+
+### A.2 Stage 2: Validation Environment (Raspberry Pi)
+
+#### Prerequisites (Raspberry Pi Zero 2W)
+
+```bash
+# 1. Start pigpio daemon
+sudo pigpiod
+
+# 2. Navigate to project
+cd /home/pi/NinjaRobotV5/pi0servo
+
+# 3. Sync latest code from development machine
+git pull  # or use scp/rsync
+
+# 4. Activate virtual environment (REQUIRED)
+source .venv/bin/activate
+
+# 5. Install/update dependencies within venv
+uv sync
+```
+
+> [!IMPORTANT]
+> **Always activate the virtual environment** (`source .venv/bin/activate`) before running any commands on the Raspberry Pi.
+
+#### Validation Commands (Raspberry Pi Only)
+
+```bash
+# Verify CLI works
+uv run pi0servo --help
+
+# Test interactive tool with physical servos
+uv run pi0servo servo-tool
+
+# Test single servo movement
+uv run pi0servo move 20 45
+
+# Test command format
+uv run pi0servo cmd "F_20:45/21:M"
+
+# Integration test with ninja_core
+cd ../ninja_core
+uv run ninja_core movement-tool
+```
+
+---
+
+### A.3 Implementation Phases (Detailed)
 
 #### Phase 1: Create Motion Module (Day 1)
 
@@ -994,7 +1124,7 @@ rmdir pi0servo/src/pi0servo/utils
 
 ---
 
-### A.3 Verification Commands
+### A.4 Verification Commands
 
 ```bash
 # 1. Unit tests (create tests/ directory with pytest tests)
@@ -1015,7 +1145,7 @@ uv run ninja_core movement-tool
 
 ---
 
-### A.4 Common Issues & Solutions
+### A.5 Common Issues & Solutions
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
