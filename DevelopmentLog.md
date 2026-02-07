@@ -1,6 +1,18 @@
 # Development Log
 
 
+## 2026-02-07: pi0servo Documentation Modularization
+- **Action**: Extracted `pi0servo` rebuild plan into a dedicated `RebuildPlan.md` file.
+- **Details**:
+    - Created `pi0servo/RebuildPlan.md` with the complete step-by-step implementation guide.
+    - Added new sections for **abort mechanism** (`threading.Event` + `asyncio.Event`).
+    - Added new sections for **native async support** (`move_to_async()`).
+    - Updated `ProjectUpgradePlan.md` Appendix A to reference the new file.
+    - Updated Appendix B with link to the new modular document.
+- **Backup**: Old `pi0servo` folder renamed to `pi0servo_bak`.
+- **Related Files**: `pi0servo/RebuildPlan.md`, `ProjectUpgradePlan.md`.
+
+
 ## 2026-01-25: Graceful Shutdown Animation
 - **Action**: Implemented shutdown animation sequence for server termination.
 - **Details**:
