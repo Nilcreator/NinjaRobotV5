@@ -9,13 +9,15 @@ dependencies = [
     "pigpio",
     "click",
     "blessed",
-    "ninja_utils",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.optional-dependencies]
+ninjarobot = [
+    "ninja_utils",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov",

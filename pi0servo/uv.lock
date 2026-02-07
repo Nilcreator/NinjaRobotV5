@@ -367,7 +367,6 @@ dependencies = [
     { name = "blessed" },
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "ninja-utils" },
     { name = "pigpio" },
 ]
 
@@ -378,18 +377,21 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
+ninjarobot = [
+    { name = "ninja-utils" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "blessed" },
     { name = "click" },
-    { name = "ninja-utils" },
+    { name = "ninja-utils", marker = "extra == 'ninjarobot'" },
     { name = "pigpio" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["ninjarobot", "dev"]
 
 [[package]]
 name = "pigpio"

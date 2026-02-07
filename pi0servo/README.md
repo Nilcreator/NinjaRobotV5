@@ -1,31 +1,93 @@
 # pi0servo
 
-Velocity-based servo control library for Raspberry Pi (SG90/MG90S).
-Part of the **NinjaRobot V5** platform.
+**Velocity-based servo control library for Raspberry Pi Zero / Raspberry Pi**
 
-## Key Features
+A lightweight, physics-based servo control library designed for SG90/MG90S micro servos. Features smooth easing curves, per-servo speed limits, and an interactive calibration tool.
 
-- **Velocity-based Motion**: Physics-based calculations (degrees/sec) instead of arbitrary durations
-- **Smooth Easing**: Uses `ease_out` by default for natural deceleration at movement endpoints
-- **Per-Servo Speed Limits**: Individual speed limits (0-100%) prevent mechanical stress
-- **Abort Mechanism**: Thread-safe interruption for both sync and async operations
-- **Interactive Tools**: `servo-tool` provides a menu-driven interface for all operations
+## ✨ Key Features
+
+- **Velocity-based Motion** – Physics calculations (degrees/sec) instead of arbitrary durations
+- **Smooth Easing** – Uses `ease_out` for natural deceleration at endpoints
+- **Per-Servo Speed Limits** – Individual speed limits (0-100%) prevent mechanical stress
+- **Thread-safe Abort** – Immediately stop any running movement
+- **Interactive Tools** – Menu-driven `servo-tool` for calibration and testing
+
+## 📋 Requirements
+
+- Raspberry Pi (Zero, Zero 2W, 3, 4, or 5)
+- Python 3.9 or higher
+- `pigpio` daemon running
+- SG90 or MG90S servo motors
 
 ---
 
-## 🎮 The Primary Interface: `servo-tool`
+## 🚀 Installation
 
-**`servo-tool` is the recommended way to interact with servos.** It provides an all-in-one interactive menu for calibration, testing, and configuration management.
-
-### Launch the Interactive Tool
+### Step 1: Install System Dependencies
 
 ```bash
+# Install pigpio (GPIO daemon for precise PWM control)
+sudo apt update
+sudo apt install -y pigpio python3-pigpio
+
+# Enable and start the pigpio daemon
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+```
+
+### Step 2: Clone the Repository
+
+```bash
+git clone https://github.com/your-repo/pi0servo.git
 cd pi0servo
-sudo pigpiod          # Start the GPIO daemon
+```
+
+### Step 3: Install with uv (Recommended)
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Create virtual environment and install
+uv sync
+```
+
+### Alternative: Install with pip
+
+```bash
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install pigpio click blessed
+
+# Install pi0servo
+pip install -e .
+```
+
+### Step 4: Verify Installation
+
+```bash
+# Check pigpio daemon is running
+pigs t  # Should return 0 or small number
+
+# Test pi0servo CLI
+uv run pi0servo --help
+```
+
+---
+
+## 🎮 Quick Start
+
+### 1. Start the Interactive Tool
+
+```bash
+sudo pigpiod                    # Ensure daemon is running
 uv run pi0servo servo-tool
 ```
 
-### Main Menu
+### 2. Main Menu
 
 ```
 ╔══════════════════════════════════════════════════════════╗
@@ -41,55 +103,23 @@ uv run pi0servo servo-tool
 ╚══════════════════════════════════════════════════════════╝
 ```
 
-### Menu Functions
-
-| Option | Description |
-|--------|-------------|
-| **1. Quick Move** | Execute multi-servo commands like `F_20:45/21:-30` |
-| **2. Single Move** | Move one servo to a specific angle or keyword (`min`/`center`/`max`) |
-| **3. Calibrate** | Launch the interactive calibration TUI for a specific pin |
-| **4. Set Speed** | Set speed limit (0-100%) for a specific servo |
-| **5. Status** | Display current calibration for all configured servos |
-| **6. Config** | Export/import configuration, view as JSON |
-
----
-
-## ⚙️ Servo Calibration
+### 3. First-Time Setup: Calibrate Your Servos
 
 > [!IMPORTANT]
-> **Calibration is required before use.** Each servo has unique pulse width characteristics. Calibration creates `servo.json` with correct values for your hardware.
+> **Calibration is required before use.** Each servo has unique pulse width characteristics.
 
-### Calibration TUI (Interactive)
-
-Launch calibration for a specific pin (e.g., GPIO 20):
-
-```bash
-uv run pi0servo calib 20
-```
-
-Or use Option 3 from the `servo-tool` menu.
-
-### Calibration Controls
+1. Select option **3. Calibrate**
+2. Enter the GPIO pin number your servo is connected to
+3. Use the calibration TUI to find the correct pulse widths:
 
 | Key | Action |
 |-----|--------|
-| **Tab / Shift+Tab** | Cycle through Min (-90°), Center (0°), Max (90°) |
-| **v / c / x** | Jump directly to Min / Center / Max |
+| **Tab / Shift+Tab** | Cycle through Min, Center, Max |
 | **Up / Down** | Large pulse adjustment (±20μs) |
 | **w / s** | Fine adjustment (±1μs) |
-| **+ / -** | Adjust speed limit (±10%) |
-| **Enter / Space** | Save current values |
-| **h** | Show help |
+| **+ / -** | Adjust speed limit |
+| **Enter** | Save calibration |
 | **q** | Quit |
-
-### Speed Control
-
-Each servo has an individual **speed limit (0-100%)**:
-- **100%**: Maximum servo speed (~600°/sec for SG90)
-- **80%**: Default (provides margin for reliability)
-- **Lower values**: Slower, gentler movements
-
-Adjust speed during calibration using `+` and `-` keys.
 
 ---
 
@@ -108,15 +138,15 @@ Commands use the **movement-tool** format:
 | `20:45` | Move GPIO20 to 45° at medium speed |
 | `F_20:45` | Move GPIO20 to 45° at fast speed |
 | `M_20:45/21:-30` | Move two servos at medium speed |
-| `S_20:C/21:M/22:X` | Slow move to Center/Min/Max positions |
+| `S_20:C/21:M` | Slow move to Center/Min positions |
 
 ### Speed Modes
 
 | Prefix | Mode | Description |
 |--------|------|-------------|
-| `F_` | Fast | Maximum velocity (respects per-servo limits) |
+| `F_` | Fast | Maximum velocity |
 | `M_` | Medium | Default balanced speed |
-| `S_` | Slow | Gentle movement, lowest stress |
+| `S_` | Slow | Gentle movement |
 
 ### Special Angles
 
@@ -128,52 +158,24 @@ Commands use the **movement-tool** format:
 
 ---
 
-## 🌊 Easing Curves (Smooth Motion)
+## 🔧 CLI Commands
 
-The library uses **easing functions** to create natural-looking motion:
-
-| Easing | Behavior | Use Case |
-|--------|----------|----------|
-| `ease_out` | Fast start, slow finish (default) | Most natural for robotics |
-| `ease_in` | Slow start, fast finish | Anticipation effects |
-| `ease_in_out` | Slow both ends | Elegant transitions |
-| `linear` | Constant speed | Precise timing |
-
-### Why Easing Matters
-
-Without easing, servos start and stop abruptly, causing:
-- Mechanical stress and vibration
-- Jerky, robot-like movement
-- Potential damage to gears
-
-With `ease_out` (default), the servo decelerates smoothly as it approaches the target, resulting in natural and satisfying motion.
-
----
-
-## 🔧 CLI Commands Reference
-
-### Interactive Tool (Primary)
 ```bash
+# Interactive tool (recommended)
 uv run pi0servo servo-tool
-```
 
-### Individual Commands
-```bash
 # Calibration
-uv run pi0servo calib 20          # Interactive calibration for pin 20
+uv run pi0servo calib 20          # Calibrate pin 20
 uv run pi0servo calib --show      # Show all calibrations
 
-# Single servo movement
+# Single servo
 uv run pi0servo move 20 45        # Move to 45°
 uv run pi0servo move 20 center    # Move to center
 
 # Multi-servo command
 uv run pi0servo cmd "F_20:45/21:-30"
 
-# Status check
-uv run pi0servo status
-
-# Configuration management
+# Configuration
 uv run pi0servo config show
 uv run pi0servo config export backup.json
 uv run pi0servo config import backup.json
@@ -187,20 +189,20 @@ uv run pi0servo config import backup.json
 
 ```python
 import pigpio
-from pi0servo import ServoGroup
+from pi0servo import ServoGroup, ConfigManager
 
 pi = pigpio.pi()
-group = ServoGroup(pi, pins=[20, 21, 22, 23])
 
-# Synchronized movement with easing
-group.move_all_sync(
-    targets=[45, -45, 0, None],   # None = no change
-    speed_mode="M",               # "F"ast, "M"edium, "S"low
-    easing="ease_out"             # Smooth deceleration
-)
+# Load calibrations
+manager = ConfigManager()
+manager.load()
+calibrations = {20: manager.get_calibration(20)}
 
-# Execute command string
-group.execute_command("F_20:C/21:C")
+# Create servo group
+group = ServoGroup(pi, pins=[20], calibrations=calibrations)
+
+# Move servo
+group.move_all_sync(targets=[45], speed_mode="M")
 
 # Cleanup
 group.off()
@@ -210,36 +212,10 @@ pi.stop()
 ### Async Usage
 
 ```python
-# In an async function
-await group.move_all_async(targets=[45, -45], speed_mode="M")
+await group.move_all_async(targets=[45], speed_mode="M")
 
 # Abort from another thread
 group.abort()
-```
-
-### Setting Speed Limits (Python)
-
-```python
-from pi0servo import ServoCalibration, ConfigManager
-
-# Load existing config
-manager = ConfigManager()
-manager.load()
-
-# Get current calibration and update speed
-cal = manager.get_calibration(20)  # GPIO 20
-
-# Create new calibration with updated speed
-new_cal = ServoCalibration(
-    pulse_min=cal.pulse_min,
-    pulse_center=cal.pulse_center,
-    pulse_max=cal.pulse_max,
-    speed=60  # Set to 60% (default is 80)
-)
-
-# Save to config
-manager.set_calibration(20, new_cal)
-manager.save()
 ```
 
 ---
@@ -254,19 +230,36 @@ Calibration is stored in `servo.json`:
     "pulse_min": 500,
     "pulse_center": 1500,
     "pulse_max": 2500,
-    "angle_min": -90.0,
-    "angle_center": 0.0,
-    "angle_max": 90.0,
     "speed": 80
   }
 }
 ```
 
-| Field | Description |
-|-------|-------------|
-| `pulse_*` | PWM pulse width in microseconds |
-| `angle_*` | Corresponding angles in degrees |
-| `speed` | Per-servo speed limit (0-100%) |
+---
+
+## 🌊 Easing Functions
+
+| Easing | Behavior |
+|--------|----------|
+| `ease_out` | Fast start, slow finish (default) |
+| `ease_in` | Slow start, fast finish |
+| `ease_in_out` | Slow both ends |
+| `linear` | Constant speed |
+
+---
+
+## 🔌 Hardware Wiring
+
+Connect SG90 servos to GPIO pins:
+
+| Servo Wire | Raspberry Pi |
+|------------|--------------|
+| **Red** (VCC) | 5V Power |
+| **Brown** (GND) | Ground |
+| **Orange** (Signal) | GPIO pin (e.g., GPIO 20) |
+
+> [!WARNING]
+> Use external 5V power supply for multiple servos. Pi's 5V pin cannot safely power more than 1-2 servos.
 
 ---
 
