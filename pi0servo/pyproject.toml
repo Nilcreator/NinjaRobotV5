@@ -1,0 +1,40 @@
+[project]
+name = "pi0servo"
+version = "1.0.0"
+description = "Servo control library for Raspberry Pi with velocity-based motion."
+authors = [
+    {name = "NinjaRobot Team"},
+]
+dependencies = [
+    "pigpio",
+    "click",
+    "blessed",
+    "ninja_utils",
+]
+requires-python = ">=3.9"
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+pi0servo = "pi0servo.__main__:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

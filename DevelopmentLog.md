@@ -1,6 +1,38 @@
 # Development Log
 
 
+## 2026-02-07: pi0servo V5 Rebuild COMPLETE ✓
+- **Action**: Completed full pi0servo library rebuild following `RebuildPlan.md`.
+- **Details**:
+    - **Phase 0 - Scaffold**: Created project structure, `pyproject.toml`, `conftest.py` with mock pigpio.
+    - **Phase 1 - Motion**: Implemented easing functions (`linear`, `ease_out`, `ease_in`, `ease_in_out`) and velocity-based duration calculations (17 tests).
+    - **Phase 2 - Parser**: Implemented command parsing for `[SPEED_]PIN:ANGLE[/PIN:ANGLE...]` format (21 tests).
+    - **Phase 3 - Core**: Implemented `Servo` (single servo with calibration), `ServoGroup` (multi-servo with abort mechanism via `threading.Event` and `asyncio.Event`) (23 tests).
+    - **Phase 4 - Config**: Implemented `ConfigManager` for JSON-based calibration persistence with `speed` field (13 tests).
+    - **Phase 5 - CLI**: Implemented `cmd`, `move`, `calib`, `status` commands with Click framework.
+    - **Phase 6 - Integration**: Finalized exports in `__init__.py`, all 74 tests passing.
+- **Key Features**:
+    - Non-blocking servo control with abort mechanism
+    - Velocity-based movement duration calculation
+    - Per-servo speed limits (0-100%)
+    - Easing curves for smooth motion profiles
+    - Unified command format compatible with movement-tool
+    - Optional ninja_utils integration (fallback to standard logging)
+- **Validation**: `uv run pytest tests/ -v` → 74 passed, `uv run python -m pi0servo --help` works.
+- **Related Files**: `pi0servo/src/pi0servo/*`, `pi0servo/tests/*`, `pi0servo/RebuildPlan.md`.
+
+## 2026-02-07: pi0servo Rebuild Phase 0 - Project Scaffold COMPLETE
+- **Action**: Created new pi0servo project structure from scratch.
+- **Details**:
+    - Created directory structure: `src/pi0servo/{motion,parser,core,config,cli}`, `tests/`.
+    - Created `pyproject.toml` with dependencies: pigpio, click, blessed, ninja_utils.
+    - Created `LICENSE` (MIT), `README.md` with usage documentation.
+    - Created `__init__.py` (v1.0.0) and `__main__.py` (Click CLI entry point).
+    - Created `tests/conftest.py` with mock pigpio fixture for PC/Mac development.
+    - All modules have placeholder `__init__.py` files.
+- **Validation**: `uv sync` passed, import test (v1.0.0) passed, CLI help works, lint clean.
+- **Related Files**: `pi0servo/pyproject.toml`, `pi0servo/src/pi0servo/*`, `pi0servo/tests/conftest.py`.
+
 ## 2026-02-07: pi0servo Documentation Modularization
 - **Action**: Extracted `pi0servo` rebuild plan into a dedicated `RebuildPlan.md` file.
 - **Details**:
