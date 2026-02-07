@@ -22,7 +22,6 @@ except ImportError:
 from ..motion import (
     EASING_FUNCTIONS,
     calculate_duration,
-    calculate_step_count,
     ease_out,
 )
 from ..parser import ParsedCommand, ServoTarget, parse_command, resolve_special_angle
@@ -159,10 +158,10 @@ class ServoGroup:
         speed_mode: str = "M",
         easing: str | Callable[[float], float] = "ease_out",
     ) -> bool:
-        """Move all servos to target angles with synchronized motion.
+        """Move all servos to target angles with per-servo speed control.
 
-        Uses velocity-based duration calculation (slowest servo determines time).
-        Motion is abortable via the abort() method.
+        Each servo moves at its own calibrated speed. Faster servos reach
+        their target before slower ones.
 
         Args:
             targets: List of target angles (same order as pins). None = skip.
@@ -172,6 +171,8 @@ class ServoGroup:
         Returns:
             True if completed successfully, False if aborted
         """
+        import time
+
         self._reset_abort()
 
         # Resolve easing function
@@ -180,8 +181,9 @@ class ServoGroup:
         else:
             easing_fn = easing
 
-        # Build movement plan
-        movements: list[tuple[Servo, float, float]] = []  # (servo, start, end)
+        # Build movement plan with per-servo duration
+        # (servo, start, end, duration)
+        movements: list[tuple[Servo, float, float, float]] = []
         max_duration = 0.0
 
         for i, pin in enumerate(self._pins):
@@ -204,32 +206,45 @@ class ServoGroup:
 
             duration = calculate_duration(distance, servo.speed_limit, speed_mode)
             max_duration = max(max_duration, duration)
-            movements.append((servo, current, target))
+            movements.append((servo, current, target, duration))
 
         if not movements:
             logger.debug("No movement required")
             return True
 
-        step_count = calculate_step_count(max_duration, STEP_INTERVAL)
         logger.info(
-            f"Moving {len(movements)} servos, duration={max_duration:.2f}s, steps={step_count}"
+            f"Moving {len(movements)} servos, max_duration={max_duration:.2f}s"
         )
 
-        # Execute interpolated movement
-        for step in range(1, step_count + 1):
+        # Execute time-based movement (each servo progresses independently)
+        start_time = time.monotonic()
+
+        while True:
             if self._is_aborted():
-                logger.info(f"Movement aborted at step {step}/{step_count}")
+                logger.info("Movement aborted")
                 return False
 
-            t = step / step_count
-            eased_t = easing_fn(t)
+            elapsed = time.monotonic() - start_time
+            if elapsed >= max_duration:
+                break
 
-            for servo, start, end in movements:
+            for servo, start, end, duration in movements:
+                if duration <= 0:
+                    servo.set_angle(end)
+                    continue
+
+                # Per-servo progress based on its own duration
+                t = min(1.0, elapsed / duration)
+                eased_t = easing_fn(t)
                 angle = start + (end - start) * eased_t
                 servo.set_angle(angle)
 
             if not self._abortable_sleep(STEP_INTERVAL):
                 return False
+
+        # Ensure all servos reach their final target
+        for servo, start, end, duration in movements:
+            servo.set_angle(end)
 
         logger.debug("Movement completed successfully")
         return True
@@ -240,7 +255,7 @@ class ServoGroup:
         speed_mode: str = "M",
         easing: str | Callable[[float], float] = "ease_out",
     ) -> bool:
-        """Async version of move_all_sync.
+        """Async version of move_all_sync with per-servo speed control.
 
         Non-blocking movement using asyncio.sleep instead of time.sleep.
 
@@ -252,6 +267,8 @@ class ServoGroup:
         Returns:
             True if completed successfully, False if aborted
         """
+        import time
+
         self._reset_abort()
 
         # Resolve easing function
@@ -260,8 +277,8 @@ class ServoGroup:
         else:
             easing_fn = easing
 
-        # Build movement plan (same as sync)
-        movements: list[tuple[Servo, float, float]] = []
+        # Build movement plan with per-servo duration
+        movements: list[tuple[Servo, float, float, float]] = []
         max_duration = 0.0
 
         for i, pin in enumerate(self._pins):
@@ -283,26 +300,38 @@ class ServoGroup:
 
             duration = calculate_duration(distance, servo.speed_limit, speed_mode)
             max_duration = max(max_duration, duration)
-            movements.append((servo, current, target))
+            movements.append((servo, current, target, duration))
 
         if not movements:
             return True
 
-        step_count = calculate_step_count(max_duration, STEP_INTERVAL)
+        # Execute time-based movement
+        start_time = time.monotonic()
 
-        for step in range(1, step_count + 1):
+        while True:
             if self._async_abort_event.is_set():
                 return False
 
-            t = step / step_count
-            eased_t = easing_fn(t)
+            elapsed = time.monotonic() - start_time
+            if elapsed >= max_duration:
+                break
 
-            for servo, start, end in movements:
+            for servo, start, end, duration in movements:
+                if duration <= 0:
+                    servo.set_angle(end)
+                    continue
+
+                t = min(1.0, elapsed / duration)
+                eased_t = easing_fn(t)
                 angle = start + (end - start) * eased_t
                 servo.set_angle(angle)
 
             if not await self._abortable_sleep_async(STEP_INTERVAL):
                 return False
+
+        # Ensure all servos reach their final target
+        for servo, start, end, duration in movements:
+            servo.set_angle(end)
 
         return True
 

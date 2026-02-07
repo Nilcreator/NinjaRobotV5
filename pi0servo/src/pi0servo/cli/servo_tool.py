@@ -70,39 +70,41 @@ def servo_tool(config_path: str):
             click.echo()
 
         def quick_move():
-            """Execute a command string."""
-            click.echo("\n" + term.yellow("Enter command (e.g., 'F_20:45/21:-30') or 'b' to back:"))
-            cmd_str = input("> ").strip()
-            if cmd_str.lower() == "b":
-                return
+            """Execute command strings continuously until 'q' to quit."""
+            click.echo("\n" + term.cyan("=== Quick Move Mode ==="))
+            click.echo("Enter commands like 'F_20:45/21:-30'. Type 'q' to return.\n")
 
-            # Get pins from command
             from ..parser import parse_command
 
-            try:
-                parsed = parse_command(cmd_str)
-                pins = [t.pin for t in parsed.targets]
+            while True:
+                cmd_str = input("> ").strip()
+                if cmd_str.lower() in ("q", "b", "quit", "back"):
+                    break
+                if not cmd_str:
+                    continue
 
-                # Load calibrations
-                calibrations = {pin: manager.get_calibration(pin) for pin in pins}
+                try:
+                    parsed = parse_command(cmd_str)
+                    pins = [t.pin for t in parsed.targets]
 
-                group = ServoGroup(pi, pins=pins, calibrations=calibrations)
-                click.echo(f"Executing: {cmd_str}")
-                success = group.execute_command(cmd_str)
+                    # Load calibrations fresh each time
+                    calibrations = {pin: manager.get_calibration(pin) for pin in pins}
 
-                if success:
-                    click.echo(term.green("✓ Done"))
-                else:
-                    click.echo(term.red("✗ Aborted"))
+                    group = ServoGroup(pi, pins=pins, calibrations=calibrations)
+                    success = group.execute_command(cmd_str)
 
-            except ValueError as e:
-                click.echo(term.red(f"✗ Error: {e}"))
+                    if success:
+                        click.echo(term.green("✓ Done"))
+                    else:
+                        click.echo(term.red("✗ Aborted"))
 
-            input("\nPress Enter to continue...")
+                except ValueError as e:
+                    click.echo(term.red(f"✗ Error: {e}"))
 
         def single_move():
-            """Move a single servo."""
-            click.echo("\n" + term.yellow("Enter GPIO pin:"))
+            """Move a single servo continuously until 'q' to quit."""
+            click.echo("\n" + term.cyan("=== Single Move Mode ==="))
+            click.echo("Enter GPIO pin:")
             try:
                 pin = int(input("> ").strip())
             except ValueError:
@@ -110,32 +112,36 @@ def servo_tool(config_path: str):
                 input("\nPress Enter to continue...")
                 return
 
-            click.echo(term.yellow("Enter angle (-90 to 90) or 'min'/'center'/'max':"))
-            angle_str = input("> ").strip().lower()
-
-            # Resolve angle
-            if angle_str == "min":
-                angle = -90.0
-            elif angle_str == "center":
-                angle = 0.0
-            elif angle_str == "max":
-                angle = 90.0
-            else:
-                try:
-                    angle = float(angle_str)
-                except ValueError:
-                    click.echo(term.red("Invalid angle"))
-                    input("\nPress Enter to continue...")
-                    return
+            click.echo(f"Moving GPIO{pin}. Enter angle or 'min'/'center'/'max'. Type 'q' to return.\n")
 
             from ..core import Servo
 
             cal = manager.get_calibration(pin)
             servo = Servo(pi, pin, cal)
-            click.echo(f"Moving GPIO{pin} to {angle}°...")
-            servo.set_angle(angle)
-            click.echo(term.green("✓ Done"))
-            input("\nPress Enter to continue...")
+
+            while True:
+                angle_str = input("> ").strip().lower()
+                if angle_str in ("q", "b", "quit", "back"):
+                    break
+                if not angle_str:
+                    continue
+
+                # Resolve angle
+                if angle_str == "min":
+                    angle = cal.angle_min
+                elif angle_str == "center":
+                    angle = cal.angle_center
+                elif angle_str == "max":
+                    angle = cal.angle_max
+                else:
+                    try:
+                        angle = float(angle_str)
+                    except ValueError:
+                        click.echo(term.red("Invalid angle"))
+                        continue
+
+                servo.set_angle(angle)
+                click.echo(term.green(f"✓ GPIO{pin} → {angle}°"))
 
         def calibrate_servo():
             """Launch calibration TUI."""
@@ -152,6 +158,10 @@ def servo_tool(config_path: str):
 
             app = CalibApp(pi, pin, config_path)
             app.main()
+
+            # Reload config to pick up changes from calibration
+            manager.load()
+            click.echo(term.green("✓ Config reloaded"))
 
         def set_speed():
             """Set speed limit for a servo."""

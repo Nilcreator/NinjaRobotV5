@@ -1,6 +1,21 @@
 # Development Log
 
 
+## 2026-02-08: Servo-Tool Movement Control Fixes ✓
+- **Action**: Fixed 3 user-reported issues from servo-tool testing.
+- **Issue 1: Calibration Not Refreshing**:
+    - Added `manager.load()` after `CalibApp.main()` returns in `servo_tool.py`.
+    - New calibration values now apply immediately without restarting servo-tool.
+- **Issue 2: Speed Control Not Working**:
+    - Refactored `move_all_sync()` and `move_all_async()` to use **per-servo timing**.
+    - Each servo now moves at its own calibrated speed (faster servos finish first).
+    - Changed from step-based to time-based movement loop (`time.monotonic()`).
+- **Issue 3: Continuous Input Mode**:
+    - Rewrote `quick_move()` and `single_move()` with continuous input loops.
+    - Users can enter multiple commands until pressing 'q' to return to menu.
+- **Verification**: 74/74 tests passing, linter clean.
+- **Related Files**: `servo_tool.py`, `multi_servos.py`.
+
 ## 2026-02-10: pi0servo Audit Issues Fixed ✓
 - **Action**: Fixed all issues identified in the pi0servo code audit.
 - **P0 Critical Bugs**:
