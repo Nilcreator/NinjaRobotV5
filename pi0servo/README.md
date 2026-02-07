@@ -10,7 +10,7 @@ Part of the **NinjaRobot V5** platform.
 - **Per-Servo Speed Limits**: Configurable speed limits (0-100%) for each servo to prevent mechanical stress.
 - **Abort Mechanism**: Thread-safe movement interruption via `abort()` (supports both sync and async).
 - **Unified Command Parser**: Compatible with `movement-tool` format (`F_20:45/21:C`).
-- **CLI Tools**: Built-in command-line interface for testing, calibration, and status checks.
+- **CLI Tools**: Built-in command-line interface including an **interactive menu (`servo-tool`)**, calibration, and status checks.
 
 ## Quick Start (Raspberry Pi)
 
@@ -37,6 +37,9 @@ Run the interactive calibration tool for each servo pin:
 ```bash
 uv run pi0servo calib 20   # Replace 20 with your GPIO pin
 ```
+
+> [!TIP]
+> **Easier Option:** Run `uv run pi0servo servo-tool` to access a menu for calibration, testing, and configuration.
 
 **Calibration Controls:**
 - **Tab** / **Shift+Tab**: Cycle through Min (-90°), Center (0°), Max (90°)
@@ -119,6 +122,18 @@ Command format: `[SPEED_]PIN:ANGLE[/PIN:ANGLE...]`
 ### 4. Check Status
 ```bash
 uv run pi0servo status
+```
+
+### 5. Interactive Tool (Menu)
+```bash
+uv run pi0servo servo-tool        # Launch the interactive menu
+```
+
+### 6. Config Management
+```bash
+uv run pi0servo config show       # Show current configuration
+uv run pi0servo config export backup.json  # Export config to file
+uv run pi0servo config import backup.json  # Import config from file
 ```
 
 ---

@@ -12,8 +12,12 @@
     - Added `move_all_angles_sync()` legacy wrapper method in `ServoGroup`.
 - **P1 Documentation**:
     - Updated `pi0servo/README.md` with "calibration-first" Quick Start section.
+- **Phase 2 Enhancements (Completed)**:
+    - **Interactive Tool**: Added `servo-tool` CLI with menu for quick testing and calibration.
+    - **Config Management**: Added `pi0servo config` command for export/import.
+    - **Unit Tests**: Added comprehensive tests for `ConfigManager` (13 tests passing).
 - **Linting**: Fixed 7 lint errors (unused imports, unsorted imports, f-string).
-- **Related Files**: `cli/move.py`, `cli/cmd.py`, `cli/calib.py`, `core/multi_servos.py`, `__init__.py`, `README.md`.
+- **Related Files**: `cli/servo_tool.py`, `cli/config_cmd.py`, `tests/test_config.py`.
 
 ## 2026-02-07: pi0servo V5 Rebuild COMPLETE ✓
 - **Action**: Completed full pi0servo library rebuild following `RebuildPlan.md`.

@@ -9,7 +9,9 @@ Provides CLI commands for servo control:
 
 from .calib import calib
 from .cmd import cmd
+from .config_cmd import config_cmd
 from .move import move
+from .servo_tool import servo_tool
 from .status import status
 
 __all__ = [
@@ -17,4 +19,6 @@ __all__ = [
     "move",
     "calib",
     "status",
+    "servo_tool",
+    "config_cmd",
 ]
