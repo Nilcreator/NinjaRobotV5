@@ -62,8 +62,9 @@ def servo_tool(config_path: str):
             click.echo(term.bold("║") + "  1. Quick Move    - Enter commands like '17:30/27:M'    " + term.bold("║"))
             click.echo(term.bold("║") + "  2. Single Move   - Move one servo to angle             " + term.bold("║"))
             click.echo(term.bold("║") + "  3. Calibrate     - Launch calibration TUI              " + term.bold("║"))
-            click.echo(term.bold("║") + "  4. Status        - Show all servo configs              " + term.bold("║"))
-            click.echo(term.bold("║") + "  5. Config        - Show/export/import config           " + term.bold("║"))
+            click.echo(term.bold("║") + "  4. Set Speed     - Adjust servo speed limit            " + term.bold("║"))
+            click.echo(term.bold("║") + "  5. Status        - Show all servo configs              " + term.bold("║"))
+            click.echo(term.bold("║") + "  6. Config        - Show/export/import config           " + term.bold("║"))
             click.echo(term.bold("║") + "  q. Exit                                                " + term.bold("║"))
             click.echo(term.bold("╚" + "═" * 58 + "╝"))
             click.echo()
@@ -152,6 +153,59 @@ def servo_tool(config_path: str):
             app = CalibApp(pi, pin, config_path)
             app.main()
 
+        def set_speed():
+            """Set speed limit for a servo."""
+            click.echo("\n" + term.cyan("=== Set Servo Speed Limit ==="))
+
+            # Show current configs
+            configs = manager.get_all_calibrations()
+            if configs:
+                click.echo("\nCurrent speeds:")
+                for pin_num, cal in configs.items():
+                    click.echo(f"  GPIO{pin_num}: {cal.speed}%")
+
+            click.echo("\n" + term.yellow("Enter GPIO pin:"))
+            try:
+                pin = int(input("> ").strip())
+            except ValueError:
+                click.echo(term.red("Invalid pin"))
+                input("\nPress Enter to continue...")
+                return
+
+            # Get current calibration or create default
+            cal = manager.get_calibration(pin)
+            click.echo(f"Current speed for GPIO{pin}: {cal.speed}%")
+
+            click.echo(term.yellow("Enter new speed (0-100):"))
+            try:
+                new_speed = int(input("> ").strip())
+                if not 0 <= new_speed <= 100:
+                    click.echo(term.red("Speed must be 0-100"))
+                    input("\nPress Enter to continue...")
+                    return
+            except ValueError:
+                click.echo(term.red("Invalid speed"))
+                input("\nPress Enter to continue...")
+                return
+
+            # Update calibration with new speed
+            from ..core import ServoCalibration
+
+            new_cal = ServoCalibration(
+                pulse_min=cal.pulse_min,
+                pulse_max=cal.pulse_max,
+                pulse_center=cal.pulse_center,
+                angle_min=cal.angle_min,
+                angle_max=cal.angle_max,
+                angle_center=cal.angle_center,
+                speed=new_speed,
+            )
+            manager.set_calibration(pin, new_cal)
+            manager.save()
+
+            click.echo(term.green(f"✓ Speed for GPIO{pin} set to {new_speed}%"))
+            input("\nPress Enter to continue...")
+
         def show_status():
             """Show all servo configurations."""
             click.echo("\n" + term.cyan("=== Servo Configurations ==="))
@@ -210,8 +264,10 @@ def servo_tool(config_path: str):
             elif choice == "3":
                 calibrate_servo()
             elif choice == "4":
-                show_status()
+                set_speed()
             elif choice == "5":
+                show_status()
+            elif choice == "6":
                 config_menu()
             elif choice == "q":
                 running = False

@@ -34,8 +34,9 @@ uv run pi0servo servo-tool
 ║  1. Quick Move    - Enter commands like '17:30/27:M'     ║
 ║  2. Single Move   - Move one servo to angle              ║
 ║  3. Calibrate     - Launch calibration TUI               ║
-║  4. Status        - Show all servo configs               ║
-║  5. Config        - Show/export/import config            ║
+║  4. Set Speed     - Adjust servo speed limit             ║
+║  5. Status        - Show all servo configs               ║
+║  6. Config        - Show/export/import config            ║
 ║  q. Exit                                                 ║
 ╚══════════════════════════════════════════════════════════╝
 ```
@@ -47,8 +48,9 @@ uv run pi0servo servo-tool
 | **1. Quick Move** | Execute multi-servo commands like `F_20:45/21:-30` |
 | **2. Single Move** | Move one servo to a specific angle or keyword (`min`/`center`/`max`) |
 | **3. Calibrate** | Launch the interactive calibration TUI for a specific pin |
-| **4. Status** | Display current calibration for all configured servos |
-| **5. Config** | Export/import configuration, view as JSON |
+| **4. Set Speed** | Set speed limit (0-100%) for a specific servo |
+| **5. Status** | Display current calibration for all configured servos |
+| **6. Config** | Export/import configuration, view as JSON |
 
 ---
 
@@ -213,6 +215,31 @@ await group.move_all_async(targets=[45, -45], speed_mode="M")
 
 # Abort from another thread
 group.abort()
+```
+
+### Setting Speed Limits (Python)
+
+```python
+from pi0servo import ServoCalibration, ConfigManager
+
+# Load existing config
+manager = ConfigManager()
+manager.load()
+
+# Get current calibration and update speed
+cal = manager.get_calibration(20)  # GPIO 20
+
+# Create new calibration with updated speed
+new_cal = ServoCalibration(
+    pulse_min=cal.pulse_min,
+    pulse_center=cal.pulse_center,
+    pulse_max=cal.pulse_max,
+    speed=60  # Set to 60% (default is 80)
+)
+
+# Save to config
+manager.set_calibration(20, new_cal)
+manager.save()
 ```
 
 ---

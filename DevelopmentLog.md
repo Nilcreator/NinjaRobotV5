@@ -13,9 +13,11 @@
 - **User-Reported Issues**:
     - Added **speed control** (`+`/`-` keys) to calibration TUI for adjusting per-servo speed limits.
     - Verified easing implementation is correct in `multi_servos.py` using `ease_out` by default.
+    - Added **Set Speed menu option** to `servo-tool` (option 4) for dedicated speed limit setting.
 - **Documentation**:
     - Completely rewrote `pi0servo/README.md` with `servo-tool` as primary interface.
     - Added detailed calibration guide with speed control, easing explanation, and command reference.
+    - Added Python API section for setting speed limits programmatically.
 - **Verification**: `uv run ruff check` passed for all source files.
 - **Related Files**: `config_manager.py`, `config_cmd.py`, `servo_tool.py`, `calib.py`, `servo.py`, `README.md`.
 
