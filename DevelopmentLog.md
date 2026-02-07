@@ -1,6 +1,24 @@
 # Development Log
 
 
+## 2026-02-10: pi0servo Audit Issues Fixed ✓
+- **Action**: Fixed all issues identified in the pi0servo code audit.
+- **P0 Critical Bugs**:
+    - Fixed `_configs` attribute errors in `config_cmd.py` and `servo_tool.py` (replaced with `get_all_calibrations()` method).
+    - Added missing `_to_dict()`, `save_to()`, and `load_from()` methods to `ConfigManager`.
+- **P1 Moderate Issues**:
+    - Added `finally` block in `servo_tool.py` for proper `pi.stop()` cleanup.
+    - Added division-by-zero guards in `servo.py` `angle_to_pulse()` and `pulse_to_angle()`.
+    - Added pulse validation warning in `set_pulse()` for out-of-range values.
+- **User-Reported Issues**:
+    - Added **speed control** (`+`/`-` keys) to calibration TUI for adjusting per-servo speed limits.
+    - Verified easing implementation is correct in `multi_servos.py` using `ease_out` by default.
+- **Documentation**:
+    - Completely rewrote `pi0servo/README.md` with `servo-tool` as primary interface.
+    - Added detailed calibration guide with speed control, easing explanation, and command reference.
+- **Verification**: `uv run ruff check` passed for all source files.
+- **Related Files**: `config_manager.py`, `config_cmd.py`, `servo_tool.py`, `calib.py`, `servo.py`, `README.md`.
+
 ## 2026-02-08: pi0servo V5 Refinement - Bugs Fixed ✓
 - **Action**: Fixed 4 user-reported bugs + 4 audit gaps to complete the pi0servo library to 100%.
 - **P0 Bug Fixes**:

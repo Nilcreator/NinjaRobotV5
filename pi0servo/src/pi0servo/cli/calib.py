@@ -104,6 +104,11 @@ class CalibApp:
             # Large step adjustment
             "KEY_UP": lambda: self.move_diff(self.STEP_LARGE),
             "KEY_DOWN": lambda: self.move_diff(-self.STEP_LARGE),
+            # Speed control
+            "+": lambda: self.adjust_speed(10),
+            "=": lambda: self.adjust_speed(10),  # Same key without shift
+            "-": lambda: self.adjust_speed(-10),
+            "_": lambda: self.adjust_speed(-10),  # Same key with shift
             # Calibration save
             "KEY_ENTER": self.set_calibration,
             " ": self.set_calibration,
@@ -214,6 +219,17 @@ class CalibApp:
         self.cur_pulse = dst_pulse
         self.servo.set_pulse(dst_pulse)
 
+    def adjust_speed(self, diff: int):
+        """Adjust servo speed limit.
+
+        Args:
+            diff: Amount to adjust speed (positive or negative)
+        """
+        new_speed = self.speed + diff
+        # Clamp to valid range
+        self.speed = max(0, min(100, new_speed))
+        click.echo(f"\rSpeed: {self.speed}%" + self.term.clear_eol())
+
     def set_calibration(self):
         """Save current pulse as calibration for current target."""
         print(f"\r{self.term.clear_eol()}", end="")
@@ -268,8 +284,11 @@ Adjust Pulse:
   [Up] / [Down] : Large step adjustment (±20)
   [w] / [s]     : Fine-tune adjustment (±1)
 
+Speed Control:
+  [+] / [-] : Adjust speed limit (±10%)
+
 Save:
-  [Enter] / [Space] : Save current pulse for selected target
+  [Enter] / [Space] : Save current pulse AND speed for selected target
 
 Misc:
   [q] : Quit

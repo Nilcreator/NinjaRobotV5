@@ -42,7 +42,7 @@ def show_config(config_path: str, pin: int | None):
     manager = ConfigManager(config_path)
     manager.load()
 
-    configs = manager._configs
+    configs = manager.get_all_calibrations()
 
     if not configs:
         click.echo("No servos configured. Run calibration first.")
@@ -51,9 +51,8 @@ def show_config(config_path: str, pin: int | None):
     click.echo("=== Servo Configuration ===")
 
     if pin is not None:
-        pin_str = str(pin)
-        if pin_str in configs:
-            cal = configs[pin_str]
+        if pin in configs:
+            cal = configs[pin]
             click.echo(f"\nGPIO{pin}:")
             click.echo(f"  pulse_min:    {cal.pulse_min}")
             click.echo(f"  pulse_center: {cal.pulse_center}")
@@ -65,9 +64,9 @@ def show_config(config_path: str, pin: int | None):
         else:
             click.echo(f"GPIO{pin}: Not configured")
     else:
-        for pin_str, cal in configs.items():
+        for pin_num, cal in configs.items():
             click.echo(
-                f"  GPIO{pin_str}: "
+                f"  GPIO{pin_num}: "
                 f"pulse=[{cal.pulse_min}, {cal.pulse_center}, {cal.pulse_max}] "
                 f"speed={cal.speed}%"
             )

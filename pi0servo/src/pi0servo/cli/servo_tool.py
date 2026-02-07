@@ -155,14 +155,14 @@ def servo_tool(config_path: str):
         def show_status():
             """Show all servo configurations."""
             click.echo("\n" + term.cyan("=== Servo Configurations ==="))
-            configs = manager._configs
+            configs = manager.get_all_calibrations()
 
             if not configs:
                 click.echo("No servos configured. Run calibration first.")
             else:
-                for pin_str, cal in configs.items():
+                for pin_num, cal in configs.items():
                     click.echo(
-                        f"  GPIO{pin_str}: "
+                        f"  GPIO{pin_num}: "
                         f"pulse=[{cal.pulse_min}, {cal.pulse_center}, {cal.pulse_max}] "
                         f"speed={cal.speed}%"
                     )
@@ -219,11 +219,12 @@ def servo_tool(config_path: str):
                 click.echo("Invalid choice")
                 input("\nPress Enter to continue...")
 
-        pi.stop()
-        click.echo("\nGoodbye!")
-
     except Exception as e:
         click.echo(f"❌ Error: {e}")
         import traceback
 
         traceback.print_exc()
+
+    finally:
+        pi.stop()
+        click.echo("\nGoodbye!")

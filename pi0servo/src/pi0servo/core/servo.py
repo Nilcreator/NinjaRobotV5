@@ -118,15 +118,25 @@ class Servo:
         # Clamp angle to valid range
         angle = max(cal.angle_min, min(cal.angle_max, angle))
 
-        # Linear interpolation
+        # Linear interpolation with division-by-zero guards
         if angle >= cal.angle_center:
             # Upper half: center to max
-            t = (angle - cal.angle_center) / (cal.angle_max - cal.angle_center)
-            pulse = cal.pulse_center + t * (cal.pulse_max - cal.pulse_center)
+            divisor = cal.angle_max - cal.angle_center
+            if divisor == 0:
+                # Degenerate case: center equals max
+                pulse = cal.pulse_center
+            else:
+                t = (angle - cal.angle_center) / divisor
+                pulse = cal.pulse_center + t * (cal.pulse_max - cal.pulse_center)
         else:
             # Lower half: min to center
-            t = (angle - cal.angle_min) / (cal.angle_center - cal.angle_min)
-            pulse = cal.pulse_min + t * (cal.pulse_center - cal.pulse_min)
+            divisor = cal.angle_center - cal.angle_min
+            if divisor == 0:
+                # Degenerate case: center equals min
+                pulse = cal.pulse_center
+            else:
+                t = (angle - cal.angle_min) / divisor
+                pulse = cal.pulse_min + t * (cal.pulse_center - cal.pulse_min)
 
         return int(pulse)
 
@@ -146,12 +156,20 @@ class Servo:
 
         if pulse >= cal.pulse_center:
             # Upper half
-            t = (pulse - cal.pulse_center) / (cal.pulse_max - cal.pulse_center)
-            angle = cal.angle_center + t * (cal.angle_max - cal.angle_center)
+            divisor = cal.pulse_max - cal.pulse_center
+            if divisor == 0:
+                angle = cal.angle_center
+            else:
+                t = (pulse - cal.pulse_center) / divisor
+                angle = cal.angle_center + t * (cal.angle_max - cal.angle_center)
         else:
             # Lower half
-            t = (pulse - cal.pulse_min) / (cal.pulse_center - cal.pulse_min)
-            angle = cal.angle_min + t * (cal.angle_center - cal.angle_min)
+            divisor = cal.pulse_center - cal.pulse_min
+            if divisor == 0:
+                angle = cal.angle_center
+            else:
+                t = (pulse - cal.pulse_min) / divisor
+                angle = cal.angle_min + t * (cal.angle_center - cal.angle_min)
 
         return angle
 

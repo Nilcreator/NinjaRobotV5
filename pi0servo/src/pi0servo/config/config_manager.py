@@ -171,3 +171,41 @@ class ConfigManager:
     def clear(self):
         """Clear all calibrations (does not save automatically)."""
         self._data = {}
+
+    def _to_dict(self) -> dict[str, Any]:
+        """Convert internal data to JSON-serializable dict.
+
+        Returns:
+            Dict with string keys (for JSON compatibility)
+        """
+        return {str(k): v for k, v in self._data.items()}
+
+    def save_to(self, path: str | Path) -> bool:
+        """Save configuration to a different file.
+
+        Args:
+            path: Target file path
+
+        Returns:
+            True if saved successfully, False on error
+        """
+        original = self._config_path
+        self._config_path = Path(path)
+        result = self.save()
+        self._config_path = original
+        return result
+
+    def load_from(self, path: str | Path) -> bool:
+        """Load configuration from a different file.
+
+        Args:
+            path: Source file path
+
+        Returns:
+            True if loaded successfully, False if file doesn't exist or error
+        """
+        original = self._config_path
+        self._config_path = Path(path)
+        result = self.load()
+        self._config_path = original
+        return result
