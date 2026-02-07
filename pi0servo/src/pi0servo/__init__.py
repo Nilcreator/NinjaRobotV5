@@ -24,6 +24,11 @@ Usage:
 __version__ = "1.0.0"
 
 # Core classes
+# Configuration
+from .config import (
+    ConfigManager,
+    get_default_config_path,
+)
 from .core import (
     PULSE_CENTER,
     PULSE_MAX,
@@ -31,12 +36,6 @@ from .core import (
     Servo,
     ServoCalibration,
     ServoGroup,
-)
-
-# Configuration
-from .config import (
-    ConfigManager,
-    get_default_config_path,
 )
 
 # Motion utilities
@@ -66,6 +65,7 @@ __all__ = [
     "Servo",
     "ServoCalibration",
     "ServoGroup",
+    "MultiServo",  # Backward compatibility alias
     "PULSE_MIN",
     "PULSE_MAX",
     "PULSE_CENTER",
@@ -87,3 +87,6 @@ __all__ = [
     "ParsedCommand",
     "ServoTarget",
 ]
+
+# Backward compatibility alias for ninja_core
+MultiServo = ServoGroup

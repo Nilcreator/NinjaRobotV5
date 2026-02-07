@@ -419,3 +419,33 @@ class ServoGroup:
         """Move all servos to their calibrated center position."""
         for servo in self._servos.values():
             servo.move_to_center()
+
+    # --- Legacy API (backward compatibility with ninja_core) ---
+
+    def move_all_angles_sync(
+        self,
+        target_angles: list[float | None],
+        move_sec: float = 0.5,
+        step_n: int = 40,
+    ) -> bool:
+        """Legacy wrapper for ninja_core compatibility.
+
+        Maps duration-based call to velocity-based movement.
+
+        Args:
+            target_angles: List of target angles (same order as pins). None = skip.
+            move_sec: Movement duration (used to determine speed mode)
+            step_n: Ignored (kept for signature compatibility)
+
+        Returns:
+            True if completed successfully, False if aborted
+        """
+        # Map duration to speed mode
+        if move_sec <= 0.2:
+            speed_mode = "F"
+        elif move_sec <= 0.5:
+            speed_mode = "M"
+        else:
+            speed_mode = "S"
+
+        return self.move_all_sync(target_angles, speed_mode=speed_mode)

@@ -1,6 +1,20 @@
 # Development Log
 
 
+## 2026-02-08: pi0servo V5 Refinement - Bugs Fixed ✓
+- **Action**: Fixed 4 user-reported bugs + 4 audit gaps to complete the pi0servo library to 100%.
+- **P0 Bug Fixes**:
+    - **CLI `move` negative angles**: Changed angle type from `float` to `str` to prevent Click parsing `-90` as option flag.
+    - **CLI `cmd` TypeError**: Fixed `config_path` invalid parameter by loading calibrations via `ConfigManager`.
+    - **CLI `calib` not interactive**: Rewrote as full TUI using `blessed` library with keyboard navigation (Tab/Up/Down/Enter).
+- **P1 Backward Compatibility**:
+    - Added `MultiServo = ServoGroup` alias in `__init__.py` for ninja_core.
+    - Added `move_all_angles_sync()` legacy wrapper method in `ServoGroup`.
+- **P1 Documentation**:
+    - Updated `pi0servo/README.md` with "calibration-first" Quick Start section.
+- **Linting**: Fixed 7 lint errors (unused imports, unsorted imports, f-string).
+- **Related Files**: `cli/move.py`, `cli/cmd.py`, `cli/calib.py`, `core/multi_servos.py`, `__init__.py`, `README.md`.
+
 ## 2026-02-07: pi0servo V5 Rebuild COMPLETE ✓
 - **Action**: Completed full pi0servo library rebuild following `RebuildPlan.md`.
 - **Details**:

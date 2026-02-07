@@ -12,12 +12,57 @@ Part of the **NinjaRobot V5** platform.
 - **Unified Command Parser**: Compatible with `movement-tool` format (`F_20:45/21:C`).
 - **CLI Tools**: Built-in command-line interface for testing, calibration, and status checks.
 
-## Installation
+## Quick Start (Raspberry Pi)
+
+> [!IMPORTANT]
+> **You MUST calibrate each servo before use.** This creates the `servo.json` calibration file with correct pulse widths for your specific servos.
+
+### Step 1: Install the Library
 
 ```bash
 cd pi0servo
 uv sync
 ```
+
+### Step 2: Start the pigpio Daemon
+
+```bash
+sudo pigpiod
+```
+
+### Step 3: Calibrate Each Servo (Required!)
+
+Run the interactive calibration tool for each servo pin:
+
+```bash
+uv run pi0servo calib 20   # Replace 20 with your GPIO pin
+```
+
+**Calibration Controls:**
+- **Tab** / **Shift+Tab**: Cycle through Min (-90°), Center (0°), Max (90°)
+- **Up** / **Down**: Large pulse adjustment (±20)
+- **w** / **s**: Fine adjustment (±1)
+- **Enter** / **Space**: Save current pulse for selected target
+- **v** / **c** / **x**: Jump to Min / Center / Max
+- **q**: Quit and save
+
+Repeat for each servo: `20, 21, 22, 23, 24, 25, 26, 27`
+
+### Step 4: Test Movement
+
+```bash
+uv run pi0servo move 20 45        # Move to 45°
+uv run pi0servo move 20 -90       # Move to -90°
+uv run pi0servo move 20 center    # Move to center
+```
+
+### Step 5: Use Multi-Servo Commands
+
+```bash
+uv run pi0servo cmd "F_20:45/21:-30"   # Fast move two servos
+```
+
+---
 
 ## Configuration (servo.json)
 
@@ -40,60 +85,43 @@ The library uses a JSON configuration file (`servo.json`) to store calibration d
 - **angle_***: Corresponding angle in degrees.
 - **speed**: Max speed percentage (0-100). 100% = ~600°/sec (SG90 max).
 
-## CLI Usage
+---
 
-The `pi0servo` module is executable.
+## CLI Commands Reference
 
-### 1. Check Status
-Shows pigpio connection status and configured servos.
-
+### 1. Calibrate (Interactive)
 ```bash
-uv run pi0servo status
-# Output:
-# === Pi0Servo Status ===
-# pigpio daemon:
-#   ✓ Connected
-# Configured pins:
-#   ✓ Pin 20: speed=80%
-#   ○ Pin 21: speed=80%
+uv run pi0servo calib 20          # Interactive calibration for pin 20
+uv run pi0servo calib --show      # Show all calibrations (non-interactive)
+uv run pi0servo calib 20 --show   # Show pin 20 only
 ```
 
 ### 2. Move Single Servo
-Move a specific servo to an angle.
-
 ```bash
-uv run pi0servo move 20 45      # Move pin 20 to 45°
-uv run pi0servo move 21 0       # Move pin 21 to center
-uv run pi0servo move 22 -90     # Move pin 22 to -90°
+uv run pi0servo move 20 45        # Move to 45°
+uv run pi0servo move 20 -90       # Move to -90°
+uv run pi0servo move 20 center    # Move to center (0°)
+uv run pi0servo move 20 min       # Move to minimum (-90°)
+uv run pi0servo move 20 max       # Move to maximum (90°)
 ```
 
-### 3. Execute Command String
-Run a multi-servo command sequence.
-
+### 3. Execute Multi-Servo Command
 ```bash
-# Move pin 20 to 45°, pin 21 to -30° (Fast speed)
-uv run pi0servo cmd "F_20:45/21:-30"
-
-# Move pin 22 to Center, pin 23 to Max (Medium speed)
-uv run pi0servo cmd "M_22:C/23:M"
+uv run pi0servo cmd "20:45"               # Single servo
+uv run pi0servo cmd "F_20:45/21:-30"      # Fast, two servos
+uv run pi0servo cmd "S_20:C/21:M/22:X"    # Slow, special positions
 ```
 
-### 4. Calibration
-View or update servo settings.
+Command format: `[SPEED_]PIN:ANGLE[/PIN:ANGLE...]`
+- Speed: `F_` (Fast), `M_` (Medium, default), `S_` (Slow)
+- Angle: `-90` to `90`, or `C` (Center), `M` (Min), `X` (Max)
 
+### 4. Check Status
 ```bash
-# View all calibrations
-uv run pi0servo calib
-
-# View specific pin
-uv run pi0servo calib 20
-
-# Set speed limit to 50%
-uv run pi0servo calib 20 --speed 50
-
-# Tune physical limits
-uv run pi0servo calib 20 --min 600 --max 2400
+uv run pi0servo status
 ```
+
+---
 
 ## Python API
 
@@ -107,11 +135,10 @@ pi = pigpio.pi()
 group = ServoGroup(pi, pins=[20, 21, 22, 23])
 
 # Synchronized movement (blocking but abortable)
-# Moves all servos to target angles. None = no change.
 group.move_all_sync(
-    targets=[45, -45, 0, None], 
-    speed_mode="F",       # "F"ast, "M"edium, "S"low
-    easing="ease_out"     # "linear", "ease_in", "ease_out", "ease_in_out"
+    targets=[45, -45, 0, None],   # None = no change
+    speed_mode="F",               # "F"ast, "M"edium, "S"low
+    easing="ease_out"             # Smooth deceleration
 )
 
 # Execute command string
@@ -121,16 +148,24 @@ group.off()
 pi.stop()
 ```
 
-### Async Usage within ninja_core
+### Backward Compatibility (ninja_core)
+
+```python
+from pi0servo import MultiServo  # Alias for ServoGroup
+
+group = MultiServo(pi, pins=[20, 21, 22, 23])
+
+# Legacy method signature still works
+group.move_all_angles_sync([45, -45, 0, 0], move_sec=0.5)
+```
+
+### Async Usage
 
 ```python
 # In an async function
-await group.move_all_async(
-    targets=[45, -45, 0, 0],
-    speed_mode="M"
-)
+await group.move_all_async(targets=[45, -45, 0, 0], speed_mode="M")
 
-# Abort any running movement
+# Abort any running movement from another thread
 group.abort()
 ```
 
@@ -144,24 +179,7 @@ servo.set_angle(90)
 servo.off()
 ```
 
-## Command Format
-
-Used in `cmd` CLI and `execute_command()`:
-
-```
-[SPEED_]PIN:ANGLE[/PIN:ANGLE...]
-```
-
-| Component | Description | Values |
-|-----------|-------------|--------|
-| `SPEED_` | Speed prefix (optional) | `S_` (Slow), `M_` (Medium), `F_` (Fast) |
-| `PIN` | GPIO pin number | `20`, `21`, etc. |
-| `ANGLE` | Target angle or code | `-90` to `90`, `C` (Center), `M` (Min), `X` (Max) |
-
-Examples:
-- `20:90` (Default medium speed)
-- `F_20:0/21:0` (Fast, multiple servos)
-- `S_20:M` (Slow, move to Min)
+---
 
 ## License
 

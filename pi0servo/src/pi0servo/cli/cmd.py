@@ -4,6 +4,7 @@ import sys
 
 import click
 
+from ..config import ConfigManager
 from ..core import ServoGroup
 
 
@@ -31,18 +32,34 @@ def create_pi():
 )
 @click.option(
     "-c", "--config",
-    type=click.Path(exists=True),
+    type=click.Path(),
+    default="servo.json",
     help="Path to servo configuration file.",
 )
-def cmd(command: str, pins: str, config: str | None):
+@click.option(
+    "-d", "--debug",
+    is_flag=True,
+    help="Enable debug output.",
+)
+def cmd(command: str, pins: str, config: str, debug: bool):
     """Execute a servo command string.
 
     COMMAND: Servo command in format [SPEED_]PIN:ANGLE[/PIN:ANGLE...]
 
-    Examples:
-        pi0servo cmd "20:45"
-        pi0servo cmd "F_20:45/21:-30"
-        pi0servo cmd "S_20:C/21:M"
+    Speed modes:\n
+        F_ = Fast (100% velocity)\n
+        M_ = Medium (75% velocity, default)\n
+        S_ = Slow (50% velocity)\n
+
+    Special angles:\n
+        C = Center (0°)\n
+        M = Min (-90°)\n
+        X = Max (90°)\n
+
+    Examples:\n
+        pi0servo cmd "20:45"             # Move pin 20 to 45°\n
+        pi0servo cmd "F_20:45/21:-30"    # Fast move two servos\n
+        pi0servo cmd "S_20:C/21:M"       # Slow, move to special positions\n
     """
     # Parse pins
     try:
@@ -53,11 +70,25 @@ def cmd(command: str, pins: str, config: str | None):
     pi = create_pi()
 
     try:
-        # Create servo group
+        # Load calibrations from config file
+        manager = ConfigManager(config)
+        manager.load()
+
+        # Build calibrations dict for pins referenced in command
+        calibrations = {}
+        for pin in pin_list:
+            calibrations[pin] = manager.get_calibration(pin)
+
+        if debug:
+            click.echo(f"Pins: {pin_list}")
+            click.echo(f"Config: {config}")
+            click.echo(f"Calibrations: {calibrations}")
+
+        # Create servo group with calibrations
         group = ServoGroup(
             pi=pi,
             pins=pin_list,
-            config_path=config,
+            calibrations=calibrations,
         )
 
         click.echo(f"Executing: {command}")
