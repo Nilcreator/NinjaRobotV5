@@ -118,7 +118,7 @@ All core features have been implemented and verified:
 
 This project is licensed under the **MIT License**.
 
-**Copyright © 2025 Chihkuang Chang**
+**Copyright © 2026 Chihkuang Chang**
 
 ---
 
