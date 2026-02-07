@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-08: Per-Servo Speed Control Implemented ✓
+- **Action**: Added support for individual servo speed overrides in `movement-tool` commands.
+- **Details**:
+    - **Parser**: Updated `parse_command` to detect speed suffixes (e.g., `45F`, `45S`).
+    - **Logic**: Updated `move_all_sync/async` to apply per-servo duration scaling.
+    - **Validation**: Enforced strict regex matching to prevent invalid command parsing.
+- **Documentation**: Updated `README.md` with new command syntax and examples.
+- **Verification**: Added unit tests for new parser features (27/27 passed).
+- **Related Files**: `parser/command.py`, `core/multi_servos.py`, `README.md`.
+
 ## 2026-02-08: Servo-Tool Movement Control Fixes ✓
 - **Action**: Fixed 3 user-reported issues from servo-tool testing.
 - **Issue 1: Calibration Not Refreshing**:

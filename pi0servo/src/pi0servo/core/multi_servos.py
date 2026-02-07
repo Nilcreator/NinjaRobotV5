@@ -155,7 +155,7 @@ class ServoGroup:
     def move_all_sync(
         self,
         targets: list[float | None],
-        speed_mode: str = "M",
+        speed_mode: str | list[str] = "M",
         easing: str | Callable[[float], float] = "ease_out",
     ) -> bool:
         """Move all servos to target angles with per-servo speed control.
@@ -165,7 +165,8 @@ class ServoGroup:
 
         Args:
             targets: List of target angles (same order as pins). None = skip.
-            speed_mode: "F" (Fast), "M" (Medium), "S" (Slow)
+            speed_mode: Either a single mode ("F"/"M"/"S") for all servos,
+                       or a list of modes (one per pin) for per-servo control.
             easing: Easing function name or callable
 
         Returns:
@@ -180,6 +181,12 @@ class ServoGroup:
             easing_fn = EASING_FUNCTIONS.get(easing, ease_out)
         else:
             easing_fn = easing
+
+        # Normalize speed_mode to list
+        if isinstance(speed_mode, str):
+            speed_modes = [speed_mode] * len(self._pins)
+        else:
+            speed_modes = speed_mode
 
         # Build movement plan with per-servo duration
         # (servo, start, end, duration)
@@ -204,7 +211,9 @@ class ServoGroup:
             if distance < 0.1:  # Skip negligible movement
                 continue
 
-            duration = calculate_duration(distance, servo.speed_limit, speed_mode)
+            # Use per-servo speed mode
+            servo_speed_mode = speed_modes[i] if i < len(speed_modes) else "M"
+            duration = calculate_duration(distance, servo.speed_limit, servo_speed_mode)
             max_duration = max(max_duration, duration)
             movements.append((servo, current, target, duration))
 
@@ -252,7 +261,7 @@ class ServoGroup:
     async def move_all_async(
         self,
         targets: list[float | None],
-        speed_mode: str = "M",
+        speed_mode: str | list[str] = "M",
         easing: str | Callable[[float], float] = "ease_out",
     ) -> bool:
         """Async version of move_all_sync with per-servo speed control.
@@ -261,7 +270,8 @@ class ServoGroup:
 
         Args:
             targets: List of target angles (same order as pins). None = skip.
-            speed_mode: "F" (Fast), "M" (Medium), "S" (Slow)
+            speed_mode: Either a single mode ("F"/"M"/"S") for all servos,
+                       or a list of modes (one per pin) for per-servo control.
             easing: Easing function name or callable
 
         Returns:
@@ -276,6 +286,12 @@ class ServoGroup:
             easing_fn = EASING_FUNCTIONS.get(easing, ease_out)
         else:
             easing_fn = easing
+
+        # Normalize speed_mode to list
+        if isinstance(speed_mode, str):
+            speed_modes = [speed_mode] * len(self._pins)
+        else:
+            speed_modes = speed_mode
 
         # Build movement plan with per-servo duration
         movements: list[tuple[Servo, float, float, float]] = []
@@ -298,7 +314,9 @@ class ServoGroup:
             if distance < 0.1:
                 continue
 
-            duration = calculate_duration(distance, servo.speed_limit, speed_mode)
+            # Use per-servo speed mode
+            servo_speed_mode = speed_modes[i] if i < len(speed_modes) else "M"
+            duration = calculate_duration(distance, servo.speed_limit, servo_speed_mode)
             max_duration = max(max_duration, duration)
             movements.append((servo, current, target, duration))
 
@@ -376,9 +394,9 @@ class ServoGroup:
         parsed: ParsedCommand,
         easing: str | Callable[[float], float],
     ) -> bool:
-        """Execute a parsed command."""
-        targets = self._resolve_targets(parsed.targets)
-        return self.move_all_sync(targets, parsed.speed_mode, easing)
+        """Execute a parsed command with per-target speed support."""
+        targets, speed_modes = self._resolve_targets(parsed.targets, parsed.speed_mode)
+        return self.move_all_sync(targets, speed_modes, easing)
 
     async def _execute_parsed_async(
         self,
@@ -386,12 +404,19 @@ class ServoGroup:
         easing: str | Callable[[float], float],
     ) -> bool:
         """Async execution of parsed command."""
-        targets = self._resolve_targets(parsed.targets)
-        return await self.move_all_async(targets, parsed.speed_mode, easing)
+        targets, speed_modes = self._resolve_targets(parsed.targets, parsed.speed_mode)
+        return await self.move_all_async(targets, speed_modes, easing)
 
-    def _resolve_targets(self, targets: list[ServoTarget]) -> list[float | None]:
-        """Convert ServoTargets to angle list indexed by pin order."""
+    def _resolve_targets(
+        self, targets: list[ServoTarget], global_speed: str = "M"
+    ) -> tuple[list[float | None], list[str]]:
+        """Convert ServoTargets to angle list and speed list indexed by pin order.
+
+        Returns:
+            Tuple of (angles, speed_modes) where each list is indexed by pin order
+        """
         result: list[float | None] = [None] * len(self._pins)
+        speeds: list[str] = [global_speed] * len(self._pins)
 
         for target in targets:
             if target.pin not in self._servos:
@@ -412,7 +437,11 @@ class ServoGroup:
                 }
                 result[pin_index] = resolve_special_angle(target.special, cal_dict)
 
-        return result
+            # Use per-target speed if specified, otherwise keep global
+            if target.speed:
+                speeds[pin_index] = target.speed
+
+        return result, speeds
 
     # --- Actuator Interface (ninja_utils) ---
 

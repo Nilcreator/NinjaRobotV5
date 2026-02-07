@@ -21,6 +21,7 @@ class ServoTarget:
     pin: int
     angle: Optional[float] = None  # Degrees (-90 to 90), None for special
     special: Optional[str] = None  # "C" (center), "M" (min), "X" (max)
+    speed: Optional[str] = None  # Per-target speed override: "F", "M", or "S"
 
     def __post_init__(self):
         """Validate the target."""
@@ -28,6 +29,8 @@ class ServoTarget:
             raise ValueError("Either angle or special must be provided")
         if self.special and self.special not in ("C", "M", "X"):
             raise ValueError(f"Invalid special position: {self.special}")
+        if self.speed and self.speed not in ("F", "M", "S"):
+            raise ValueError(f"Invalid speed mode: {self.speed}")
 
 
 @dataclass
@@ -40,7 +43,9 @@ class ParsedCommand:
 
 # Regex patterns
 SPEED_PREFIX_PATTERN = re.compile(r"^([FSM])_")
-TARGET_PATTERN = re.compile(r"(\d+):(-?\d+(?:\.\d+)?|[CMX])")
+# Updated pattern: PIN:ANGLE_OR_SPECIAL[SPEED] where SPEED is optional F/M/S
+# Using ^ and $ to ensure the entire segment matches (rejects garbage suffixes)
+TARGET_PATTERN = re.compile(r"^(\d+):(-?\d+(?:\.\d+)?|[CMX])([FSM])?$")
 
 
 def parse_command(command: str) -> ParsedCommand:
@@ -90,14 +95,15 @@ def parse_command(command: str) -> ParsedCommand:
 
         pin = int(target_match.group(1))
         value = target_match.group(2)
+        target_speed = target_match.group(3)  # Optional per-target speed
 
         if value in ("C", "M", "X"):
-            target = ServoTarget(pin=pin, special=value)
+            target = ServoTarget(pin=pin, special=value, speed=target_speed)
         else:
             angle = float(value)
             if not -90 <= angle <= 90:
                 raise ValueError(f"Angle out of range (-90 to 90): {angle}")
-            target = ServoTarget(pin=pin, angle=angle)
+            target = ServoTarget(pin=pin, angle=angle, speed=target_speed)
 
         result.targets.append(target)
 

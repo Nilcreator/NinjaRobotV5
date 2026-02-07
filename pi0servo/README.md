@@ -123,22 +123,23 @@ uv run pi0servo servo-tool
 
 ---
 
-## 📋 Command Format
+### 📋 Command Format
 
 Commands use the **movement-tool** format:
 
 ```
-[SPEED_]PIN:ANGLE[/PIN:ANGLE...]
+[GLOBAL_SPEED_]PIN:ANGLE[LOCAL_SPEED][/PIN:ANGLE[LOCAL_SPEED]...]
 ```
 
 ### Examples
 
 | Command | Description |
 |---------|-------------|
-| `20:45` | Move GPIO20 to 45° at medium speed |
-| `F_20:45` | Move GPIO20 to 45° at fast speed |
-| `M_20:45/21:-30` | Move two servos at medium speed |
-| `S_20:C/21:M` | Slow move to Center/Min positions |
+| `20:45` | Move GPIO20 to 45° at medium speed (default) |
+| `F_20:45` | Move GPIO20 to 45° at **Fast** speed (global) |
+| `M_20:45/21:-30` | Move two servos at **Medium** speed |
+| `S_20:C/21:MF` | Move 20 to Center (Slow), 21 to Min (**Fast override**) |
+| `20:45S` | Move GPIO20 to 45° at **Slow** speed |
 
 ### Speed Modes
 

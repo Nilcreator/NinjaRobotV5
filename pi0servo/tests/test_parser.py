@@ -92,6 +92,46 @@ class TestParseCommand:
         assert result.speed_mode == "F"
         assert result.targets[0].angle == 45.0
 
+    def test_per_target_speed(self):
+        """Test per-target speed suffixes."""
+        cmd = "20:45F/21:30S/22:0M"
+        result = parse_command(cmd)
+        
+        assert len(result.targets) == 3
+        assert result.targets[0].pin == 20
+        assert result.targets[0].speed == "F"
+        assert result.targets[1].pin == 21
+        assert result.targets[1].speed == "S"
+        assert result.targets[2].pin == 22
+        assert result.targets[2].speed == "M"
+
+    def test_mixed_global_and_local_speed(self):
+        """Test mixing global speed prefix with local suffixes."""
+        cmd = "S_20:45/21:30F"
+        result = parse_command(cmd)
+        
+        assert result.speed_mode == "S"
+        assert result.targets[0].pin == 20
+        assert result.targets[0].speed is None  # Inherits global
+        assert result.targets[1].pin == 21
+        assert result.targets[1].speed == "F"  # Overrides
+
+    def test_special_with_speed(self):
+        """Test special positions with speed suffix."""
+        cmd = "20:CS/21:MF"
+        result = parse_command(cmd)
+        
+        assert result.targets[0].special == "C"
+        assert result.targets[0].speed == "S"
+        assert result.targets[1].special == "M"
+        assert result.targets[1].speed == "F"
+
+    def test_invalid_speed_char_raises(self):
+        """Test that invalid speed characters are rejected."""
+        # This is actually handled by regex not matching, leading to invalid format error
+        with pytest.raises(ValueError):
+            parse_command("20:45X")  # X is not a speed
+
 
 class TestServoTarget:
     """Test ServoTarget dataclass."""
@@ -107,6 +147,16 @@ class TestServoTarget:
         """Create target with special position."""
         target = ServoTarget(pin=20, special="C")
         assert target.special == "C"
+
+    def test_with_speed(self):
+        """Test initialization with speed."""
+        t = ServoTarget(20, angle=45.0, speed="F")
+        assert t.speed == "F"
+    
+    def test_invalid_speed_raises(self):
+        """Test that invalid speed raises ValueError."""
+        with pytest.raises(ValueError):
+            ServoTarget(20, angle=45.0, speed="X")
 
     def test_invalid_no_value_raises(self):
         """Target without angle or special should raise ValueError."""
