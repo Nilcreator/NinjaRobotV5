@@ -1,4 +1,5 @@
 import copy
+import copy
 import select
 import subprocess
 import sys
@@ -15,6 +16,31 @@ from ninja_core.config import (
 )
 from ninja_core.hal import HardwareAbstractionLayer
 from ninja_core.movement_controller import MovementController
+
+
+def extract_movement_data(
+    parsed_moves: dict[int, dict],
+) -> tuple[dict[int, float], dict[int, str]]:
+    """
+    Extract angles and per_servo_speeds from parsed movement data.
+    
+    Args:
+        parsed_moves: Dict of {pin: {"angle": X, "speed": Y or None}}
+    
+    Returns:
+        (angles_dict, per_servo_speeds_dict)
+    """
+    angles = {}
+    per_servo_speeds = {}
+    for pin, data in parsed_moves.items():
+        if isinstance(data, dict):
+            angles[pin] = data.get("angle", 0)
+            if data.get("speed"):
+                per_servo_speeds[pin] = data["speed"]
+        else:
+            # Handle legacy format where value is just the angle
+            angles[pin] = data
+    return angles, per_servo_speeds
 
 
 def parse_movement_command(
@@ -296,23 +322,27 @@ def edit_sequence_menu(
                     speed, moves = parse_movement_command(command_str, servo_defs)
 
                     if moves:
-                        # Auto-complete the move based on previous step
-                        completed_moves = moves.copy()
+                        # Extract angles and per-servo speeds from parsed moves
+                        angles, per_servo_spds = extract_movement_data(moves)
+                        
+                        # Auto-complete angles from previous step
                         base_angles = (
                             temp_sequence[step_num - 1]["moves"]
                             if step_num > 0
                             else controller.get_current_angles()
                         )
+                        completed_angles = angles.copy()
                         for pin_str in servo_defs.keys():
                             pin = int(pin_str)
-                            if pin not in completed_moves:
-                                completed_moves[pin] = base_angles.get(
+                            if pin not in completed_angles:
+                                completed_angles[pin] = base_angles.get(
                                     str(pin), base_angles.get(pin, 0)
                                 )
 
                         temp_sequence[step_num] = {
                             "speed": speed,
-                            "moves": completed_moves,
+                            "moves": completed_angles,
+                            "per_servo_speeds": per_servo_spds or {},
                         }
                         print("Step updated.")
 
@@ -339,22 +369,29 @@ def edit_sequence_menu(
                     speed, moves = parse_movement_command(command_str, servo_defs)
 
                     if moves:
+                        # Extract angles and per-servo speeds from parsed moves
+                        angles, per_servo_spds = extract_movement_data(moves)
+                        
                         # Auto-complete based on the state before the insertion point
-                        completed_moves = moves.copy()
                         base_angles = (
                             temp_sequence[pos - 1]["moves"]
                             if pos > 0
                             else controller.get_current_angles()
                         )
+                        completed_angles = angles.copy()
                         for pin_str in servo_defs.keys():
                             pin = int(pin_str)
-                            if pin not in completed_moves:
-                                completed_moves[pin] = base_angles.get(
+                            if pin not in completed_angles:
+                                completed_angles[pin] = base_angles.get(
                                     str(pin), base_angles.get(pin, 0)
                                 )
 
                         temp_sequence.insert(
-                            pos, {"speed": speed, "moves": completed_moves}
+                            pos, {
+                                "speed": speed, 
+                                "moves": completed_angles,
+                                "per_servo_speeds": per_servo_spds or {},
+                            }
                         )
                         print("Step inserted.")
 
@@ -382,8 +419,12 @@ def edit_sequence_menu(
                 time.sleep(0.5)
                 for i, step in enumerate(temp_sequence):
                     print(f"  - Step {i + 1}: {step['moves']}")
+                    # Handle both legacy (raw angles) and new (with per_servo_speeds) formats
                     moves = {int(k): v for k, v in step["moves"].items()}
-                    controller.move_servos(moves, step["speed"])
+                    per_servo = None
+                    if "per_servo_speeds" in step and step["per_servo_speeds"]:
+                        per_servo = {int(k): v for k, v in step["per_servo_speeds"].items()}
+                    controller.move_servos(moves, step["speed"], per_servo)
                 print("Preview finished.")
                 time.sleep(1)
                 controller.center_all_servos()

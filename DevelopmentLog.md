@@ -1,6 +1,15 @@
 # Development Log
 
 
+## 2026-02-08: Phase 10 - Movement Tool Health Check ✓
+- **Issue**: `edit_sequence_menu` threw `TypeError: dict - int` when editing/inserting steps.
+- **Root Cause**: `parse_movement_command` returns `{pin: {"angle": X, "speed": Y}}`, but edit/insert stored this directly as `moves` instead of extracting angles.
+- **Solution**:
+    - Added `extract_movement_data()` helper to split parsed moves into `(angles_dict, per_servo_speeds_dict)`.
+    - Fixed Edit Step, Insert Step to use helper and store separate `moves` and `per_servo_speeds`.
+    - Fixed Preview to pass `per_servo_speeds` to `move_servos`.
+- **Related Files**: `movement_cli.py`.
+
 ## 2026-02-08: Phase 9 - Fix Silent Failure ✓
 - **Issue**: movement-tool showed no reaction when entering servo commands.
 - **Root Cause**: `ServoArrayWrapper` was missing methods that `MovementController` calls:
