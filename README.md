@@ -104,8 +104,8 @@ Then open `http://ninjarobot.local:8000` in your browser!
 
 ## 📊 Current Status
 
-**Version:** 5.1.0  
-**Status:** Phase 5 Complete ✅
+**Version:** 5.2.1  
+**Status:** Phase 5 Complete ✅ + pi0servo V2
 
 All core features have been implemented and verified:
 - ✅ Modular Hardware Abstraction Layer
@@ -209,8 +209,8 @@ uv run ninja_core server
 
 ## 📊 現在のステータス
 
-**バージョン:** 5.1.0  
-**ステータス:** フェーズ5完了 ✅
+**バージョン:** 5.2.1  
+**ステータス:** フェーズ5完了 ✅ + pi0servo V2
 
 すべてのコア機能が実装・検証されました：
 - ✅ モジュール式ハードウェア抽象化レイヤー
@@ -314,8 +314,8 @@ uv run ninja_core server
 
 ## 📊 目前狀態
 
-**版本：** 5.1.0  
-**狀態：** 第五階段完成 ✅
+**版本：** 5.2.1  
+**狀態：** 第五階段完成 ✅ + pi0servo V2
 
 所有核心功能已實作並驗證：
 - ✅ 模組化硬體抽象層

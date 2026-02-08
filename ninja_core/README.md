@@ -29,7 +29,7 @@ This package contains the main application logic for NinjaRobot V5. It integrate
 ### Driver Registry:
 ```python
 DRIVER_REGISTRY = {
-    "servos": {"module": "pi0servo.core.multi_servo", "class": "MultiServo"},
+    "servos": {"module": "pi0servo.core.servo_group", "class": "ServoGroup"},  # V5.2.1
     "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
     "display": {"module": "pi0disp.disp.st7789v", "class": "ST7789V"},
     "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},

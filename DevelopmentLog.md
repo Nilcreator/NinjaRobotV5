@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-08: Phase 12 - Documentation Update ✓
+- **Action**: Updated all documentation for pi0servo V2 integration.
+- **Changes**:
+    - Deleted `pi0servo_bak` folder.
+    - Updated `README.md` version to 5.2.1 in all language sections.
+    - Updated `DevelopmentGuide.md` file structure (pi0servo now has cli, config, core, motion, parser folders).
+    - Replaced Section 3.5 pi0servo API docs with new ServoGroup/ConfigManager/MotionPlanner API.
+    - Updated `ninja_core/README.md` driver registry (ServoGroup instead of MultiServo).
+- **Note**: `pi0servo/tests/` folder contains valid unit tests and was kept.
+
 ## 2026-02-08: Phase 11 - First Run Servo Issue ✓
 - **Issue**: Servo 23 had no reaction on first movement-tool run after calibrating pin 23.
 - **Root Cause**: After calibration, `config` was reloaded but HAL's `ServoGroup` kept old pin list. New pins (e.g., 23) not included until restart.

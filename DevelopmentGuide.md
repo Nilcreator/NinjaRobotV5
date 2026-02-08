@@ -175,16 +175,18 @@ NinjaRobotV5/
 │       ├── utils/              # Image processing
 │       └── commands/           # Demo commands
 │
-├── pi0servo/                   # Servo motor control library
+├── pi0servo/                   # Servo motor control library (V5.2.1 REBUILT)
 │   ├── pyproject.toml
 │   ├── README.md
+│   ├── tests/                  # Unit tests (pytest)
 │   └── src/pi0servo/
-│       ├── __init__.py
+│       ├── __init__.py         # Exports ServoGroup, ConfigManager, CommandParser
 │       ├── __main__.py         # CLI entry point
-│       ├── core/               # PiServo, CalibrableServo, MultiServo
-│       ├── helper/             # Thread workers
-│       ├── utils/              # Config manager
-│       └── command/            # CLI commands
+│       ├── cli/                # CLI commands (servo-tool, calib, config, etc.)
+│       ├── config/             # ConfigManager, ServoCalibration dataclass
+│       ├── core/               # SingleServo, ServoGroup (main classes)
+│       ├── motion/             # MotionPlanner, easing functions, velocity control
+│       └── parser/             # CommandParser for "F_20:45/21:-30" syntax
 │
 └── ninja_core/                 # Main application
     ├── pyproject.toml
@@ -849,7 +851,9 @@ img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
 
 ### 3.5 pi0servo
 
-**Purpose:** Multi-servo control with calibration and interpolation
+### 3.5 pi0servo
+
+**Purpose:** Velocity-based servo control with calibration and smooth easing
 
 **Dependencies:** `pigpio`, `click`, `blessed`, `ninja_utils`
 
@@ -857,103 +861,20 @@ img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
 
 **Hardware Interface:** GPIO PWM (500-2500μs pulse width)
 
-#### 3.5.1 `core/piservo.py`
+> [!IMPORTANT]
+> **V5.2.1 REBUILD**: The pi0servo library was completely rebuilt with a new architecture:
+> - **Velocity-based control** instead of duration-based (`degrees/sec`)
+> - **Per-servo speed modes** (F=Fast, M=Medium, S=Slow)
+> - **Thread-safe abort** mechanism
+> - **Smooth easing** curves (`ease_out`, `ease_in`, `ease_in_out`, `linear`)
 
-**Module:** `pi0servo.core.piservo`
+#### 3.5.1 `core/servo_group.py`
 
-##### Class: `PiServo`
+**Module:** `pi0servo.core.servo_group`
 
-Base servo control class.
+##### Class: `ServoGroup`
 
-**Constructor:**
-```python
-def __init__(
-    self,
-    pi: pigpio.pi,
-    pin: int,
-    min_pulse: int = 500,
-    max_pulse: int = 2500,
-    angle_range: int = 180
-)
-```
-
-**Parameters:**
-- `pi` (pigpio.pi): Shared pigpio connection
-- `pin` (int): GPIO pin number
-- `min_pulse`, `max_pulse` (int): Pulse width in microseconds
-- `angle_range` (int): Total rotation range in degrees
-
-**Methods:**
-
-**`set_angle(angle: float) -> None`**
-- Moves servo to specified angle
-- **Parameters:**
-  - `angle` (float): Target angle (-90 to +90 for 180° servo)
-
-**`get_angle() -> float`**
-- Returns current servo angle
-
-**`off() -> None`**
-- Stops PWM signal (servo relaxes)
-
-**Usage:**
-```python
-import pigpio
-from pi0servo.core.piservo import PiServo
-
-pi = pigpio.pi()
-servo = PiServo(pi, pin=20)
-
-servo.set_angle(0)    # Center
-servo.set_angle(45)   # Right
-servo.set_angle(-45)  # Left
-servo.off()
-
-pi.stop()
-```
-
----
-
-#### 3.5.2 `core/calibrable_servo.py`
-
-**Module:** `pi0servo.core.calibrable_servo`
-
-##### Class: `CalibrableServo`
-
-Extends `PiServo` with calibration data support.
-
-**Constructor:**
-```python
-def __init__(
-    self,
-    pi: pigpio.pi,
-    pin: int,
-    calib_data: dict | None = None
-)
-```
-
-**Parameters:**
-- `pi` (pigpio.pi): Shared pigpio connection
-- `pin` (int): GPIO pin number
-- `calib_data` (dict): Calibration dict with keys: `min_pulse`, `center_pulse`, `max_pulse`, `angle_range`
-
-**Additional Methods:**
-
-**`set_calibration(calib_data: dict) -> None`**
-- Updates calibration parameters
-
-**`get_calibration() -> dict`**
-- Returns current calibration data
-
----
-
-#### 3.5.3 `core/multi_servo.py`
-
-**Module:** `pi0servo.core.multi_servo`
-
-##### Class: `MultiServo`
-
-Controls multiple servos simultaneously.
+Main class for controlling multiple servos. Used by `ninja_core.hal`.
 
 **Constructor:**
 ```python
@@ -961,114 +882,150 @@ def __init__(
     self,
     pi: pigpio.pi,
     pins: list[int],
-    conf_file: str = "servo.json"
+    calibrations: dict[int, ServoCalibration] | None = None
 )
 ```
 
 **Parameters:**
 - `pi` (pigpio.pi): Shared pigpio connection
 - `pins` (list[int]): List of GPIO pin numbers
-- `conf_file` (str): Path to calibration JSON file
+- `calibrations` (dict): Pre-loaded calibration data from `ConfigManager`
 
-**Methods:**
+**Key Methods:**
 
-**`move_all_angles(angles: list[float]) -> None`**
-- Moves all servos to specified angles
+**`move_all_sync(targets: list[float | None], speed_mode: str | list[str] = "M", easing: str = "ease_out") -> bool`**
+- Moves all servos to target angles synchronously with smooth easing
 - **Parameters:**
-  - `angles` (list[float]): Angles for each servo (same order as `pins`)
+  - `targets` (list): Target angles (-90 to 90), `None` = skip servo
+  - `speed_mode` (str | list): "F"/"M"/"S" or list for per-servo speeds
+  - `easing` (str): Easing function name
+- **Returns:** `True` if completed, `False` if aborted
+
+**`move_all_async(targets, speed_mode, easing) -> None`**
+- Same as `move_all_sync` but returns immediately
 
 **`get_all_angles() -> list[float]`**
 - Returns current angles for all servos
 
-**`move_all_angles_sync(angles: list[float], duration: float = 0.5) -> None`**
-- Smoothly interpolates all servos to target angles over duration
-- **Parameters:**
-  - `angles` (list[float]): Target angles
-  - `duration` (float): Movement duration in seconds
+**`abort() -> None`**
+- Thread-safe: immediately stops any running movement
 
 **`off() -> None`**
-- Turns off all servos
+- Turns off PWM for all servos
+
+**Legacy Compatibility Methods:**
+- `move_all_angles(angles: list[float])` - Instant move (legacy)
+- `servo[pin]` - Direct servo access (legacy)
 
 **Usage:**
 ```python
 import pigpio
-from pi0servo.core.multi_servo import MultiServo
+from pi0servo import ServoGroup, ConfigManager
 
 pi = pigpio.pi()
-multi = MultiServo(pi, pins=[20, 21, 22], conf_file="servo.json")
 
-# Move all servos instantly
-multi.move_all_angles([0, 45, -30])
+# Load calibrations
+manager = ConfigManager()
+manager.load()
+calibrations = {20: manager.get_calibration(20), 21: manager.get_calibration(21)}
 
-# Smooth synchronized movement
-multi.move_all_angles_sync([90, 0, -45], duration=1.0)
+# Create group
+group = ServoGroup(pi, pins=[20, 21], calibrations=calibrations)
 
-multi.off()
+# Move with per-servo speeds
+group.move_all_sync([45, -30], speed_mode=["F", "S"], easing="ease_out")
+
+# Abort from another thread
+group.abort()
+
+group.off()
 pi.stop()
 ```
 
 ---
 
-#### 3.5.4 `helper/thread_multi_servo.py`
+#### 3.5.2 `config/config_manager.py`
 
-**Module:** `pi0servo.helper.thread_multi_servo`
+**Module:** `pi0servo.config.config_manager`
 
-##### Class: `ThreadMultiServo`
+##### Class: `ConfigManager`
 
-Thread-safe asynchronous wrapper around `MultiServo`.
+Manages servo calibration persistence in `servo.json`.
 
-**Constructor:**
+**Key Methods:**
+
+**`load() -> None`**
+- Loads calibration from JSON file
+
+**`save() -> None`**
+- Saves calibration to JSON file
+
+**`get_calibration(pin: int) -> ServoCalibration`**
+- Returns calibration data for a pin
+
+**`set_calibration(pin: int, calib: ServoCalibration) -> None`**
+- Stores calibration data
+
+##### Dataclass: `ServoCalibration`
+
 ```python
-def __init__(
-    self,
-    pi: pigpio.pi,
-    pins: list[int],
-    conf_file: str = "servo.json"
-)
-```
-
-**Methods:**
-
-**`move_all_angles_async(angles: list[float]) -> None`**
-- Queues a movement command (non-blocking)
-
-**`stop_thread() -> None`**
-- Stops the worker thread (must be called before program exit)
-
-**Usage:**
-```python
-from pi0servo.helper.thread_multi_servo import ThreadMultiServo
-
-multi = ThreadMultiServo(pi, pins=[20, 21, 22])
-
-# Non-blocking movement
-multi.move_all_angles_async([0, 45, -30])
-# Program continues immediately
-
-multi.stop_thread()
+@dataclass
+class ServoCalibration:
+    pulse_min: int = 1500     # Default = center (uncalibrated)
+    pulse_center: int = 1500
+    pulse_max: int = 1500
+    speed: int = 80           # Speed limit (0-100%)
 ```
 
 ---
 
-#### 3.5.5 CLI Commands
+#### 3.5.3 `motion/motion_planner.py`
+
+**Module:** `pi0servo.motion.motion_planner`
+
+Handles velocity calculation and trajectory generation.
+
+**Key Functions:**
+
+**`compute_duration(angle_delta: float, speed_mode: str, speed_limit: int) -> float`**
+- Calculates movement duration based on physics
+
+**`get_easing_function(name: str) -> Callable`**
+- Returns easing function (`ease_out`, `ease_in`, `ease_in_out`, `linear`)
+
+---
+
+#### 3.5.4 CLI Commands
 
 **Entry Point:** `uv run pi0servo <command>`
 
-**Commands:**
+**Interactive Tool:**
+```bash
+uv run pi0servo servo-tool  # Recommended for all operations
+```
 
-**`servo <pin> <angle|min|center|max>`**
-- Moves a single servo
-- **Example:** `uv run pi0servo servo 20 center`
-- **Example:** `uv run pi0servo servo 20 45`
+**Direct Commands:**
 
-**`calib <pin>`**
-- Interactive TUI calibration tool
-- **Keybindings:**
-  - `v`, `c`, `x` - Select Min/Center/Max target
-  - `Up`/`Down` - Large adjustments (±10μs)
-  - `w`/`s` - Fine adjustments (±1μs)
-  - `Enter`/`Space` - Save current position
-  - `q` - Quit and save to `servo.json`
+| Command | Description |
+|---------|-------------|
+| `uv run pi0servo calib 20` | Calibrate servo on GPIO 20 |
+| `uv run pi0servo move 20 45` | Move servo to 45° |
+| `uv run pi0servo cmd "F_20:45/21:-30S"` | Multi-servo command |
+| `uv run pi0servo config show` | Show all calibrations |
+
+**Command Syntax:**
+```
+[GLOBAL_SPEED_]PIN:ANGLE[LOCAL_SPEED][/PIN:ANGLE[LOCAL_SPEED]...]
+```
+
+| Example | Description |
+|---------|-------------|
+| `20:45` | Move GPIO20 to 45° (Medium) |
+| `F_20:45/21:-30` | Both Fast |
+| `M_20:45/21:90S` | Global Medium, 21 overrides to Slow |
+| `20:C` | Move to Center (0°) |
+| `20:M` | Move to Min (-90°) |
+| `20:X` | Move to Max (90°) |
 
 ---
 
