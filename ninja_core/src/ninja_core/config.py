@@ -22,6 +22,7 @@ class ServoCalibration(BaseModel):
     center_pulse: int = 1500
     max_pulse: int = 2500
     angle_range: int = 180
+    speed: int = 80  # Speed limit percentage (0-100)
 
 
 class ServosConfig(BaseModel):
@@ -139,6 +140,7 @@ def import_and_update_config():
                     "max_pulse": calib_data.get(
                         "max_pulse", calib_data.get("pulse_max", 2500)
                     ),
+                    "speed": calib_data.get("speed", 80),
                 }
                 new_calibs[pin_str] = ServoCalibration.model_validate(mapped_data)
 

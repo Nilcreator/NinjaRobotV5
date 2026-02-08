@@ -21,48 +21,66 @@ def parse_movement_command(
     command_str: str, definitions: dict
 ) -> tuple[str | None, dict | None]:
     """
-    Parses the user's command string (e.g., 'S_17:30/27:M').
-    Returns a tuple: (speed, {pin: angle_value}).
+    Parses the user's command string with optional per-servo speed.
+
+    Format: [SPEED_]PIN:ANGLE[SPEED]/PIN:ANGLE[SPEED]...
+    Examples:
+        "22:45"           -> Medium speed, pin 22 to 45°
+        "F_22:45/23:-30"  -> Fast global, multiple servos
+        "22:45S/23:-30F"  -> Per-servo speeds (S=slow, F=fast)
+        "F_22:45/23:-30S" -> Global fast, but pin 23 uses slow
+
+    Returns a tuple: (global_speed, {pin: {"angle": value, "speed": str|None}}).
     """
-    speed = "M"  # Default to Medium speed
+    global_speed = "M"  # Default to Medium speed
     if command_str.startswith(("S_", "M_", "F_")):
-        speed = command_str[0]
+        global_speed = command_str[0]
         command_str = command_str[2:]
 
     movements = {}
     parts = command_str.split("/")
     for part in parts:
         try:
-            pin_str, angle_char = part.split(":")
+            pin_str, value_part = part.split(":")
             pin = int(pin_str)
-            # The keys in the definitions dict are strings, so we must check against a string.
+            # The keys in the definitions dict are strings
             if pin_str not in definitions:
                 raise ValueError(f"Servo pin {pin} is not defined.")
 
+            # Check for per-servo speed suffix (last character F/M/S)
+            per_servo_speed = None
+            if value_part and value_part[-1].upper() in ("F", "M", "S"):
+                # Check if it's a speed suffix (not part of a number)
+                if len(value_part) > 1 and not value_part[-2].isalpha():
+                    per_servo_speed = value_part[-1].upper()
+                    value_part = value_part[:-1]
+
+            # Parse angle
             angle = 0
-            if angle_char.upper() == "X":
+            if value_part.upper() == "X":
                 angle = 90
-            elif angle_char.upper() == "M":
+            elif value_part.upper() == "M":
                 angle = -90
-            elif angle_char.upper() == "C":
+            elif value_part.upper() == "C":
                 angle = 0
             else:
-                angle = int(angle_char)
+                angle = int(value_part)
                 if not -90 <= angle <= 90:
                     raise ValueError("Angle must be between -90 and 90.")
 
-            movements[pin] = angle
+            movements[pin] = {"angle": angle, "speed": per_servo_speed}
         except ValueError as e:
             print(f"Error parsing '{part}': {e}")
             return None, None
 
-    return speed, movements
+    return global_speed, movements
 
 
 def record_new_movement(controller: MovementController, config: NinjaConfig):
     """Handles the UI and logic for recording a new movement sequence."""
     print("\n--- Record New Movement ---")
-    print("Enter commands like '17:30/27:M' or 'S_22:-45'.")
+    print("Commands: 'PIN:ANGLE[SPEED]/...' with optional global speed prefix.")
+    print("Examples: 'F_22:45/23:-30'  or  '22:45S/23:-30F' (per-servo speeds)")
 
     servo_defs = controller.servo_definitions
     print("Available Servos (Pin):")
@@ -80,28 +98,43 @@ def record_new_movement(controller: MovementController, config: NinjaConfig):
         if not command_str:
             continue
 
-        speed, moves = parse_movement_command(command_str, servo_defs)
+        global_speed, moves = parse_movement_command(command_str, servo_defs)
         if not moves:
             continue
 
         all_servo_pins = servo_defs.keys()
-        completed_moves = moves.copy()
-
+        
+        # Build completed moves: include all servos, using previous angles for missing
+        completed_moves = {}
         for pin_str in all_servo_pins:
             pin = int(pin_str)
-            if pin not in completed_moves:
+            if pin in moves:
+                completed_moves[pin] = moves[pin]  # {angle, speed}
+            else:
                 previous_angle = previous_angles.get(pin, 0)
-                completed_moves[pin] = previous_angle
+                completed_moves[pin] = {"angle": previous_angle, "speed": None}
 
-        print(f"Executing full movement: {completed_moves} with speed {speed}")
-        controller.move_servos(completed_moves, speed)
+        # Extract just angles for move_servos (it expects {pin: angle})
+        angles_only = {pin: data["angle"] for pin, data in completed_moves.items()}
+
+        print(f"Executing: {angles_only} with global speed {global_speed}")
+        controller.move_servos(angles_only, global_speed)
 
         while True:
             choice = input(
                 "1. Confirm & Next | 2. Reset | 3. Finish Recording: "
             ).strip()
             if choice == "1":
-                sequence.append({"speed": speed, "moves": completed_moves})
+                # Store angles with global speed (per-servo speeds stored in moves)
+                sequence.append({
+                    "speed": global_speed,
+                    "moves": angles_only,
+                    "per_servo_speeds": {
+                        pin: data["speed"]
+                        for pin, data in completed_moves.items()
+                        if data["speed"]
+                    }
+                })
                 previous_angles = controller.get_current_angles()
                 print("Movement step confirmed.")
                 break
@@ -110,7 +143,15 @@ def record_new_movement(controller: MovementController, config: NinjaConfig):
                 controller.move_servos(previous_angles, "F")
                 break
             elif choice == "3":
-                sequence.append({"speed": speed, "moves": completed_moves})
+                sequence.append({
+                    "speed": global_speed,
+                    "moves": angles_only,
+                    "per_servo_speeds": {
+                        pin: data["speed"]
+                        for pin, data in completed_moves.items()
+                        if data["speed"]
+                    }
+                })
                 print("Last movement step confirmed.")
 
                 if not sequence:

@@ -1,6 +1,21 @@
 # Development Log
 
 
+## 2026-02-08: Phase 7 Refinements - Speed & Parser ✓
+- **Action**: Added speed field import and per-servo speed parsing.
+- **Issue 1 - Speed not imported**:
+    - `ServoCalibration` model now includes `speed: int = 80` field.
+    - `import_and_update_config()` now maps `speed` from servo.json.
+- **Issue 2 - Per-servo speed parsing**:
+    - `parse_movement_command()` now parses suffixes: `22:45S`, `23:-30F`.
+    - Returns `{pin: {"angle": value, "speed": str|None}}` format.
+    - `record_new_movement()` stores `per_servo_speeds` in sequence.
+- **Command Format** (matches pi0servo servo-tool):
+    - Global: `F_22:45/23:-30` → All servos use Fast speed
+    - Per-servo: `22:45S/23:-30F` → Pin 22 Slow, Pin 23 Fast
+    - Mixed: `F_22:45/23:-30S` → Global Fast, but Pin 23 overrides to Slow
+- **Related Files**: `ninja_core/config.py`, `ninja_core/movement_cli.py`.
+
 ## 2026-02-08: Fixed pi0servo Integration Issues ✓
 - **Action**: Fixed config import compatibility between pi0servo and ninja_core.
 - **Root Cause**: 
