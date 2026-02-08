@@ -2,6 +2,8 @@ import time
 from ninja_core.hal import HardwareAbstractionLayer
 from ninja_core.config import NinjaConfig
 
+# Velocity-based duration calculation from pi0servo
+from pi0servo.motion import calculate_duration
 
 from typing import Callable, Optional
 
@@ -45,15 +47,23 @@ class MovementController:
 
         if not self.servos:
             # If servos aren't initialized, we can't move them.
-            # But we shouldn't crash. Just log/print (optional) and return.
             return
 
-        duration_map = {"S": 1.0, "M": 0.5, "F": 0.2}
-        duration = duration_map.get(speed, 0.5)
-
-        # Get current and target angles for interpolation
+        # Get current angles to calculate maximum travel distance
         current_angles = self.get_current_angles()
-        target_angles = movements
+
+        # Calculate maximum angle delta for velocity-based duration
+        max_distance = 0.0
+        for pin, target_angle in movements.items():
+            current_angle = current_angles.get(pin, 0.0)
+            delta = abs(target_angle - current_angle)
+            if delta > max_distance:
+                max_distance = delta
+
+        # Use pi0servo velocity-based calculation
+        # Default speed limit: 80% (common safe limit for SG90)
+        DEFAULT_SPEED_LIMIT = 80
+        duration = calculate_duration(max_distance, DEFAULT_SPEED_LIMIT, speed)
 
         steps = int(duration / 0.02)  # 50 FPS update rate
         if steps <= 0:
@@ -76,7 +86,7 @@ class MovementController:
             for pin in ordered_pins:
                 start_angle = current_angles.get(pin, 0)
                 # If a pin isn't in the current movement, it should hold its start position
-                end_angle = target_angles.get(pin, start_angle)
+                end_angle = movements.get(pin, start_angle)
 
                 new_angle = start_angle + (end_angle - start_angle) * ratio
                 step_angles_list.append(new_angle)
@@ -88,7 +98,7 @@ class MovementController:
         final_angles_list = []
         for pin in ordered_pins:
             start_angle = current_angles.get(pin, 0)
-            final_angle = target_angles.get(pin, start_angle)
+            final_angle = movements.get(pin, start_angle)
             final_angles_list.append(final_angle)
 
         self.servos.move_all_angles(final_angles_list)

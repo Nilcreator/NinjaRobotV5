@@ -507,3 +507,36 @@ class ServoGroup:
             speed_mode = "S"
 
         return self.move_all_sync(target_angles, speed_mode=speed_mode)
+
+    def move_all_angles(self, target_angles: list[float | None]):
+        """Legacy compatibility: instant movement (no interpolation).
+
+        Used by ninja_core's movement_controller for non-sync moves.
+
+        Args:
+            target_angles: List of target angles (same order as pins). None = skip.
+        """
+        for i, pin in enumerate(self._pins):
+            if i < len(target_angles) and target_angles[i] is not None:
+                self._servos[pin].set_angle(target_angles[i])
+
+    def get_all_angles(self) -> list[float]:
+        """Legacy compatibility: get all angles as ordered list.
+
+        Used by ninja_core's movement_controller for reading current state.
+
+        Returns:
+            List of angles in pin order.
+        """
+        return [self._servos[pin].last_angle or 0.0 for pin in self._pins]
+
+    @property
+    def servo(self) -> list:
+        """Legacy compatibility: list access (ordered by pin).
+
+        Used by ninja_core's api_wrappers for list-style access.
+
+        Returns:
+            List of Servo objects in pin order.
+        """
+        return [self._servos[pin] for pin in self._pins]

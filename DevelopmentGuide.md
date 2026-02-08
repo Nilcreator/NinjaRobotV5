@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.0  
-**Last Updated:** 2026-01-25  
+**Version:** 5.2.1  
+**Last Updated:** 2026-02-08  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -52,6 +52,14 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | Shutdown Sequence | "sleepy" face + sound (parallel) → "Poweroff" pose (blocking) → HAL cleanup |
 | Ctrl+C Handler | Modified `emergency_cleanup()` to include shutdown animation |
 | `/api/system/shutdown` | Now performs animation before system poweroff |
+
+### Key Changes (V5.2.1 - pi0servo Integration):
+| Component | Change |
+|---|---|
+| `pi0servo` | **REBUILT** - Velocity-based control, abort mechanism, easing curves |
+| `pi0servo/ServoGroup` | Added legacy compatibility: `move_all_angles()`, `get_all_angles()`, `servo` property |
+| `ninja_core/hal.py` | Updated `DRIVER_REGISTRY` to use `ServoGroup`, `ConfigManager` for calibrations |
+| HAL init | Calibrations now passed as `dict[int, ServoCalibration]` instead of `conf_file` |
 
 ### Required Setup:
 ```bash

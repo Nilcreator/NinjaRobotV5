@@ -26,8 +26,8 @@ from .config import NinjaConfig
 # This enables future dynamic loading from config.json
 DRIVER_REGISTRY = {
     "servos": {
-        "module": "pi0servo.core.multi_servo",
-        "class": "MultiServo",
+        "module": "pi0servo.core.multi_servos",
+        "class": "ServoGroup",
     },
     "buzzer": {
         "module": "pi0buzzer.driver",
@@ -151,7 +151,11 @@ class HardwareAbstractionLayer:
         log.info("Hardware initialization process complete.")
 
     def _init_servos(self) -> None:
-        """Initialize the servo controller."""
+        """Initialize the servo controller.
+        
+        V5 integration: Uses pi0servo.ConfigManager to pre-load calibrations
+        and pass them to ServoGroup constructor.
+        """
         # Debug: Show what config values we're checking
         has_servos_config = bool(self.config.servos)
         has_calibration = bool(self.config.servos.calibration) if has_servos_config else False
@@ -163,19 +167,30 @@ class HardwareAbstractionLayer:
             return
 
         try:
+            # Import pi0servo ConfigManager for calibration loading
+            from pi0servo import ConfigManager
+            
             pin_list = [int(pin_str) for pin_str in self.config.servos.calibration.keys()]
             if not pin_list:
                 log.info("No servo pins found in config. Skipping.")
                 return
 
-            log.info(f"Initializing MultiServo with pins {pin_list}...")
-            MultiServo = load_driver_class("servos")
-            self.servos = MultiServo(
+            # Pre-load calibrations via ConfigManager
+            config_mgr = ConfigManager("servo.json")
+            config_mgr.load()
+            
+            calibrations = {}
+            for pin in pin_list:
+                calibrations[pin] = config_mgr.get_calibration(pin)
+            
+            log.info(f"Initializing ServoGroup with pins {pin_list}...")
+            ServoGroup = load_driver_class("servos")
+            self.servos = ServoGroup(
                 pi=self.pi,
                 pins=pin_list,
-                conf_file="servo.json",
+                calibrations=calibrations,
             )
-            log.info("MultiServo controller initialized.")
+            log.info("ServoGroup controller initialized.")
         except Exception as e:
             log.error(f"Failed to initialize Servos: {e}")
             log.warning("Continuing without Servos.")

@@ -1,6 +1,34 @@
 # Development Log
 
 
+## 2026-02-08: pi0servo Integration Phase 3 & 4 ✓
+- **Action**: Completed angle standardization and velocity-based movement.
+- **Phase 3 - Angle Standardization (±90°)**:
+    - Updated `api_wrappers.py`: ServoWrapper and ServoArrayWrapper now use ±90° directly.
+    - Removed all 0-180 → ±90 conversions (breaking change for Blockly programs).
+    - Center position now 0° (was 90° in old API).
+- **Phase 4 - Movement-Tool Enhancement**:
+    - Updated `movement_controller.py`: Replaced fixed `duration_map` with `calculate_duration()`.
+    - Uses physics-based velocity calculation (SG90 spec: 600°/sec).
+    - Duration now depends on actual travel distance and speed mode (F/M/S).
+- **Verification**: Ruff lint passed for both files.
+- **Related Files**: `ninja_core/api_wrappers.py`, `ninja_core/movement_controller.py`.
+
+## 2026-02-08: pi0servo Integration into ninja_core - Phase 1 ✓
+- **Action**: Integrated rebuilt `pi0servo` library into `ninja_core` HAL.
+- **Breaking Changes**:
+    - **DRIVER_REGISTRY**: Updated to point to `pi0servo.core.multi_servos.ServoGroup` (was `multi_servo.MultiServo`).
+    - **HAL init**: Modified `_init_servos()` to use `ConfigManager` for pre-loading calibrations.
+    - Calibrations now passed as `dict[int, ServoCalibration]` instead of `conf_file` path.
+- **Legacy Compatibility**:
+    - Added `move_all_angles()` method to `ServoGroup` for instant movement.
+    - Added `get_all_angles()` method to `ServoGroup` for reading current state.
+    - Added `servo` property to `ServoGroup` for list-style access.
+    - Existing `move_all_angles_sync()` wrapper maintained for duration-based calls.
+- **Verification**: Ruff lint passed for both `hal.py` and `multi_servos.py`.
+- **Related Files**: `ninja_core/hal.py`, `pi0servo/core/multi_servos.py`.
+
+
 ## 2026-02-08: Fixed GPIO Initialization Error ✓
 - **Action**: Fixed critical error `'GPIO is not in use for servo pulses'` that occurred after reboot.
 - **Root Cause**: `get_servo_pulsewidth()` throws exception when GPIO has no PWM initialized (after reboot).
