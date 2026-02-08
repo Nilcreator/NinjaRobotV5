@@ -1,6 +1,20 @@
 # Development Log
 
 
+## 2026-02-08: Fixed pi0servo Integration Issues ✓
+- **Action**: Fixed config import compatibility between pi0servo and ninja_core.
+- **Root Cause**: 
+    - pi0servo saves `servo.json` as dict with `pulse_min/center/max` field names.
+    - ninja_core `import_and_update_config()` only handled list format and used `min_pulse/center_pulse/max_pulse`.
+- **Solution**: 
+    - Updated `config.py` to handle both dict (pi0servo) and list (legacy) formats.
+    - Added field name mapping: `pulse_min` → `min_pulse`, `pulse_center` → `center_pulse`, etc.
+- **Commands Verified**:
+    - `uv run ninja_core config import` ✓ (alias for import-all)
+    - `uv run ninja_core config import-all` ✓
+    - `uv run ninja_core movement-tool` ✓ (not `ninja-cli movement`)
+- **Related Files**: `ninja_core/config.py`.
+
 ## 2026-02-08: pi0servo Integration Phase 3 & 4 ✓
 - **Action**: Completed angle standardization and velocity-based movement.
 - **Phase 3 - Angle Standardization (±90°)**:

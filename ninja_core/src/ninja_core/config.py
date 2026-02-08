@@ -118,17 +118,42 @@ def import_and_update_config():
         with open(servo_config_path, "r") as f:
             servo_data = json.load(f)
 
-        if isinstance(servo_data, list):
-            # Create a temporary dict from the list for easier comparison
-            new_calibs = {
-                str(s.get("pin")): ServoCalibration.model_validate(s)
-                for s in servo_data
-                if s.get("pin") is not None
-            }
-            if config.servos.calibration != new_calibs:
-                config.servos.calibration = new_calibs
-                made_changes = True
-        print("...servo import complete.")
+        new_calibs = {}
+
+        if isinstance(servo_data, dict):
+            # pi0servo format: {"20": {"pulse_min": 500, ...}, "21": {...}}
+            for pin_str, calib_data in servo_data.items():
+                try:
+                    int(pin_str)  # Validate it's a pin number
+                except ValueError:
+                    continue  # Skip non-numeric keys like metadata
+
+                # Map pi0servo field names to ninja_core field names
+                mapped_data = {
+                    "min_pulse": calib_data.get(
+                        "min_pulse", calib_data.get("pulse_min", 500)
+                    ),
+                    "center_pulse": calib_data.get(
+                        "center_pulse", calib_data.get("pulse_center", 1500)
+                    ),
+                    "max_pulse": calib_data.get(
+                        "max_pulse", calib_data.get("pulse_max", 2500)
+                    ),
+                }
+                new_calibs[pin_str] = ServoCalibration.model_validate(mapped_data)
+
+        elif isinstance(servo_data, list):
+            # Legacy list format: [{"pin": 20, "min_pulse": 500, ...}, ...]
+            for s in servo_data:
+                if s.get("pin") is not None:
+                    new_calibs[str(s["pin"])] = ServoCalibration.model_validate(s)
+
+        if new_calibs and config.servos.calibration != new_calibs:
+            config.servos.calibration = new_calibs
+            made_changes = True
+            print(f"...imported calibration for {len(new_calibs)} servos.")
+        else:
+            print("...servo import complete (no changes detected).")
     else:
         print(
             f"Info: '{servo_config_path}' not found. Applying default servo calibration."
