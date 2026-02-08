@@ -10,7 +10,12 @@ import sys
 import click
 
 from ..config import ConfigManager
-from ..core import PULSE_MAX, PULSE_MIN, Servo, ServoCalibration
+from ..core import Servo, ServoCalibration
+
+# Hardware limits for calibration (NOT the same as default calibration values)
+# These are the physical limits of SG90/MG90S servos
+HARDWARE_PULSE_MIN = 500
+HARDWARE_PULSE_MAX = 2500
 
 
 def create_pi():
@@ -214,8 +219,8 @@ class CalibApp:
     def move_diff(self, diff_pulse: int):
         """Adjust pulse by relative amount."""
         dst_pulse = self.cur_pulse + diff_pulse
-        # Clamp to valid range
-        dst_pulse = max(min(dst_pulse, PULSE_MAX), PULSE_MIN)
+        # Clamp to hardware limits (NOT default calibration, which is all-center)
+        dst_pulse = max(min(dst_pulse, HARDWARE_PULSE_MAX), HARDWARE_PULSE_MIN)
         self.cur_pulse = dst_pulse
         self.servo.set_pulse(dst_pulse)
 
@@ -244,13 +249,13 @@ class CalibApp:
                 click.echo(f"Error: Center ({self.cur_pulse}) must be between Min ({self.pulse_min}) and Max ({self.pulse_max}).")
                 return
         elif self.cur_target == self.TARGET_MIN:
-            if PULSE_MIN <= self.cur_pulse < self.pulse_center:
+            if HARDWARE_PULSE_MIN <= self.cur_pulse < self.pulse_center:
                 self.pulse_min = self.cur_pulse
             else:
                 click.echo(f"Error: Min ({self.cur_pulse}) must be less than Center ({self.pulse_center}).")
                 return
         elif self.cur_target == self.TARGET_MAX:
-            if self.pulse_center < self.cur_pulse <= PULSE_MAX:
+            if self.pulse_center < self.cur_pulse <= HARDWARE_PULSE_MAX:
                 self.pulse_max = self.cur_pulse
             else:
                 click.echo(f"Error: Max ({self.cur_pulse}) must be greater than Center ({self.pulse_center}).")
