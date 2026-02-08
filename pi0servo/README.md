@@ -49,7 +49,13 @@ cd pi0servo
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Create virtual environment and install
-uv sync
+uv venv
+
+# activate virtual environment
+source .venv/bin/activate
+
+# install dependencies
+uv pip install -e .
 ```
 
 ### Alternative: Install with pip
@@ -61,9 +67,6 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install pigpio click blessed
-
-# Install pi0servo
-pip install -e .
 ```
 
 ### Step 4: Verify Installation
