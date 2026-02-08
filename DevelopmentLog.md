@@ -1,6 +1,19 @@
 # Development Log
 
 
+## 2026-02-08: Fixed GPIO Initialization Error ✓
+- **Action**: Fixed critical error `'GPIO is not in use for servo pulses'` that occurred after reboot.
+- **Root Cause**: `get_servo_pulsewidth()` throws exception when GPIO has no PWM initialized (after reboot).
+- **Solution**:
+    - Wrapped `get_pulse()` in try/except to return 0 on pigpio error.
+    - Changed default calibration to safe values (all pulses = 1500) to prevent unexpected servo movement.
+- **Documentation**:
+    - Added calibration CAUTION warning to README Quick Start.
+    - Clarified `uv sync` installation (no manual venv activation needed).
+    - Added NOTE about default uncalibrated behavior in Configuration section.
+- **Tests**: Added 2 new tests for exception handling, updated 6 tests for new defaults. **82/82 passed**.
+- **Related Files**: `core/servo.py`, `README.md`, `tests/test_core.py`, `tests/test_config.py`.
+
 ## 2026-02-08: Per-Servo Speed Control Implemented ✓
 - **Action**: Added support for individual servo speed overrides in `movement-tool` commands.
 - **Details**:

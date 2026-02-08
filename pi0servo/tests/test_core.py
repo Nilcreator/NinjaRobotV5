@@ -19,10 +19,11 @@ class TestServoCalibration:
     """Test ServoCalibration dataclass."""
 
     def test_defaults(self):
-        """Default calibration values."""
+        """Default calibration values (safe - all center)."""
         cal = ServoCalibration()
-        assert cal.pulse_min == 500
-        assert cal.pulse_max == 2500
+        # Safe defaults: all pulses set to center to prevent unexpected movement
+        assert cal.pulse_min == 1500
+        assert cal.pulse_max == 1500
         assert cal.pulse_center == 1500
         assert cal.angle_min == -90.0
         assert cal.angle_max == 90.0
@@ -71,26 +72,31 @@ class TestServo:
         assert servo.angle_to_pulse(0.0) == PULSE_CENTER
 
     def test_angle_to_pulse_min(self, mock_pigpio):
-        """-90° maps to min pulse."""
-        servo = Servo(mock_pigpio, pin=20)
-        assert servo.angle_to_pulse(-90.0) == PULSE_MIN
+        """-90° maps to min pulse with proper calibration."""
+        cal = ServoCalibration(pulse_min=500, pulse_center=1500, pulse_max=2500)
+        servo = Servo(mock_pigpio, pin=20, calibration=cal)
+        assert servo.angle_to_pulse(-90.0) == 500
 
     def test_angle_to_pulse_max(self, mock_pigpio):
-        """90° maps to max pulse."""
-        servo = Servo(mock_pigpio, pin=20)
-        assert servo.angle_to_pulse(90.0) == PULSE_MAX
+        """90° maps to max pulse with proper calibration."""
+        cal = ServoCalibration(pulse_min=500, pulse_center=1500, pulse_max=2500)
+        servo = Servo(mock_pigpio, pin=20, calibration=cal)
+        assert servo.angle_to_pulse(90.0) == 2500
 
     def test_angle_to_pulse_interpolation(self, mock_pigpio):
-        """Intermediate angles interpolate correctly."""
-        servo = Servo(mock_pigpio, pin=20)
+        """Intermediate angles interpolate correctly with proper calibration."""
+        # Use explicit calibration (not defaults, which are now all-center)
+        cal = ServoCalibration(pulse_min=500, pulse_center=1500, pulse_max=2500)
+        servo = Servo(mock_pigpio, pin=20, calibration=cal)
         # 45° is halfway between center (0) and max (90)
         pulse = servo.angle_to_pulse(45.0)
-        expected = PULSE_CENTER + (PULSE_MAX - PULSE_CENTER) / 2
+        expected = 1500 + (2500 - 1500) / 2  # 2000
         assert pulse == int(expected)
 
     def test_pulse_to_angle_roundtrip(self, mock_pigpio):
-        """Angle -> pulse -> angle roundtrip is consistent."""
-        servo = Servo(mock_pigpio, pin=20)
+        """Angle -> pulse -> angle roundtrip is consistent with proper calibration."""
+        cal = ServoCalibration(pulse_min=500, pulse_center=1500, pulse_max=2500)
+        servo = Servo(mock_pigpio, pin=20, calibration=cal)
         for angle in [-90, -45, 0, 45, 90]:
             pulse = servo.angle_to_pulse(angle)
             recovered = servo.pulse_to_angle(pulse)
@@ -110,6 +116,18 @@ class TestServo:
         servo = Servo(mock_pigpio, pin=20)
         servo.off()
         mock_pigpio.set_servo_pulsewidth.assert_called_with(20, 0)
+
+    def test_get_pulse_returns_zero_on_pigpio_error(self, mock_pigpio):
+        """get_pulse returns 0 when pigpio raises exception (e.g., after reboot)."""
+        mock_pigpio.get_servo_pulsewidth.side_effect = Exception("GPIO is not in use for servo pulses")
+        servo = Servo(mock_pigpio, pin=20)
+        assert servo.get_pulse() == 0
+
+    def test_get_angle_returns_none_on_uninitialized_gpio(self, mock_pigpio):
+        """get_angle returns None when GPIO is not initialized."""
+        mock_pigpio.get_servo_pulsewidth.side_effect = Exception("GPIO is not in use")
+        servo = Servo(mock_pigpio, pin=20)
+        assert servo.get_angle() is None
 
 
 class TestServoGroup:

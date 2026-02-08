@@ -58,10 +58,11 @@ class TestConfigManager:
         assert loaded_cal.speed == 100
 
     def test_get_calibration_default(self, manager):
-        """get_calibration returns defaults for unknown pins."""
+        """get_calibration returns safe defaults for unknown pins."""
         cal = manager.get_calibration(99)
-        assert cal.pulse_min == 500
-        assert cal.pulse_max == 2500
+        # Safe defaults: all pulses set to center (1500) to prevent unexpected movement
+        assert cal.pulse_min == 1500
+        assert cal.pulse_max == 1500
         assert cal.speed == 80
 
     def test_set_and_get_calibration(self, manager):

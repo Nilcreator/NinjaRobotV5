@@ -9,8 +9,10 @@ This module provides the Servo class which handles:
 from dataclasses import dataclass
 
 # Default pulse width constants (microseconds)
-PULSE_MIN = 500
-PULSE_MAX = 2500
+# SAFE DEFAULTS: All set to center (1500) to prevent unexpected movement
+# on uncalibrated servos. Users MUST calibrate before use.
+PULSE_MIN = 1500
+PULSE_MAX = 1500
 PULSE_CENTER = 1500
 
 # Default angle range
@@ -177,9 +179,13 @@ class Servo:
         """Get current pulse width from hardware.
 
         Returns:
-            Current pulse width in microseconds, or 0 if off
+            Current pulse width in microseconds, or 0 if off/uninitialized
         """
-        return self._pi.get_servo_pulsewidth(self._pin)
+        try:
+            return self._pi.get_servo_pulsewidth(self._pin)
+        except Exception:
+            # GPIO not initialized (e.g., after reboot) - return 0
+            return 0
 
     def get_angle(self) -> float | None:
         """Get current angle if servo is active.

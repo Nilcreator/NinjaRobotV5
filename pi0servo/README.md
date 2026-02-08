@@ -48,15 +48,18 @@ cd pi0servo
 # Install uv if not already installed
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Create virtual environment and install
+# Install all dependencies (automatically creates .venv/)
 uv sync
 ```
+
+> [!NOTE]
+> `uv sync` automatically creates and manages the virtual environment. You don't need to manually run `uv venv` or `source .venv/bin/activate`.
 
 ### Alternative: Install with pip
 
 ```bash
 # Create virtual environment
-python3 -m venv .venv
+uv venv
 source .venv/bin/activate
 
 # Install dependencies
@@ -79,6 +82,9 @@ uv run pi0servo --help
 ---
 
 ## 🎮 Quick Start
+
+> [!CAUTION]
+> **Calibration is REQUIRED before use.** Uncalibrated servos will not move. This is a safety feature to prevent unexpected servo damage.
 
 ### 1. Start the Interactive Tool
 
@@ -235,6 +241,9 @@ Calibration is stored in `servo.json`:
   }
 }
 ```
+
+> [!NOTE]
+> **Default (uncalibrated) values are all `1500`** (center position). This means an uncalibrated servo will not move - you MUST calibrate each servo first.
 
 ---
 
