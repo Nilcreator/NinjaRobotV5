@@ -116,9 +116,16 @@ def record_new_movement(controller: MovementController, config: NinjaConfig):
 
         # Extract just angles for move_servos (it expects {pin: angle})
         angles_only = {pin: data["angle"] for pin, data in completed_moves.items()}
+        
+        # Extract per-servo speeds for move_servos
+        per_servo = {
+            pin: data["speed"]
+            for pin, data in completed_moves.items()
+            if data["speed"]
+        }
 
         print(f"Executing: {angles_only} with global speed {global_speed}")
-        controller.move_servos(angles_only, global_speed)
+        controller.move_servos(angles_only, global_speed, per_servo or None)
 
         while True:
             choice = input(

@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-08: Phase 8 - Per-Servo Speed Execution ✓
+- **Action**: Refactored `MovementController` to use pi0servo's velocity-based motion.
+- **Root Cause**: Old implementation used manual interpolation with single global duration.
+- **Solution**:
+    - `move_servos()` now calls `move_all_sync(speed_mode=list[str])` for per-servo speeds.
+    - Each servo calculates its own duration: `distance / (speed_limit × mode_factor)`.
+    - Faster servos reach target before slower ones within the same movement.
+- **Flow**: Parser → Recording → Storage (`per_servo_speeds`) → Execution
+- **Related Files**: `movement_controller.py`, `movement_cli.py`.
+
 ## 2026-02-08: Phase 7 Refinements - Speed & Parser ✓
 - **Action**: Added speed field import and per-servo speed parsing.
 - **Issue 1 - Speed not imported**:

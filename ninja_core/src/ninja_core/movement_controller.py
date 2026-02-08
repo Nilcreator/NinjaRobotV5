@@ -2,9 +2,6 @@ import time
 from ninja_core.hal import HardwareAbstractionLayer
 from ninja_core.config import NinjaConfig
 
-# Velocity-based duration calculation from pi0servo
-from pi0servo.motion import calculate_duration
-
 from typing import Callable, Optional
 
 class EmergencyStop(Exception):
@@ -31,77 +28,57 @@ class MovementController:
         self,
         movements: dict[int, float],
         speed: str = "M",
+        per_servo_speeds: dict[int, str] | None = None,
         abort_check: Optional[Callable[[], bool]] = None,
     ):
         """
-        Executes a set of servo movements with smooth interpolation.
+        Executes a set of servo movements with per-servo velocity control.
+
+        Uses pi0servo's move_all_sync which handles:
+        - Per-servo speed limits from calibration
+        - Per-servo duration calculation
+        - Easing curves for smooth motion
 
         Args:
             movements: A dictionary of {pin: angle}.
-            speed: A character representing speed ('S'low, 'M'edium, 'F'ast).
-            abort_check: An optional function that returns True if the movement should stop.
+            speed: Global speed mode ('S'low, 'M'edium, 'F'ast).
+            per_servo_speeds: Optional {pin: speed} for per-servo override.
+            abort_check: Optional function that returns True to abort.
         """
-        if abort_check:
-            # We must be able to support abort checks even without servos, though meaningless.
-            pass
-
         if not self.servos:
-            # If servos aren't initialized, we can't move them.
             return
 
-        # Get current angles to calculate maximum travel distance
-        current_angles = self.get_current_angles()
-
-        # Calculate maximum angle delta for velocity-based duration
-        max_distance = 0.0
-        for pin, target_angle in movements.items():
-            current_angle = current_angles.get(pin, 0.0)
-            delta = abs(target_angle - current_angle)
-            if delta > max_distance:
-                max_distance = delta
-
-        # Use pi0servo velocity-based calculation
-        # Default speed limit: 80% (common safe limit for SG90)
-        DEFAULT_SPEED_LIMIT = 80
-        duration = calculate_duration(max_distance, DEFAULT_SPEED_LIMIT, speed)
-
-        steps = int(duration / 0.02)  # 50 FPS update rate
-        if steps <= 0:
-            steps = 1
-
-        # The driver expects a list of angles in a specific order
+        # Build ordered list of target angles and speed modes
         ordered_pins = self.servos.pins
+        target_angles: list[float | None] = []
+        speed_modes: list[str] = []
 
-        for i in range(1, steps + 1):
-            # --- Safety Check ---
-            if abort_check and abort_check():
-                print("! EMERGENCY STOP TRIGGERED !")
-                self.center_all_servos()
-                raise EmergencyStop("Movement aborted by safety check.")
-            # --------------------
+        current_angles = self.get_current_angles()
+        per_servo_speeds = per_servo_speeds or {}
 
-            ratio = i / steps
-            # Build the list of angles for this step in the correct order
-            step_angles_list = []
-            for pin in ordered_pins:
-                start_angle = current_angles.get(pin, 0)
-                # If a pin isn't in the current movement, it should hold its start position
-                end_angle = movements.get(pin, start_angle)
-
-                new_angle = start_angle + (end_angle - start_angle) * ratio
-                step_angles_list.append(new_angle)
-
-            self.servos.move_all_angles(step_angles_list)
-            time.sleep(0.02)
-
-        # Ensure final position is set accurately by creating the final ordered list
-        final_angles_list = []
         for pin in ordered_pins:
-            start_angle = current_angles.get(pin, 0)
-            final_angle = movements.get(pin, start_angle)
-            final_angles_list.append(final_angle)
+            if pin in movements:
+                target_angles.append(movements[pin])
+                # Use per-servo speed if specified, otherwise global
+                servo_speed = per_servo_speeds.get(pin, speed)
+                speed_modes.append(servo_speed)
+            else:
+                # Hold current position (don't move this servo)
+                target_angles.append(None)
+                speed_modes.append(speed)
 
-        self.servos.move_all_angles(final_angles_list)
+        # Use pi0servo's move_all_sync with per-servo speed modes
+        # This handles velocity calculation, easing, and abort internally
+        completed = self.servos.move_all_sync(
+            target_angles,
+            speed_mode=speed_modes,
+            easing="ease_out",
+        )
+
+        if not completed and abort_check:
+            print("! EMERGENCY STOP TRIGGERED !")
+            self.center_all_servos()
+            raise EmergencyStop("Movement aborted by safety check.")
 
     def get_current_angles(self) -> dict[int, float]:
         """
@@ -143,5 +120,9 @@ class MovementController:
         for step in sequence:
             # The keys in 'moves' from JSON will be strings, convert them to int
             moves = {int(k): v for k, v in step["moves"].items()}
-            self.move_servos(moves, step["speed"], abort_check=abort_check)
+            # Extract per-servo speeds if stored (int keys from JSON strings)
+            per_servo = None
+            if "per_servo_speeds" in step:
+                per_servo = {int(k): v for k, v in step["per_servo_speeds"].items()}
+            self.move_servos(moves, step["speed"], per_servo, abort_check)
         print(f"Movement '{movement_name}' finished.")
