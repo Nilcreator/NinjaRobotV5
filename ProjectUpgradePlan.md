@@ -783,5 +783,231 @@ The RebuildPlan.md contains:
 
 ---
 
+## Appendix D: Pi0servo Integration Evaluation Report
+
+> **Date:** 2026-02-08  
+> **Status:** Ready for Implementation
+
+### D.1 Integration Summary
+
+The new `pi0servo` library has been rebuilt with velocity-based control, abort mechanism, and per-servo speed limits. This appendix provides detailed integration guidance for connecting the new library to `ninja_core`.
+
+#### D.1.1 API Compatibility Matrix
+
+| ninja_core Usage | Old API | New API | Status |
+|-----------------|---------|---------|--------|
+| `hal.py:173` | `MultiServo(pi, pins, conf_file)` | `ServoGroup(pi, pins, calibrations)` | ⚠️ Breaking |
+| `api_wrappers.py:173` | `move_all_angles_sync(angles, move_sec)` | `move_all_angles_sync(angles, move_sec)` | ✅ Compatible |
+| `movement_controller.py:84` | `move_all_angles(angles)` | Need adapter | ⚠️ Breaking |
+| `movement_controller.py:105` | `get_all_angles()` | Need adapter | ⚠️ Breaking |
+| `dispatcher.py:159` | `execute(dict)` | `execute(str)` | ⚠️ Breaking |
+
+### D.2 Breaking Changes & Solutions
+
+#### D.2.1 Constructor Signature Change
+
+**Old API:**
+```python
+# hal.py:173 (current)
+MultiServo = load_driver_class("servos")
+self.servos = MultiServo(
+    pi=self.pi,
+    pins=pin_list,
+    conf_file="servo.json",  # ❌ Not supported in new API
+)
+```
+
+**New API:**
+```python
+# hal.py (updated)
+from pi0servo import ConfigManager, ServoGroup
+
+# Pre-load calibrations
+config_mgr = ConfigManager("servo.json")
+config_mgr.load()
+
+calibrations = {}
+for pin in pin_list:
+    calibrations[pin] = config_mgr.get_calibration(pin)
+
+ServoGroup = load_driver_class("servos")
+self.servos = ServoGroup(
+    pi=self.pi,
+    pins=pin_list,
+    calibrations=calibrations,  # ✅ New format
+)
+```
+
+#### D.2.2 DRIVER_REGISTRY Update
+
+**Current:**
+```python
+DRIVER_REGISTRY = {
+    "servos": {
+        "module": "pi0servo.core.multi_servo",   # ❌ Old module
+        "class": "MultiServo",
+    },
+}
+```
+
+**Updated:**
+```python
+DRIVER_REGISTRY = {
+    "servos": {
+        "module": "pi0servo.core.multi_servos",  # ✅ Note: plural
+        "class": "ServoGroup",                   # ✅ New class name
+    },
+}
+```
+
+#### D.2.3 Missing Legacy Methods (Add to ServoGroup)
+
+```python
+# Add to pi0servo/src/pi0servo/core/multi_servos.py
+
+def move_all_angles(self, target_angles: list[float | None]):
+    """Legacy compatibility: instant movement (no interpolation)."""
+    for i, pin in enumerate(self._pins):
+        if i < len(target_angles) and target_angles[i] is not None:
+            self._servos[pin].set_angle(target_angles[i])
+
+def get_all_angles(self) -> list[float]:
+    """Legacy compatibility: get all angles as ordered list."""
+    return [self._servos[pin].last_angle or 0.0 for pin in self._pins]
+
+@property
+def servo(self) -> list:
+    """Legacy compatibility: list access (ordered by pin)."""
+    return [self._servos[pin] for pin in self._pins]
+```
+
+### D.3 Angle Standardization (±90°)
+
+**Decision:** Standardize on ±90° range across the entire project.
+
+#### D.3.1 Current State
+
+| Component | Range | Conversion |
+|-----------|-------|------------|
+| Blockly IDE (Web) | 0-180° | None |
+| `api_wrappers.py` `ServoWrapper` | 0-180° → ±90° | `angle - 90` |
+| `movement_cli.py` | ±90° | None |
+| `pi0servo` | ±90° | None |
+
+#### D.3.2 api_wrappers.py Update
+
+```diff
+class ServoWrapper:
+-    """Blockly uses 0-180 degree range."""
++    """Direct ±90° angle control."""
+
+    @angle.setter
+    def angle(self, value):
+-        # Clamp to valid range
+-        value = max(0, min(180, value))
+-        internal_angle = value - 90
++        # Clamp to ±90° range (no conversion)
++        value = max(-90, min(90, value))
++        internal_angle = value
+```
+
+#### D.3.3 Blockly Web Platform Update
+
+Update block definitions:
+- Slider: `[-90, 90]` instead of `[0, 180]`
+- Default: `0` instead of `90`
+- Label: `"angle (±90°)"`
+
+### D.4 Movement-Tool Enhancement
+
+**Goal:** Integrate pi0servo's velocity-based speed mode into `ninja_core`.
+
+#### D.4.1 Feature Comparison
+
+| Feature | Current `movement_cli.py` | New `pi0servo` |
+|---------|---------------------------|----------------|
+| Speed control | Fixed duration (S=1.0s, M=0.5s, F=0.2s) | Velocity-based (600°/s max) |
+| Per-servo speed | ❌ | ✅ `20:45S/21:-30F` |
+| Easing | ❌ | ✅ ease_out, linear |
+| Command format | `S_17:30/27:M` | `F_20:45/21:-30` |
+
+#### D.4.2 Parser Integration
+
+```python
+# movement_cli.py (updated)
+from pi0servo import parse_command, calculate_duration
+
+def parse_movement_command(command_str: str, definitions: dict):
+    """Use pi0servo parser for consistent command handling."""
+    try:
+        parsed = parse_command(command_str)
+        movements = {}
+        for target in parsed.targets:
+            if target.angle is not None:
+                movements[target.pin] = target.angle
+            elif target.special:
+                movements[target.pin] = {"C": 0, "M": -90, "X": 90}[target.special]
+        return parsed.speed_mode, movements
+    except ValueError as e:
+        print(f"Error: {e}")
+        return None, None
+```
+
+#### D.4.3 Velocity-Based Duration
+
+```python
+# movement_controller.py (updated)
+from pi0servo.motion import calculate_duration
+
+def move_servos(self, movements: dict[int, float], speed: str = "M", ...):
+    current_angles = self.get_current_angles()
+    
+    # Calculate duration based on max travel distance
+    max_distance = max(
+        abs(movements.get(pin, current) - current)
+        for pin, current in current_angles.items()
+        if pin in movements
+    )
+    
+    # Physics-based duration (80% speed limit, selected mode)
+    duration = calculate_duration(max_distance, 80, speed)
+    
+    # ... rest of movement logic
+```
+
+### D.5 Implementation Phases
+
+| Phase | Description | Effort | Priority |
+|-------|-------------|--------|----------|
+| 1 | Update DRIVER_REGISTRY & HAL init | 1h | 🔴 High |
+| 2 | Add legacy compatibility methods | 30m | 🔴 High |
+| 3 | Angle standardization (±90°) | 2h | 🟡 Medium |
+| 4 | Movement-tool enhancement | 2h | 🟡 Medium |
+| 5 | Verification & testing | 1h | 🔴 High |
+
+**Total Estimated Effort:** ~7 hours
+
+### D.6 Verification Checklist
+
+- [ ] `uv sync` completes without errors
+- [ ] `uv run ninja_core` starts without import errors
+- [ ] Servo calibration loads via `ConfigManager`
+- [ ] `robot.servo[0].angle = 45` works (±90° range)
+- [ ] Movement-tool uses velocity-based duration
+- [ ] Command `F_20:45/21:-30` executes correctly
+- [ ] Per-servo speed suffix `20:45S/21:-30F` works
+- [ ] Abort mechanism interrupts movement
+- [ ] Blockly IDE uses ±90° range
+
+### D.7 Risk Mitigation
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| Default calibration (1500/1500/1500) breaks movement | High | Document calibration requirement |
+| Existing Blockly programs incompatible | Medium | Provide migration guide |
+| Speed mode differs from expected | Low | Tune `FMS_MULTIPLIERS` |
+
+---
+
 **Document maintained by:** Development Team  
-**Last updated:** 2026-02-07
+**Last updated:** 2026-02-08
