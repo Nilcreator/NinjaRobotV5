@@ -1,6 +1,15 @@
 # Development Log
 
 
+## 2026-02-08: Phase 11 - First Run Servo Issue ✓
+- **Issue**: Servo 23 had no reaction on first movement-tool run after calibrating pin 23.
+- **Root Cause**: After calibration, `config` was reloaded but HAL's `ServoGroup` kept old pin list. New pins (e.g., 23) not included until restart.
+- **Solution**: After calibration, turn off old servos and reinitialize HAL with new config:
+    - `hal.servos.off()` - release old PWM
+    - `hal.config = config` - update config reference
+    - `hal._init_servos()` - create new ServoGroup with all pins
+- **Related Files**: `movement_cli.py`, `hal.py`.
+
 ## 2026-02-08: Phase 10 - Movement Tool Health Check ✓
 - **Issue**: `edit_sequence_menu` threw `TypeError: dict - int` when editing/inserting steps.
 - **Root Cause**: `parse_movement_command` returns `{pin: {"angle": X, "speed": Y}}`, but edit/insert stored this directly as `moves` instead of extracting angles.

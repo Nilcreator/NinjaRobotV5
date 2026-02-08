@@ -584,6 +584,17 @@ def run_cli():
                 print("\nSyncing calibration data to config.json...")
                 import_and_update_config()
                 config = load_config()
+                
+                # CRITICAL: Turn off old servos before reinitializing
+                # This prevents PWM conflicts when pins change
+                if hal.servos:
+                    hal.servos.off()
+                
+                # Reinitialize HAL servos with new config
+                # This ensures new pins are included in ServoGroup
+                hal.config = config
+                hal._init_servos()
+                
                 controller = MovementController(hal, config)
                 print("Controller has been updated with new calibration.")
             elif choice == "2":
