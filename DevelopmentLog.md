@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-08: Phase 9 - Fix Silent Failure ✓
+- **Issue**: movement-tool showed no reaction when entering servo commands.
+- **Root Cause**: `ServoArrayWrapper` was missing methods that `MovementController` calls:
+    - `move_all_sync()` - per-servo speed movement
+    - `pins` property - ordered GPIO pin list
+    - `get_all_angles()` - current angle state
+    - `move_all_angles()` - instant movement
+- **Solution**: Added wrapper methods to `ServoArrayWrapper` that proxy to `_multi_servo`.
+- **Related Files**: `api_wrappers.py`.
+
 ## 2026-02-08: Phase 8 - Per-Servo Speed Execution ✓
 - **Action**: Refactored `MovementController` to use pi0servo's velocity-based motion.
 - **Root Cause**: Old implementation used manual interpolation with single global duration.

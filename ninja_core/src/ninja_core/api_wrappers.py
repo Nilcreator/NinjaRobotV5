@@ -184,8 +184,62 @@ class ServoArrayWrapper:
     def __len__(self):
         return len(self._servos)
 
+    @property
+    def pins(self) -> list[int]:
+        """Get list of GPIO pins from underlying ServoGroup."""
+        if self._multi_servo:
+            return self._multi_servo.pins
+        return []
+
+    def get_all_angles(self) -> list[float]:
+        """Get current angles from all servos."""
+        if self._multi_servo:
+            return self._multi_servo.get_all_angles()
+        return [0.0] * len(self._servos)
+
+    def move_all_sync(
+        self,
+        targets: list[float | None],
+        speed_mode: str | list[str] = "M",
+        easing: str = "ease_out",
+    ) -> bool:
+        """Move all servos with per-servo speed control.
+
+        Wrapper for ServoGroup.move_all_sync.
+
+        Args:
+            targets: List of target angles. None = don't move.
+            speed_mode: Single mode or list of modes per servo.
+            easing: Easing function name.
+
+        Returns:
+            True if completed, False if aborted.
+        """
+        if not self._multi_servo:
+            return True
+
+        try:
+            return self._multi_servo.move_all_sync(
+                targets, speed_mode=speed_mode, easing=easing
+            )
+        except Exception as e:
+            log.error(f"Failed to move_all_sync: {e}")
+            return False
+
+    def move_all_angles(self, targets: list[float | None]):
+        """Instant movement (no interpolation).
+
+        Args:
+            targets: List of target angles. None = don't move.
+        """
+        if self._multi_servo:
+            try:
+                self._multi_servo.move_all_angles(targets)
+            except Exception as e:
+                log.error(f"Failed to move_all_angles: {e}")
+
     def move_all(self, angles: list, duration: float = 0.5):
-        """Move all servos simultaneously.
+        """Move all servos simultaneously (legacy API).
 
         Args:
             angles (list): List of 8 angles (±90°). None to skip.
