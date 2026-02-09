@@ -69,7 +69,12 @@ def servo_tool(config_path: str):
             time.sleep(0.1)  # Brief pause to let servos reach position
 
             click.echo(term.green(f"✓ All servos centered (0°): GPIO {pins_list}"))
+        else:
+            startup_group = None
         # ------------------------------------------
+
+        # Persistent ServoGroup for quick_move() to preserve last_angle state
+        persistent_group = startup_group
 
         def show_menu():
             """Display main menu."""
@@ -108,7 +113,14 @@ def servo_tool(config_path: str):
                     # Load calibrations fresh each time
                     calibrations = {pin: manager.get_calibration(pin) for pin in pins}
 
-                    group = ServoGroup(pi, pins=pins, calibrations=calibrations)
+                    # Reuse persistent group if pins match, else create new
+                    nonlocal persistent_group
+                    if persistent_group and set(pins) == set(persistent_group.pins):
+                        group = persistent_group
+                    else:
+                        group = ServoGroup(pi, pins=pins, calibrations=calibrations)
+                        persistent_group = group
+
                     success = group.execute_command(cmd_str)
 
                     if success:

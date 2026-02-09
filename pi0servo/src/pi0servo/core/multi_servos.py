@@ -157,6 +157,7 @@ class ServoGroup:
         targets: list[float | None],
         speed_mode: str | list[str] = "M",
         easing: str | Callable[[float], float] = "ease_in_out_cubic",
+        force: bool = False,
     ) -> bool:
         """Move all servos to target angles with per-servo speed control.
 
@@ -168,6 +169,7 @@ class ServoGroup:
             speed_mode: Either a single mode ("F"/"M"/"S") for all servos,
                        or a list of modes (one per pin) for per-servo control.
             easing: Easing function name or callable
+            force: If True, send PWM even for very small movements (prevents limpness)
 
         Returns:
             True if completed successfully, False if aborted
@@ -208,7 +210,12 @@ class ServoGroup:
                 current = servo.calibration.angle_center
 
             distance = abs(target - current)
-            if distance < 0.1:  # Skip negligible movement
+            if distance < 0.1 and not force:
+                # Skip negligible movement (but log it for debugging)
+                logger.debug(
+                    f"Skip GPIO{pin}: target={target:.1f}° current={current:.1f}° "
+                    f"distance={distance:.3f}° (< 0.1° threshold)"
+                )
                 continue
 
             # Use per-servo speed mode
@@ -472,6 +479,34 @@ class ServoGroup:
         for servo in self._servos.values():
             servo.off()
         logger.info("All servos turned off")
+
+    def refresh_all(self):
+        """Re-send PWM to all servos with known positions.
+
+        Use this to restore all servo positions after potential signal loss.
+        Prevents servo limpness by ensuring PWM signals are active.
+        """
+        count = 0
+        for servo in self._servos.values():
+            if servo.refresh():
+                count += 1
+        if count > 0:
+            logger.info(f"Refreshed PWM on {count} servos")
+
+    def ensure_all_active(self):
+        """Check and restore PWM on all servos if needed.
+
+        Returns:
+            Number of servos that were restored
+        """
+        restored = 0
+        for servo in self._servos.values():
+            current_pulse = servo.get_pulse()
+            if current_pulse == 0 and servo.last_angle is not None:
+                servo.refresh()
+                restored += 1
+        if restored > 0:
+            logger.info(f"Restored PWM on {restored} limp servos")
 
     def center_all(self):
         """Move all servos to their calibrated center position."""

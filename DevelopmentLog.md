@@ -1,6 +1,20 @@
 # Development Log
 
 
+## 2026-02-09: Servo Limpness Prevention ✓
+- **Issue**: Servos occasionally become limp and unresponsive during movements.
+- **Root Cause**: `move_all_sync()` skips PWM updates when `distance < 0.1°`, combined with stale `last_angle` tracking.
+- **Solutions Implemented**:
+    1. Added `refresh()` and `ensure_active()` methods to `Servo` class
+    2. Added `force` flag to `move_all_sync()` to bypass skip-if-negligible logic
+    3. Added skip logging for debugging (`logger.debug()`)
+    4. Added `refresh_all()` and `ensure_all_active()` to `ServoGroup`
+    5. Updated `servo_tool.py` to reuse persistent `ServoGroup`, preserving `last_angle` state
+- **Modified Files**:
+    - `pi0servo/src/pi0servo/core/servo.py`
+    - `pi0servo/src/pi0servo/core/multi_servos.py`
+    - `pi0servo/src/pi0servo/cli/servo_tool.py`
+- **Tests**: All 82 unit tests passed
 ## 2026-02-09: Fix First-Run Servo Initialization ✓
 - **Issue**: After Pi restart, servos didn't react on first CLI run; auto-center failed.
 - **Root Cause**: `move_all_sync()` skips movement when `distance < 0.1`. On first run, `last_angle=None` and `get_pulse()=0`, so code falls back to `angle_center=0`. Since target is also 0, movement was skipped.

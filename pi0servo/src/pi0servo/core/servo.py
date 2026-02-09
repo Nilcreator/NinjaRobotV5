@@ -233,3 +233,33 @@ class Servo:
     def off(self):
         """Turn off servo PWM signal."""
         self._pi.set_servo_pulsewidth(self._pin, 0)
+
+    def refresh(self) -> bool:
+        """Re-send the last known PWM to ensure signal is active.
+
+        Use this to restore servo position after potential signal loss.
+
+        Returns:
+            True if refreshed successfully, False if no known position
+        """
+        if self._last_angle is not None:
+            pulse = self.angle_to_pulse(self._last_angle)
+            self._pi.set_servo_pulsewidth(self._pin, pulse)
+            return True
+        return False
+
+    def ensure_active(self) -> bool:
+        """Check if PWM is active, refresh if needed.
+
+        Prevents servo limpness by detecting and recovering from
+        lost PWM signals (e.g., after pigpiod restart).
+
+        Returns:
+            True if servo is active (or was restored), False if no known position
+        """
+        current_pulse = self.get_pulse()
+        if current_pulse == 0 and self._last_angle is not None:
+            # PWM was lost but we know where servo should be - restore it
+            self.refresh()
+            return True
+        return current_pulse > 0
