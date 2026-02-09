@@ -1,6 +1,24 @@
 # Development Log
 
 
+## 2026-02-09: Ninja Core Servo & Shutdown Fixes ✓
+- **Issues Fixed**:
+    1. Servo limpness during ninja_core server operation
+    2. Missing wake-up behavior (servos not centering on user connect)
+    3. Shutdown error traceback on Ctrl+C
+- **Root Causes**:
+    - `MovementController.move_servos()` didn't pass `force=True` to `move_all_sync()`
+    - `trigger_welcome()` only played face/sound, no servo centering
+    - `sigint_handler()` raised `KeyboardInterrupt` conflicting with uvloop
+- **Fixes**:
+    1. Added `force=True` to `move_all_sync()` in movement_controller.py
+    2. Added servo centering in `trigger_welcome()` on user connection
+    3. Added servo priming at server startup in `lifespan()`
+    4. Replaced `raise KeyboardInterrupt` with `sys.exit(0)` for clean shutdown
+- **Modified Files**:
+    - `ninja_core/src/ninja_core/movement_controller.py`
+    - `ninja_core/src/ninja_core/web_server.py`
+
 ## 2026-02-09: Servo Limpness Prevention ✓
 - **Issue**: Servos occasionally become limp and unresponsive during movements.
 - **Root Cause**: `move_all_sync()` skips PWM updates when `distance < 0.1°`, combined with stale `last_angle` tracking.

@@ -72,6 +72,7 @@ class MovementController:
             target_angles,
             speed_mode=speed_modes,
             easing="ease_in_out_cubic",
+            force=True,  # Prevent skipped PWM updates causing limpness
         )
 
         if not completed and abort_check:

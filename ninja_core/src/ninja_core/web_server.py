@@ -141,6 +141,11 @@ async def lifespan(app: FastAPI):
     app.state.ninja.sound = RobotSoundPlayer(app.state.ninja.hal)
     app.state.ninja.movement = MovementController(app.state.ninja.hal, config)
     
+    # Prime servos at startup (ensures PWM signals are active)
+    if app.state.ninja.hal.servos:
+        print("Priming servos at startup...")
+        app.state.ninja.hal.servos.center_all()
+    
     # Initialize Distance Monitor
     app.state.ninja.distance_monitor = DistanceMonitor(app.state.ninja.hal)
     app.state.ninja.distance_monitor.start_continuous(interval=0.05)
@@ -315,6 +320,10 @@ async def trigger_welcome(app_state: AppState):
     if not app_state.has_greeted:
         app_state.has_greeted = True
         print("Triggering Welcome Greeting...")
+        
+        # Wake up servos - center all to 0° position
+        if app_state.movement:
+            await asyncio.to_thread(app_state.movement.center_all_servos)
         
         # Play Happy Face
         if app_state.faces:
@@ -912,7 +921,7 @@ def run_server(autostart: bool = False):
         if callable(original_sigint) and original_sigint not in (signal.SIG_IGN, signal.SIG_DFL):
             original_sigint(signum, frame)
         else:
-            raise KeyboardInterrupt
+            sys.exit(0)  # Clean exit without uvloop error traceback
     
     signal.signal(signal.SIGINT, sigint_handler)
     
