@@ -1,6 +1,17 @@
 # Development Log
 
 
+## 2026-02-09: Movement Fluidity Enhancement ✓
+- **Issue**: Multi-servo recorded movements feel mechanical with abrupt transitions.
+- **Root Cause**: Each step uses `ease_in_out_cubic` independently, creating stop-start pattern.
+- **Solution**: Position-aware transition easing:
+    - Single step: `ease_in_out_cubic` (full curve)
+    - First step: `ease_in_cubic` (accelerate only)
+    - Middle steps: `linear` (constant velocity)
+    - Last step: `ease_out_cubic` (decelerate to stop)
+- **Modified Files**:
+    - `ninja_core/src/ninja_core/movement_controller.py`
+
 ## 2026-02-09: Ninja Core Servo & Shutdown Fixes ✓
 - **Issues Fixed**:
     1. Servo limpness during ninja_core server operation

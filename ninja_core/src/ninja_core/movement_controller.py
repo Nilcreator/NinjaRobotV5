@@ -30,6 +30,7 @@ class MovementController:
         speed: str = "M",
         per_servo_speeds: dict[int, str] | None = None,
         abort_check: Optional[Callable[[], bool]] = None,
+        easing: str = "ease_in_out_cubic",
     ):
         """
         Executes a set of servo movements with per-servo velocity control.
@@ -71,7 +72,7 @@ class MovementController:
         completed = self.servos.move_all_sync(
             target_angles,
             speed_mode=speed_modes,
-            easing="ease_in_out_cubic",
+            easing=easing,
             force=True,  # Prevent skipped PWM updates causing limpness
         )
 
@@ -117,12 +118,24 @@ class MovementController:
 
         print(f"Executing movement: '{movement_name}'...")
         sequence = self.movements[movement_name]
-        for step in sequence:
+        total_steps = len(sequence)
+        
+        for i, step in enumerate(sequence):
+            # Position-aware easing for smooth transitions
+            if total_steps == 1:
+                easing = "ease_in_out_cubic"  # Single step: full curve
+            elif i == 0:
+                easing = "ease_in_cubic"  # First: accelerate only
+            elif i == total_steps - 1:
+                easing = "ease_out_cubic"  # Last: decelerate to stop
+            else:
+                easing = "linear"  # Middle: constant velocity
+            
             # The keys in 'moves' from JSON will be strings, convert them to int
             moves = {int(k): v for k, v in step["moves"].items()}
             # Extract per-servo speeds if stored (int keys from JSON strings)
             per_servo = None
             if "per_servo_speeds" in step:
                 per_servo = {int(k): v for k, v in step["per_servo_speeds"].items()}
-            self.move_servos(moves, step["speed"], per_servo, abort_check)
+            self.move_servos(moves, step["speed"], per_servo, abort_check, easing)
         print(f"Movement '{movement_name}' finished.")
