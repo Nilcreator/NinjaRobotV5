@@ -1,6 +1,13 @@
 # Development Log
 
 
+## 2026-02-09: Default Easing Changed to ease_in_out ✓
+- **Action**: Changed default servo easing from `ease_out` to `ease_in_out`.
+- **Reason**: Provides smoother motion at both start and end of movements.
+- **Modified Files**:
+    - `pi0servo/src/pi0servo/core/multi_servos.py` - All method defaults
+    - `ninja_core/src/ninja_core/movement_controller.py` - `move_servos()` call
+
 ## 2026-02-08: Phase 12 - Documentation Update ✓
 - **Action**: Updated all documentation for pi0servo V2 integration.
 - **Changes**:

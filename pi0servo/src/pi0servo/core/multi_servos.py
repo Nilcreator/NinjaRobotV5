@@ -22,7 +22,7 @@ except ImportError:
 from ..motion import (
     EASING_FUNCTIONS,
     calculate_duration,
-    ease_out,
+    ease_in_out,
 )
 from ..parser import ParsedCommand, ServoTarget, parse_command, resolve_special_angle
 from .servo import Servo, ServoCalibration
@@ -156,7 +156,7 @@ class ServoGroup:
         self,
         targets: list[float | None],
         speed_mode: str | list[str] = "M",
-        easing: str | Callable[[float], float] = "ease_out",
+        easing: str | Callable[[float], float] = "ease_in_out",
     ) -> bool:
         """Move all servos to target angles with per-servo speed control.
 
@@ -178,7 +178,7 @@ class ServoGroup:
 
         # Resolve easing function
         if isinstance(easing, str):
-            easing_fn = EASING_FUNCTIONS.get(easing, ease_out)
+            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out)
         else:
             easing_fn = easing
 
@@ -262,7 +262,7 @@ class ServoGroup:
         self,
         targets: list[float | None],
         speed_mode: str | list[str] = "M",
-        easing: str | Callable[[float], float] = "ease_out",
+        easing: str | Callable[[float], float] = "ease_in_out",
     ) -> bool:
         """Async version of move_all_sync with per-servo speed control.
 
@@ -283,7 +283,7 @@ class ServoGroup:
 
         # Resolve easing function
         if isinstance(easing, str):
-            easing_fn = EASING_FUNCTIONS.get(easing, ease_out)
+            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out)
         else:
             easing_fn = easing
 
@@ -356,7 +356,7 @@ class ServoGroup:
     def execute_command(
         self,
         command: str,
-        easing: str | Callable[[float], float] = "ease_out",
+        easing: str | Callable[[float], float] = "ease_in_out",
     ) -> bool:
         """Execute a movement-tool format command string.
 
@@ -375,7 +375,7 @@ class ServoGroup:
     async def execute_command_async(
         self,
         command: str,
-        easing: str | Callable[[float], float] = "ease_out",
+        easing: str | Callable[[float], float] = "ease_in_out",
     ) -> bool:
         """Async version of execute_command.
 

@@ -72,7 +72,7 @@ class MovementController:
         completed = self.servos.move_all_sync(
             target_angles,
             speed_mode=speed_modes,
-            easing="ease_out",
+            easing="ease_in_out",
         )
 
         if not completed and abort_check:
