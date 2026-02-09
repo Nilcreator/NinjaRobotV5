@@ -1242,13 +1242,12 @@ requires-dist = [
 
 [[package]]
 name = "pi0servo"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "pi0servo" }
 dependencies = [
     { name = "blessed" },
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "ninja-utils" },
     { name = "pigpio" },
 ]
 
@@ -1256,9 +1255,13 @@ dependencies = [
 requires-dist = [
     { name = "blessed" },
     { name = "click" },
-    { name = "ninja-utils" },
+    { name = "ninja-utils", marker = "extra == 'ninjarobot'" },
     { name = "pigpio" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "ruff", marker = "extra == 'dev'" },
 ]
+provides-extras = ["ninjarobot", "dev"]
 
 [[package]]
 name = "pi0vl53l0x"

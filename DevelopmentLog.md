@@ -1,6 +1,18 @@
 # Development Log
 
 
+## 2026-02-09: Servo Smoothness Optimization ✓
+- **Action**: Reduced jittering by increasing update frequency and adding cubic easing.
+- **Changes**:
+    - Step interval: 20ms → 10ms (50Hz → 100Hz)
+    - Added 3 cubic easing functions: `ease_in_cubic`, `ease_out_cubic`, `ease_in_out_cubic`
+    - Default easing: `ease_in_out` → `ease_in_out_cubic`
+- **Modified Files**:
+    - `pi0servo/src/pi0servo/motion/easing.py`
+    - `pi0servo/src/pi0servo/motion/__init__.py`
+    - `pi0servo/src/pi0servo/core/multi_servos.py`
+    - `ninja_core/src/ninja_core/movement_controller.py`
+
 ## 2026-02-09: Default Easing Changed to ease_in_out ✓
 - **Action**: Changed default servo easing from `ease_out` to `ease_in_out`.
 - **Reason**: Provides smoother motion at both start and end of movements.

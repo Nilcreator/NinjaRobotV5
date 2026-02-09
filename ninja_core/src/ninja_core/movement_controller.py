@@ -53,7 +53,6 @@ class MovementController:
         target_angles: list[float | None] = []
         speed_modes: list[str] = []
 
-        current_angles = self.get_current_angles()
         per_servo_speeds = per_servo_speeds or {}
 
         for pin in ordered_pins:
@@ -72,7 +71,7 @@ class MovementController:
         completed = self.servos.move_all_sync(
             target_angles,
             speed_mode=speed_modes,
-            easing="ease_in_out",
+            easing="ease_in_out_cubic",
         )
 
         if not completed and abort_check:

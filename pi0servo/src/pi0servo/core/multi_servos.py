@@ -22,13 +22,13 @@ except ImportError:
 from ..motion import (
     EASING_FUNCTIONS,
     calculate_duration,
-    ease_in_out,
+    ease_in_out_cubic,
 )
 from ..parser import ParsedCommand, ServoTarget, parse_command, resolve_special_angle
 from .servo import Servo, ServoCalibration
 
-# Default step interval for motion interpolation (20ms = 50Hz)
-STEP_INTERVAL = 0.02
+# Step interval for motion interpolation (10ms = 100Hz for smoother motion)
+STEP_INTERVAL = 0.01
 
 
 class ServoGroup:
@@ -156,7 +156,7 @@ class ServoGroup:
         self,
         targets: list[float | None],
         speed_mode: str | list[str] = "M",
-        easing: str | Callable[[float], float] = "ease_in_out",
+        easing: str | Callable[[float], float] = "ease_in_out_cubic",
     ) -> bool:
         """Move all servos to target angles with per-servo speed control.
 
@@ -178,7 +178,7 @@ class ServoGroup:
 
         # Resolve easing function
         if isinstance(easing, str):
-            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out)
+            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out_cubic)
         else:
             easing_fn = easing
 
@@ -262,7 +262,7 @@ class ServoGroup:
         self,
         targets: list[float | None],
         speed_mode: str | list[str] = "M",
-        easing: str | Callable[[float], float] = "ease_in_out",
+        easing: str | Callable[[float], float] = "ease_in_out_cubic",
     ) -> bool:
         """Async version of move_all_sync with per-servo speed control.
 
@@ -283,7 +283,7 @@ class ServoGroup:
 
         # Resolve easing function
         if isinstance(easing, str):
-            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out)
+            easing_fn = EASING_FUNCTIONS.get(easing, ease_in_out_cubic)
         else:
             easing_fn = easing
 
@@ -356,7 +356,7 @@ class ServoGroup:
     def execute_command(
         self,
         command: str,
-        easing: str | Callable[[float], float] = "ease_in_out",
+        easing: str | Callable[[float], float] = "ease_in_out_cubic",
     ) -> bool:
         """Execute a movement-tool format command string.
 
@@ -375,7 +375,7 @@ class ServoGroup:
     async def execute_command_async(
         self,
         command: str,
-        easing: str | Callable[[float], float] = "ease_in_out",
+        easing: str | Callable[[float], float] = "ease_in_out_cubic",
     ) -> bool:
         """Async version of execute_command.
 
