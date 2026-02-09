@@ -865,8 +865,9 @@ img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
 > **V5.2.1 REBUILD**: The pi0servo library was completely rebuilt with a new architecture:
 > - **Velocity-based control** instead of duration-based (`degrees/sec`)
 > - **Per-servo speed modes** (F=Fast, M=Medium, S=Slow)
+> - **100Hz update rate** (10ms interval) for jitter-free motion
 > - **Thread-safe abort** mechanism
-> - **Smooth easing** curves (`ease_out`, `ease_in`, `ease_in_out`, `linear`)
+> - **Cubic easing** curves (`ease_in_out_cubic` default, plus 6 other options)
 
 #### 3.5.1 `core/servo_group.py`
 
@@ -893,12 +894,12 @@ def __init__(
 
 **Key Methods:**
 
-**`move_all_sync(targets: list[float | None], speed_mode: str | list[str] = "M", easing: str = "ease_out") -> bool`**
+**`move_all_sync(targets: list[float | None], speed_mode: str | list[str] = "M", easing: str = "ease_in_out_cubic") -> bool`**
 - Moves all servos to target angles synchronously with smooth easing
 - **Parameters:**
   - `targets` (list): Target angles (-90 to 90), `None` = skip servo
   - `speed_mode` (str | list): "F"/"M"/"S" or list for per-servo speeds
-  - `easing` (str): Easing function name
+  - `easing` (str): Easing function name (default: `ease_in_out_cubic`)
 - **Returns:** `True` if completed, `False` if aborted
 
 **`move_all_async(targets, speed_mode, easing) -> None`**
@@ -933,7 +934,7 @@ calibrations = {20: manager.get_calibration(20), 21: manager.get_calibration(21)
 group = ServoGroup(pi, pins=[20, 21], calibrations=calibrations)
 
 # Move with per-servo speeds
-group.move_all_sync([45, -30], speed_mode=["F", "S"], easing="ease_out")
+group.move_all_sync([45, -30], speed_mode=["F", "S"], easing="ease_in_out_cubic")
 
 # Abort from another thread
 group.abort()
@@ -991,7 +992,8 @@ Handles velocity calculation and trajectory generation.
 - Calculates movement duration based on physics
 
 **`get_easing_function(name: str) -> Callable`**
-- Returns easing function (`ease_out`, `ease_in`, `ease_in_out`, `linear`)
+- Returns easing function
+- **Available:** `ease_in_out_cubic` (default), `ease_out_cubic`, `ease_in_cubic`, `ease_in_out`, `ease_out`, `ease_in`, `linear`
 
 ---
 

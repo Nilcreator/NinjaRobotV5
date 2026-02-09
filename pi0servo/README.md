@@ -7,7 +7,8 @@ A lightweight, physics-based servo control library designed for SG90/MG90S micro
 ## ✨ Key Features
 
 - **Velocity-based Motion** – Physics calculations (degrees/sec) instead of arbitrary durations
-- **Smooth Easing** – Uses `ease_out` for natural deceleration at endpoints
+- **100Hz Update Rate** – 10ms step interval for smooth, jitter-free motion
+- **Cubic Easing (Default)** – Uses `ease_in_out_cubic` for natural S-curve acceleration
 - **Per-Servo Speed Limits** – Individual speed limits (0-100%) prevent mechanical stress
 - **Thread-safe Abort** – Immediately stop any running movement
 - **Interactive Tools** – Menu-driven `servo-tool` for calibration and testing
@@ -251,10 +252,16 @@ Calibration is stored in `servo.json`:
 
 | Easing | Behavior |
 |--------|----------|
-| `ease_out` | Fast start, slow finish (default) |
+| `ease_in_out_cubic` | Smooth S-curve at both ends **(DEFAULT)** |
+| `ease_out_cubic` | Fast start, very slow finish |
+| `ease_in_cubic` | Very slow start, fast finish |
+| `ease_in_out` | Quadratic S-curve (less smooth) |
+| `ease_out` | Fast start, slow finish |
 | `ease_in` | Slow start, fast finish |
-| `ease_in_out` | Slow both ends |
 | `linear` | Constant speed |
+
+> [!TIP]
+> Cubic easing provides smoother motion than quadratic. The default `ease_in_out_cubic` combined with 100Hz update rate minimizes visible jitter.
 
 ---
 
