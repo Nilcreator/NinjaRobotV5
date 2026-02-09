@@ -54,12 +54,20 @@ def servo_tool(config_path: str):
         running = True
 
         # --- Auto-center all servos on startup ---
+        # On first run after reboot, servo.last_angle is None and get_pulse() returns 0.
+        # move_all_sync() would skip the movement thinking servo is already at center.
+        # Solution: Use center_all() first to prime PWM signals, then optionally smooth.
         all_pins = list(manager.get_all_calibrations().keys())
         if all_pins:
             pins_list = [int(p) for p in all_pins]
             calibrations = {pin: manager.get_calibration(pin) for pin in pins_list}
             startup_group = ServoGroup(pi, pins=pins_list, calibrations=calibrations)
-            startup_group.move_all_sync([0] * len(pins_list), speed_mode="M")
+
+            # Step 1: Prime all servos with direct PWM (instant, sets last_angle)
+            startup_group.center_all()
+            import time
+            time.sleep(0.1)  # Brief pause to let servos reach position
+
             click.echo(term.green(f"✓ All servos centered (0°): GPIO {pins_list}"))
         # ------------------------------------------
 

@@ -568,8 +568,13 @@ def run_cli():
         controller = MovementController(hal, config)
 
         # --- Auto-center all servos on startup ---
-        controller.center_all_servos()
-        print("✓ All servos centered (0°)")
+        # On first run after reboot, servo.last_angle is None and get_pulse() returns 0.
+        # center_all_servos() uses move_servos() which has skip-if-negligible logic.
+        # Solution: Use direct center_all() to prime PWM signals first.
+        if hal.servos:
+            hal.servos.center_all()  # Direct PWM priming (instant)
+            time.sleep(0.1)  # Brief pause to let servos reach position
+            print("✓ All servos centered (0°)")
         # ------------------------------------------
 
         while True:

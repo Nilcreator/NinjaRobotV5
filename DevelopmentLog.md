@@ -1,6 +1,14 @@
 # Development Log
 
 
+## 2026-02-09: Fix First-Run Servo Initialization ✓
+- **Issue**: After Pi restart, servos didn't react on first CLI run; auto-center failed.
+- **Root Cause**: `move_all_sync()` skips movement when `distance < 0.1`. On first run, `last_angle=None` and `get_pulse()=0`, so code falls back to `angle_center=0`. Since target is also 0, movement was skipped.
+- **Fix**: Use `center_all()` (direct PWM) instead of `move_all_sync()` for startup centering.
+- **Modified Files**:
+    - `pi0servo/src/pi0servo/cli/servo_tool.py` - Replaced `move_all_sync()` with `center_all()`
+    - `ninja_core/src/ninja_core/movement_cli.py` - Use direct `hal.servos.center_all()`
+
 ## 2026-02-09: Auto-Center Servos on CLI Start/Quit ✓
 - **Action**: Added automatic servo centering (0°) when starting and quitting CLI tools.
 - **Changes**:
