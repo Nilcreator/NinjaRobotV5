@@ -1,5 +1,4 @@
 import copy
-import copy
 import select
 import subprocess
 import sys
@@ -568,6 +567,11 @@ def run_cli():
         hal.initialize(components=["servos"])
         controller = MovementController(hal, config)
 
+        # --- Auto-center all servos on startup ---
+        controller.center_all_servos()
+        print("✓ All servos centered (0°)")
+        # ------------------------------------------
+
         while True:
             print("\n--- Servo Movement CLI Tool ---")
             print("1. Calibrate a Servo")
@@ -610,6 +614,13 @@ def run_cli():
             else:
                 print("Invalid choice.")
     finally:
+        # --- Auto-center all servos on exit ---
+        try:
+            controller.center_all_servos()
+            print("✓ All servos centered (0°) on exit")
+        except Exception:
+            pass  # Ignore errors during cleanup centering
+        # --------------------------------------
         hal.shutdown()
         # After CLI runs, save any potential changes made
         save_config(config)

@@ -53,6 +53,16 @@ def servo_tool(config_path: str):
         term = Terminal()
         running = True
 
+        # --- Auto-center all servos on startup ---
+        all_pins = list(manager.get_all_calibrations().keys())
+        if all_pins:
+            pins_list = [int(p) for p in all_pins]
+            calibrations = {pin: manager.get_calibration(pin) for pin in pins_list}
+            startup_group = ServoGroup(pi, pins=pins_list, calibrations=calibrations)
+            startup_group.move_all_sync([0] * len(pins_list), speed_mode="M")
+            click.echo(term.green(f"✓ All servos centered (0°): GPIO {pins_list}"))
+        # ------------------------------------------
+
         def show_menu():
             """Display main menu."""
             click.echo(term.clear())
@@ -292,5 +302,18 @@ def servo_tool(config_path: str):
         traceback.print_exc()
 
     finally:
+        # --- Auto-center all servos on exit ---
+        try:
+            all_pins = list(manager.get_all_calibrations().keys())
+            if all_pins:
+                pins_list = [int(p) for p in all_pins]
+                calibrations = {pin: manager.get_calibration(pin) for pin in pins_list}
+                exit_group = ServoGroup(pi, pins=pins_list, calibrations=calibrations)
+                exit_group.move_all_sync([0] * len(pins_list), speed_mode="M")
+                click.echo(term.green("✓ All servos centered (0°) on exit"))
+                exit_group.off()
+        except Exception:
+            pass  # Ignore errors during cleanup centering
+        # --------------------------------------
         pi.stop()
         click.echo("\nGoodbye!")

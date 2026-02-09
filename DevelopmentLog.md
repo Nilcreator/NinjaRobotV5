@@ -1,6 +1,15 @@
 # Development Log
 
 
+## 2026-02-09: Auto-Center Servos on CLI Start/Quit ✓
+- **Action**: Added automatic servo centering (0°) when starting and quitting CLI tools.
+- **Changes**:
+    - On tool startup: all calibrated servos move to 0°
+    - On tool exit: all servos center before shutdown
+- **Modified Files**:
+    - `pi0servo/src/pi0servo/cli/servo_tool.py`
+    - `ninja_core/src/ninja_core/movement_cli.py`
+
 ## 2026-02-09: Servo Smoothness Optimization ✓
 - **Action**: Reduced jittering by increasing update frequency and adding cubic easing.
 - **Changes**:
