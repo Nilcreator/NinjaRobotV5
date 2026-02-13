@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.1  
-**Last Updated:** 2026-02-08  
+**Version:** 5.2.2  
+**Last Updated:** 2026-02-09  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -60,6 +60,13 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `pi0servo/ServoGroup` | Added legacy compatibility: `move_all_angles()`, `get_all_angles()`, `servo` property |
 | `ninja_core/hal.py` | Updated `DRIVER_REGISTRY` to use `ServoGroup`, `ConfigManager` for calibrations |
 | HAL init | Calibrations now passed as `dict[int, ServoCalibration]` instead of `conf_file` |
+
+### Key Changes (V5.2.2 - Movement Fluidity):
+| Component | Change |
+|---|---|
+| `movement_controller.py` | **Position-aware easing** for smooth multi-step sequences |
+| Transition Logic | First step: `ease_in_cubic`, Middle: `linear`, Last: `ease_out_cubic` |
+| Result | Eliminates stop-start pattern, creates fluid momentum-preserving motion |
 
 ### Required Setup:
 ```bash
@@ -1357,6 +1364,11 @@ def __init__(self, hal: HardwareAbstractionLayer, config: NinjaConfig)
 
 **`execute_movement(movement_name: str, abort_check: Callable[[], bool] | None = None) -> None`**
 - Executes a pre-defined movement sequence by name
+- **Position-aware easing** for smooth transitions:
+  - Single step: `ease_in_out_cubic` (complete S-curve)
+  - First step: `ease_in_cubic` (accelerate only)
+  - Middle steps: `linear` (constant velocity)
+  - Last step: `ease_out_cubic` (decelerate to stop)
 - **Raises:** `EmergencyStop` if safety check fails
 
 **Usage:**

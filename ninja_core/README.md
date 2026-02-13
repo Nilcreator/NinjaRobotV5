@@ -47,7 +47,11 @@ The Motion System is responsible for all servo-based movements. It is composed o
 This class is the runtime engine for executing pre-defined motion sequences.
 - It is initialized with the HAL and `NinjaConfig` objects, removing the need for direct hardware or file system access.
 - Its primary method, `execute_movement(movement_name)`, plays back a named sequence from the configuration.
-- It uses smooth interpolation to ensure fluid motion rather than abrupt changes.
+- It uses **position-aware easing** for fluid multi-step motions:
+  - **First step:** `ease_in_cubic` (accelerate only)
+  - **Middle steps:** `linear` (constant velocity through waypoints)
+  - **Last step:** `ease_out_cubic` (decelerate to stop)
+- This eliminates the stop-start pattern between steps, creating smooth momentum-preserving motion.
 
 ### `movement-tool` CLI
 

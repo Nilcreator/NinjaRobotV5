@@ -533,35 +533,154 @@ class ServoGroup:
 
 ---
 
-## 5. pi0vl53l0x Library Upgrade (Planned)
+## 5. pi0vl53l0x Library Upgrade (Full Rewrite)
 
-### 5.1 Current Structure
+> **Status:** Analysis Complete → Implementation In Progress  
+> **Approach:** Full rewrite from scratch (previous code backed up to `pi0vl53l0x_bak/`)  
+> **Detailed Plan:** [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md)
+
+### 5.1 Previous Structure (Backed Up)
 
 ```
-pi0vl53l0x/src/pi0vl53l0x/
-├── __init__.py
-├── __main__.py
-├── driver.py           # Main VL53L0X driver
-├── constants.py        # Register constants
-└── config_manager.py   # Configuration persistence
+pi0vl53l0x_bak/src/pi0vl53l0x/
+├── __init__.py          # 3 lines — exports VL53L0X
+├── __main__.py          # 184 lines — Click CLI
+├── driver.py            # 677 lines — monolithic VL53L0X class
+├── constants.py         # ~170 lines — ~160 magic VALUE_XX/REG_XX
+└── config_manager.py    # 30 lines — JSON config to ~/vl53l0x.json
 ```
 
-### 5.2 Identified Issues (Preliminary)
+### 5.2 Identified Vulnerabilities
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Callback handling | Medium | Distance callbacks may need refinement |
-| Error recovery | Medium | I2C communication failures |
-| Config management | Low | Consistency with other drivers |
+| ID | Severity | Issue | Impact |
+|----|----------|-------|--------|
+| V1 | 🔴 Critical | No I2C retry logic | Single bus glitch crashes driver |
+| V2 | 🔴 Critical | `get_data()` offset bug | `raw_value` is not actually raw |
+| V3 | 🔴 Critical | No firmware boot polling after soft reset | **Root cause of "returns 0 after reboot"** |
+| V4 | 🔴 Critical | VHV config error silently swallowed | I2C voltage misconfiguration |
+| V5 | 🟡 Medium | No measurement quality validation | Bad readings not detected |
+| V6 | 🟡 Medium | Resource leak on init failure | I2C handle not closed |
+| V7 | 🟡 Medium | `close()` doesn't stop sensor ranging | Stale state on reboot |
+| V8 | 🟡 Medium | Race condition with pigpiod on boot | Init fails without retry |
+| V9 | 🟢 Low | ~160 obfuscated constants | Impossible to maintain |
+| V10 | 🟢 Low | Unnecessary numpy dependency | ~30MB on RPi Zero |
+| V11 | 🟢 Low | Config in home dir `~/` | Not project-relative |
+| V12 | 🟢 Low | Zero test files | No test coverage |
 
-### 5.3 Planned Improvements
+### 5.3 Root Cause Analysis: "Returns 0 After Reboot"
 
-- [ ] Unified API protocol matching pi0servo pattern
-- [ ] Robust I2C error handling and recovery
-- [ ] Continuous monitoring mode optimization
-- [ ] CLI tool for standalone testing
+Six contributing root causes identified (see [RebuildPlan.md §1.3](pi0vl53l0x/RebuildPlan.md) for full details):
 
-> **Status:** Detailed analysis pending after pi0servo completion
+| RC# | Cause | Fix |
+|-----|-------|-----|
+| **RC#1** (Primary) | No firmware boot-ready polling after soft reset — only 10ms wait | Poll register 0x01 bit 0 (up to 500ms) |
+| RC#2 | VHV config write error silently `pass`-ed | Retry 3× with backoff, fail loudly |
+| RC#3 | Race with pigpiod startup, HAL gives up without retry | Check `pi.connected`, retry `initialize()` 3× |
+| RC#4 | Stale `SYSRANGE_START` from previous session | Clear register + interrupts after reset |
+| RC#5 | First measurement returns stale data | Flush with dummy measurement |
+| RC#6 | `close()` never stops sensor ranging | Send STOP + clear before `i2c_close()` |
+
+### 5.4 New Architecture
+
+```
+pi0vl53l0x/
+├── src/pi0vl53l0x/
+│   ├── __init__.py              # Exports: VL53L0X, ContinuousReader
+│   ├── driver.py                # Backward-compat shim → core.sensor
+│   ├── core/
+│   │   ├── sensor.py            # VL53L0X class (Sensor ABC)
+│   │   ├── i2c.py               # I2C helper with retry & recovery
+│   │   └── continuous.py        # ContinuousReader (background polling)
+│   ├── registers.py             # Semantic register constants (~60)
+│   ├── config/
+│   │   └── config_manager.py    # Project-relative config (pi0servo pattern)
+│   └── cli/
+│       └── sensor_tool.py       # Interactive CLI tool
+├── tests/
+│   ├── test_i2c.py
+│   ├── test_sensor.py
+│   ├── test_continuous.py
+│   └── test_config.py
+├── pyproject.toml               # No numpy dependency
+├── RebuildPlan.md
+├── README.md
+└── LICENSE
+```
+
+### 5.5 Key Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Rewrite scope | Full rewrite from scratch | Too many critical bugs to patch |
+| Config path | Project-relative `vl53l0x.json` | Matches pi0servo pattern |
+| Async support | `get_range_async()` via `asyncio.to_thread()` | Non-blocking for event loop |
+| Continuous monitoring | Hybrid: `ContinuousReader` in driver | Standalone + perception.py compatible |
+| numpy dependency | Remove (use `statistics.mean()`) | Save ~30MB on RPi Zero |
+| Reboot fix | Firmware boot polling + VHV retry + stale flush | Addresses all 6 root causes |
+| Runtime recovery | `health_check()` + `reinitialize()` | Recovery without rebooting |
+
+### 5.6 Public API Overview
+
+```python
+class VL53L0X(Sensor):  # Sensor ABC from ninja_utils
+    def __init__(self, pi, i2c_bus=1, i2c_address=0x29, ...): ...
+    def initialize(self) -> None: ...       # Hardened 12-step init
+    def get_data(self) -> dict: ...         # Fixed offset bug + quality validation
+    def close(self) -> None: ...            # Proper shutdown (stop + close)
+    def get_range(self) -> int: ...         # Single-shot, blocking
+    async def get_range_async(self) -> int: ...  # Non-blocking
+    def health_check(self) -> bool: ...     # Quick sensor status
+    def reinitialize(self) -> None: ...     # Runtime recovery
+    def calibrate(self, target_mm, samples) -> int: ...
+
+class ContinuousReader:
+    def __init__(self, sensor, interval=0.1): ...
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+    @property
+    def latest(self) -> int: ...            # Thread-safe cached value
+```
+
+### 5.7 Backward Compatibility
+
+**Zero changes required in ninja_core.** All preserved:
+
+| Import / Usage | Solution |
+|----------------|----------|
+| `from pi0vl53l0x.driver import VL53L0X` | `driver.py` shim: `from .core.sensor import VL53L0X` |
+| `VL53L0X(pi=self.pi)` | Exact constructor signature preserved |
+| `.get_range()` → int | Method preserved |
+| `.get_data()` → dict | Method preserved (bug fixed) |
+| `.close()` | Method preserved (enhanced) |
+
+### 5.8 Implementation Phases
+
+| Phase | Content | Key Deliverables |
+|-------|---------|-------------------|
+| 1 | Scaffold & I2C Module | `i2c.py` with retry, `registers.py`, `test_i2c.py` |
+| 2 | Core Sensor Driver | `sensor.py` with hardened init, `driver.py` shim, `test_sensor.py` |
+| 3 | Continuous Reader & Config | `continuous.py`, `config_manager.py`, tests |
+| 4 | CLI Module | `sensor_tool.py`, `__main__.py` |
+| 5 | Integration & Documentation | Lint, verify ninja_core compat, update docs |
+
+> **Full implementation details with code snippets:** [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md)
+
+### 5.9 Testing Strategy
+
+**Automated (PC/Mac):**
+```bash
+cd pi0vl53l0x && uv run pytest tests/ -v
+```
+
+**Manual Hardware (Raspberry Pi):**
+
+| Test | Command | Pass Criteria |
+|------|---------|---------------|
+| Basic reading | `uv run pi0vl53l0x get --count 10` | Within ±20mm |
+| **Reboot survival** | **Reboot → immediate `get`** | **No "returns 0"** |
+| Performance | `uv run pi0vl53l0x performance --count 100` | ~30-40 Hz |
+| Health check | `uv run pi0vl53l0x status` | Reports healthy |
+| Integration | `uv run ninja_core server` | Live readings |
 
 ---
 
@@ -709,8 +828,8 @@ cd pi0buzzer && uv run pytest tests/ -v
 |-------|---------|----------|--------|
 | Phase 1 | pi0servo rebuild | 1-2 weeks | **Plan Complete** |
 | Phase 2 | pi0servo verification | 1 week | Pending |
-| Phase 3 | pi0vl53l0x analysis | 2-3 days | Pending |
-| Phase 4 | pi0vl53l0x upgrade | 1 week | Pending |
+| Phase 3 | pi0vl53l0x analysis | 2-3 days | **✅ Complete** |
+| Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **In Progress** |
 | Phase 5 | pi0disp analysis | 2-3 days | Pending |
 | Phase 6 | pi0disp upgrade | 1 week | Pending |
 | Phase 7 | pi0buzzer analysis | 1-2 days | Pending |
@@ -743,7 +862,8 @@ The RebuildPlan.md contains:
 | [DevelopmentPlan.md](DevelopmentPlan.md) | Overall project roadmap |
 | [DevelopmentGuide.md](DevelopmentGuide.md) | API reference |
 | [README.md](README.md) | Project overview |
-| [pi0servo/RebuildPlan.md](pi0servo/RebuildPlan.md) | Modular step-by-step implementation guide |
+| [pi0servo/RebuildPlan.md](pi0servo/RebuildPlan.md) | Modular step-by-step pi0servo implementation guide |
+| [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md) | Complete pi0vl53l0x rebuild plan (analysis, root cause, architecture, phases) |
 
 ---
 
