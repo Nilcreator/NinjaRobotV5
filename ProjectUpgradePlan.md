@@ -535,9 +535,10 @@ class ServoGroup:
 
 ## 5. pi0vl53l0x Library Upgrade (Full Rewrite)
 
-> **Status:** Analysis Complete → Implementation In Progress  
+> **Status:** Analysis Complete → Refined Plan Approved → Implementation In Progress  
 > **Approach:** Full rewrite from scratch (previous code backed up to `pi0vl53l0x_bak/`)  
-> **Detailed Plan:** [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md)
+> **Detailed Plan:** [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md)  
+> **Last Refined:** 2026-02-15 (audit review — thread safety, exception contracts, ContinuousReader deferred)
 
 ### 5.1 Previous Structure (Backed Up)
 
@@ -554,8 +555,8 @@ pi0vl53l0x_bak/src/pi0vl53l0x/
 
 | ID | Severity | Issue | Impact |
 |----|----------|-------|--------|
-| V1 | 🔴 Critical | No I2C retry logic | Single bus glitch crashes driver |
-| V2 | 🔴 Critical | `get_data()` offset bug | `raw_value` is not actually raw |
+| V1 | 🔴 Critical | No I2C retry logic — also no thread safety | Single bus glitch crashes driver; concurrent access corrupts state |
+| V2 | 🔴 Critical | `get_data()` offset bug — stores offset-corrected value as `raw_value` | `get_range()` subtracts offset, but `get_data()` saves that result as "raw" |
 | V3 | 🔴 Critical | No firmware boot polling after soft reset | **Root cause of "returns 0 after reboot"** |
 | V4 | 🔴 Critical | VHV config error silently swallowed | I2C voltage misconfiguration |
 | V5 | 🟡 Medium | No measurement quality validation | Bad readings not detected |
@@ -573,7 +574,7 @@ Six contributing root causes identified (see [RebuildPlan.md §1.3](pi0vl53l0x/R
 
 | RC# | Cause | Fix |
 |-----|-------|-----|
-| **RC#1** (Primary) | No firmware boot-ready polling after soft reset — only 10ms wait | Poll register 0x01 bit 0 (up to 500ms) |
+| **RC#1** (Primary) | No firmware boot-ready polling after soft reset — only 10ms wait | Poll register 0x01 bit 0 (up to **1.0s**, configurable) |
 | RC#2 | VHV config write error silently `pass`-ed | Retry 3× with backoff, fail loudly |
 | RC#3 | Race with pigpiod startup, HAL gives up without retry | Check `pi.connected`, retry `initialize()` 3× |
 | RC#4 | Stale `SYSRANGE_START` from previous session | Clear register + interrupts after reset |
@@ -585,12 +586,11 @@ Six contributing root causes identified (see [RebuildPlan.md §1.3](pi0vl53l0x/R
 ```
 pi0vl53l0x/
 ├── src/pi0vl53l0x/
-│   ├── __init__.py              # Exports: VL53L0X, ContinuousReader
+│   ├── __init__.py              # Exports: VL53L0X
 │   ├── driver.py                # Backward-compat shim → core.sensor
 │   ├── core/
 │   │   ├── sensor.py            # VL53L0X class (Sensor ABC)
-│   │   ├── i2c.py               # I2C helper with retry & recovery
-│   │   └── continuous.py        # ContinuousReader (background polling)
+│   │   └── i2c.py               # I2C helper with retry, recovery & Lock
 │   ├── registers.py             # Semantic register constants (~60)
 │   ├── config/
 │   │   └── config_manager.py    # Project-relative config (pi0servo pattern)
@@ -599,13 +599,14 @@ pi0vl53l0x/
 ├── tests/
 │   ├── test_i2c.py
 │   ├── test_sensor.py
-│   ├── test_continuous.py
 │   └── test_config.py
-├── pyproject.toml               # No numpy dependency
+├── pyproject.toml               # pigpio as optional dep (RPi-only)
 ├── RebuildPlan.md
 ├── README.md
 └── LICENSE
 ```
+
+> **Note:** `ContinuousReader` (`core/continuous.py`) is **deferred** to a future Phase 6. The core driver and ninja_core integration come first.
 
 ### 5.5 Key Design Decisions
 
@@ -614,8 +615,12 @@ pi0vl53l0x/
 | Rewrite scope | Full rewrite from scratch | Too many critical bugs to patch |
 | Config path | Project-relative `vl53l0x.json` | Matches pi0servo pattern |
 | Async support | `get_range_async()` via `asyncio.to_thread()` | Non-blocking for event loop |
-| Continuous monitoring | Hybrid: `ContinuousReader` in driver | Standalone + perception.py compatible |
+| Continuous monitoring | **Deferred** — ContinuousReader in future Phase 6 | Focus core driver first; perception.py already has its own thread |
 | numpy dependency | Remove (use `statistics.mean()`) | Save ~30MB on RPi Zero |
+| pigpio dependency | **Optional** (`[project.optional-dependencies].pi`) | Not installable on PC/Mac; RPi-only |
+| I2C thread safety | `threading.Lock()` in `I2CBus` | `DistanceMonitor` + `reinitialize()` access from different threads |
+| Init failure cleanup | `try/except/close` in `initialize()` | I2C handle must be released on mid-init failure |
+| Firmware boot timeout | **1.0s** (configurable via `timeout_s` param) | 500ms may be too short for cold boot |
 | Reboot fix | Firmware boot polling + VHV retry + stale flush | Addresses all 6 root causes |
 | Runtime recovery | `health_check()` + `reinitialize()` | Recovery without rebooting |
 
@@ -624,22 +629,19 @@ pi0vl53l0x/
 ```python
 class VL53L0X(Sensor):  # Sensor ABC from ninja_utils
     def __init__(self, pi, i2c_bus=1, i2c_address=0x29, ...): ...
-    def initialize(self) -> None: ...       # Hardened 12-step init
+    def initialize(self) -> None: ...       # Hardened 12-step init (with cleanup on failure)
     def get_data(self) -> dict: ...         # Fixed offset bug + quality validation
     def close(self) -> None: ...            # Proper shutdown (stop + close)
     def get_range(self) -> int: ...         # Single-shot, blocking
+        # Raises: I2CError, TimeoutError, RuntimeError
     async def get_range_async(self) -> int: ...  # Non-blocking
     def health_check(self) -> bool: ...     # Quick sensor status
     def reinitialize(self) -> None: ...     # Runtime recovery
+        # ⚠️ NOT thread-safe — stop ContinuousReader/DistanceMonitor first
     def calibrate(self, target_mm, samples) -> int: ...
-
-class ContinuousReader:
-    def __init__(self, sensor, interval=0.1): ...
-    def start(self) -> None: ...
-    def stop(self) -> None: ...
-    @property
-    def latest(self) -> int: ...            # Thread-safe cached value
 ```
+
+> **Note:** `ContinuousReader` API is deferred to Phase 6.
 
 ### 5.7 Backward Compatibility
 
@@ -657,11 +659,12 @@ class ContinuousReader:
 
 | Phase | Content | Key Deliverables |
 |-------|---------|-------------------|
-| 1 | Scaffold & I2C Module | `i2c.py` with retry, `registers.py`, `test_i2c.py` |
-| 2 | Core Sensor Driver | `sensor.py` with hardened init, `driver.py` shim, `test_sensor.py` |
-| 3 | Continuous Reader & Config | `continuous.py`, `config_manager.py`, tests |
+| 1 | Scaffold & I2C Module | `i2c.py` with retry **+ Lock**, `registers.py`, `test_i2c.py` |
+| 2 | Core Sensor Driver | `sensor.py` with hardened init **+ cleanup**, `driver.py` shim, `test_sensor.py` |
+| 3 | Config Manager | `config_manager.py`, `test_config.py` |
 | 4 | CLI Module | `sensor_tool.py`, `__main__.py` |
 | 5 | Integration & Documentation | Lint, verify ninja_core compat, update docs |
+| 6 | *(Future)* ContinuousReader | `continuous.py`, `test_continuous.py` — **DEFERRED** |
 
 > **Full implementation details with code snippets:** [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md)
 

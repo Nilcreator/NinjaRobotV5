@@ -1,8 +1,8 @@
 # pi0vl53l0x Library Rebuild Plan
 
-> **Status:** In Progress  
+> **Status:** Refined Plan Approved → Implementation In Progress  
 > **Created:** 2026-02-13  
-> **Last Updated:** 2026-02-13  
+> **Last Updated:** 2026-02-15 (audit refinement — thread safety, exception contracts, ContinuousReader deferred)  
 > **Reference:** Previous version backed up to `pi0vl53l0x_bak/`
 
 ---
@@ -15,17 +15,18 @@ Full rewrite from scratch of the pi0vl53l0x library — creating a robust, modul
 
 1. **100% backward compatible** — zero changes to ninja_core (HAL, perception, api_wrappers)
 2. **Fix the "returns 0 after reboot" bug** — hardened initialization with firmware boot polling
-3. **Resilient I2C** — automatic retry with exponential backoff
+3. **Resilient I2C** — automatic retry with exponential backoff + **thread-safe** (`threading.Lock`)
 4. **Standalone capable** — usable independently OR integrated into NinjaRobotV5
 5. **Async ready** — `get_range_async()` for future asyncio integration
 6. **Fully tested** — unit tests with mocked pigpio for PC/Mac development
+7. **Defined exception contract** — `I2CError`, `TimeoutError`, `RuntimeError` on failure
 
 ### 1.2 Previous Library Issues
 
 | ID | Severity | Issue | Location |
 |----|----------|-------|----------|
-| V1 | 🔴 Critical | No I2C retry — single bus glitch crashes driver | `driver.py` all I2C calls |
-| V2 | 🔴 Critical | `get_data()` offset bug — `raw_value` is not actually raw | `driver.py` L556-557 |
+| V1 | 🔴 Critical | No I2C retry — single bus glitch crashes driver. Also no thread safety — concurrent access from `DistanceMonitor` thread and main thread corrupts state | `driver.py` all I2C calls |
+| V2 | 🔴 Critical | `get_data()` offset bug — `get_range()` returns `raw - offset`, but `get_data()` stores that offset-corrected value as `raw_value`. The "raw" value is not actually raw | `driver.py` L556-557 |
 | V3 | 🔴 Critical | No firmware boot polling after soft reset — **root cause of "returns 0 after reboot"** | `driver.py` L304-307 |
 | V4 | 🔴 Critical | VHV config error silently swallowed | `driver.py` L97-99 |
 | V5 | 🟡 Medium | No measurement quality validation (signal rate, sigma) | `driver.py` L560-571 |
@@ -68,13 +69,12 @@ Interrupt status register may have a stale value from the previous session. If `
 ```
 pi0vl53l0x/
 ├── src/pi0vl53l0x/
-│   ├── __init__.py              # Exports: VL53L0X, ContinuousReader
+│   ├── __init__.py              # Exports: VL53L0X
 │   ├── driver.py                # Backward-compat shim → core.sensor
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── sensor.py            # VL53L0X class (Sensor ABC implementation)
-│   │   ├── i2c.py               # I2C helper with retry & error recovery
-│   │   └── continuous.py        # ContinuousReader for background polling
+│   │   └── i2c.py               # I2C helper with retry, recovery & Lock
 │   ├── registers.py             # Clean register constants (semantic names)
 │   ├── config/
 │   │   ├── __init__.py
@@ -84,23 +84,24 @@ pi0vl53l0x/
 │       └── sensor_tool.py       # Interactive CLI tool
 ├── tests/
 │   ├── __init__.py
-│   ├── test_i2c.py              # I2C retry logic tests (mocked pigpio)
+│   ├── test_i2c.py              # I2C retry + thread safety tests (mocked pigpio)
 │   ├── test_sensor.py           # VL53L0X driver tests (mocked pigpio)
-│   ├── test_continuous.py       # ContinuousReader tests
 │   └── test_config.py           # Config manager tests
-├── pyproject.toml               # No numpy dependency
+├── pyproject.toml               # pigpio as optional dep (RPi-only)
 ├── RebuildPlan.md               # This file
 ├── README.md
 └── LICENSE
 ```
 
+> **Note:** `ContinuousReader` (`core/continuous.py`, `test_continuous.py`) is **deferred** to a future Phase 6. The core driver and ninja_core integration are the priority.
+
 ### 2.2 Module Responsibilities
 
 | Module | Purpose |
 |--------|---------|
-| `core/i2c.py` | Resilient I2C bus wrapper — automatic retry (3 attempts, exponential backoff 10→20→50ms), bus recovery on persistent failure, endian handling (`read_word_big_endian`) |
-| `core/sensor.py` | VL53L0X class implementing `Sensor` ABC — hardened init, single-shot ranging, quality validation, calibration, async support, health check, reinitialize |
-| `core/continuous.py` | `ContinuousReader` — optional background thread for continuous polling with cached latest value. Standalone users get continuous detection without ninja_core |
+| `core/i2c.py` | Resilient I2C bus wrapper — `threading.Lock()` for thread safety, automatic retry (3 attempts, exponential backoff 10→20→50ms), bus recovery on persistent failure, endian handling (`read_word_big_endian`) |
+| `core/sensor.py` | VL53L0X class implementing `Sensor` ABC — hardened init **with cleanup on failure**, single-shot ranging, quality validation, calibration, async support, health check, reinitialize |
+| ~~`core/continuous.py`~~ | **DEFERRED to Phase 6** — `ContinuousReader` for background polling. `perception.py.DistanceMonitor` already provides this for NinjaRobotV5 |
 | `registers.py` | Clean VL53L0X register map with semantic names (~60 constants vs. previous ~330) |
 | `config/config_manager.py` | Project-relative JSON config following pi0servo pattern |
 | `cli/sensor_tool.py` | Interactive CLI: get, performance, calibrate, test, status, config |
@@ -110,16 +111,16 @@ pi0vl53l0x/
 
 **Current state:** The driver only provides single-shot `get_range()`. Continuous monitoring, velocity tracking, and emergency stop all live in `ninja_core/perception.py`.
 
-**New design (Hybrid):**
+**Decision: ContinuousReader is DEFERRED to Phase 6.** The `perception.py.DistanceMonitor` already provides background polling with velocity tracking and emergency stop — features that are robot-specific and don't belong in the driver library.
 
-| Feature | New driver (standalone) | perception.py (NinjaRobotV5) |
-|---------|------------------------|------------------------------|
-| Single-shot measurement | ✅ `get_range()` | ✅ via driver |
-| Continuous background polling | ✅ `ContinuousReader` | ✅ uses driver's ContinuousReader |
-| Async measurement | ✅ `get_range_async()` | ✅ for future asyncio refactor |
-| Velocity tracking | ❌ | ✅ Robot-specific logic |
-| Emergency stop | ❌ | ✅ Robot-specific safety |
-| Health check & recovery | ✅ `health_check()` + `reinitialize()` | ✅ can detect/recover stuck sensor |
+| Feature | Driver (Phases 1-5) | ContinuousReader (Phase 6, future) | perception.py DistanceMonitor |
+|---------|---------------------|-----------------------------------|---------------------------------|
+| Single-shot measurement | ✅ `get_range()` | — | ✅ via driver |
+| Continuous background polling | ❌ | ✅ simple thread | ✅ with velocity |
+| Async measurement | ✅ `get_range_async()` | — | ✅ future asyncio |
+| Velocity tracking | ❌ | ❌ | ✅ Robot-specific |
+| Emergency stop | ❌ | ❌ | ✅ Robot-specific |
+| Health check & recovery | ✅ `health_check()` + `reinitialize()` | — | ✅ can call driver |
 
 ### 2.4 Async `get_range_async()`
 
@@ -212,9 +213,15 @@ class VL53L0X(Sensor):
         """Single-shot distance measurement (blocking).
         
         Returns:
-            Distance in mm (with offset applied), or raises on error.
+            Distance in mm (with offset applied).
+        
+        Raises:
+            I2CError: I2C bus failure after retries.
+            TimeoutError: Measurement did not complete within 2s.
+            RuntimeError: Sensor not initialized.
         
         Used by: ninja_core/perception.py DistanceMonitor._monitor_loop()
+        Note: DistanceMonitor catches Exception broadly, so these are safe.
         """
         ...
 
@@ -254,6 +261,9 @@ class VL53L0X(Sensor):
         """Full re-initialization for recovery from stuck state.
         
         Can be called at runtime without rebooting.
+        
+        ⚠️ NOT thread-safe — caller MUST stop ContinuousReader or
+        DistanceMonitor before calling this method.
         """
         ...
 
@@ -271,50 +281,24 @@ class VL53L0X(Sensor):
     def __exit__(self, *args) -> None: ...
 ```
 
-### 3.2 ContinuousReader Class
+### 3.2 ContinuousReader Class — DEFERRED TO PHASE 6
 
-```python
-class ContinuousReader:
-    """Background thread for continuous distance polling.
-    
-    Provides standalone users with continuous monitoring capability.
-    In NinjaRobotV5, perception.py can use this instead of its own thread.
-    """
-    
-    def __init__(self, sensor: VL53L0X, interval: float = 0.1) -> None:
-        """
-        Args:
-            sensor: Initialized VL53L0X instance.
-            interval: Time between measurements in seconds.
-        """
-        ...
+> **Status:** Deferred. Will be implemented as a separate `core/continuous.py` module in a future phase.
+> **Reason:** `perception.py.DistanceMonitor` already handles continuous reading with velocity tracking and emergency stop. Adding `ContinuousReader` now would not benefit ninja_core integration.
 
-    def start(self) -> None:
-        """Start background measurement thread."""
-        ...
-
-    def stop(self) -> None:
-        """Stop background thread (blocks until join)."""
-        ...
-
-    @property
-    def latest(self) -> int:
-        """Latest cached distance reading (thread-safe, non-blocking)."""
-        ...
-
-    @property
-    def is_running(self) -> bool:
-        """Whether the background thread is active."""
-        ...
-```
+See Phase 6 (§5.6) for the planned API.
 
 ### 3.3 I2CBus Class (Internal)
 
 ```python
 class I2CBus:
-    """Resilient I2C bus wrapper with automatic retry.
+    """Resilient, thread-safe I2C bus wrapper with automatic retry.
     
-    All I2C operations go through this class. On failure:
+    All I2C operations go through this class. Thread-safe via
+    threading.Lock() — required because DistanceMonitor and
+    main thread may access I2C concurrently.
+    
+    On failure:
     1. Retry up to max_retries times with exponential backoff (10→20→50ms)
     2. On persistent failure, attempt bus recovery (close + reopen)
     3. Raise I2CError with clear diagnostic message
@@ -326,14 +310,22 @@ class I2CBus:
         bus: int = 1, 
         address: int = 0x29,
         max_retries: int = 3
-    ) -> None: ...
+    ) -> None:
+        self._lock = threading.Lock()  # ⭐ Thread safety
+        ...
 
-    def read_byte(self, register: int) -> int: ...
-    def write_byte(self, register: int, value: int) -> None: ...
-    def read_word_big_endian(self, register: int) -> int: ...
-    def write_word_big_endian(self, register: int, value: int) -> None: ...
-    def read_block(self, register: int, count: int) -> list[int]: ...
-    def write_block(self, register: int, data: list[int]) -> None: ...
+    def read_byte(self, register: int) -> int:  # acquires _lock
+        ...
+    def write_byte(self, register: int, value: int) -> None:  # acquires _lock
+        ...
+    def read_word_big_endian(self, register: int) -> int:  # acquires _lock
+        ...
+    def write_word_big_endian(self, register: int, value: int) -> None:  # acquires _lock
+        ...
+    def read_block(self, register: int, count: int) -> list[int]:  # acquires _lock
+        ...
+    def write_block(self, register: int, data: list[int]) -> None:  # acquires _lock
+        ...
     def close(self) -> None: ...
 ```
 
@@ -379,7 +371,7 @@ __all__ = ["VL53L0X"]
 **Goal:** Create project structure and the foundational I2C layer.
 
 **Files to create:**
-- `pyproject.toml` — project metadata, dependencies (click, pigpio, ninja_utils — NO numpy)
+- `pyproject.toml` — project metadata, dependencies (click, ninja_utils — NO numpy, pigpio as **optional**)
 - `src/pi0vl53l0x/__init__.py` — exports
 - `src/pi0vl53l0x/core/__init__.py`
 - `src/pi0vl53l0x/core/i2c.py` — `I2CBus` class with retry logic
@@ -399,17 +391,19 @@ class I2CBus:
         self._address = address
         self._max_retries = max_retries
         self._closed = False
+        self._lock = threading.Lock()  # ⭐ Thread safety for concurrent access
 
     def read_byte(self, register):
-        for attempt in range(self._max_retries):
-            try:
-                value = self.pi.i2c_read_byte_data(self.handle, register)
-                return int(value)
-            except Exception as e:
-                if attempt == self._max_retries - 1:
-                    raise I2CError(f"I2C read_byte(0x{register:02X}) "
-                                   f"failed after {self._max_retries} attempts") from e
-                time.sleep(0.01 * (2 ** attempt))  # 10ms, 20ms, 40ms
+        with self._lock:  # ⭐ All I2C ops are serialized
+            for attempt in range(self._max_retries):
+                try:
+                    value = self.pi.i2c_read_byte_data(self.handle, register)
+                    return int(value)
+                except Exception as e:
+                    if attempt == self._max_retries - 1:
+                        raise I2CError(f"I2C read_byte(0x{register:02X}) "
+                                       f"failed after {self._max_retries} attempts") from e
+                    time.sleep(0.01 * (2 ** attempt))  # 10ms, 20ms, 40ms
 
     # Similar retry pattern for write_byte, read_word, write_word, etc.
 
@@ -502,7 +496,7 @@ Step 1:  Check pi.connected
 Step 2:  I2CBus() — opens I2C with retry
 Step 3:  check_connection() — verify Model ID = 0xEE
 Step 4:  reset() — soft reset (write 0x00, wait, write 0x01)
-Step 5:  ⭐ _wait_for_firmware_boot() — poll reg 0x01 bit 0 (up to 500ms)
+Step 5:  ⭐ _wait_for_firmware_boot() — poll reg 0x01 bit 0 (up to 1.0s, configurable)
 Step 6:  ⭐ Clear SYSRANGE_START (0x00) + SYSTEM_INTERRUPT_CLEAR (0x01)
 Step 7:  _set_registers() — initial register configuration
 Step 8:  ⭐ VHV config WITH RETRY (3 attempts, no silent catch)
@@ -517,8 +511,11 @@ Steps marked ⭐ are **new additions** that fix the reboot issue.
 **Key method implementations:**
 
 ```python
-def _wait_for_firmware_boot(self, timeout_s: float = 0.5) -> None:
-    """Poll register 0x01 until firmware boot is confirmed."""
+def _wait_for_firmware_boot(self, timeout_s: float = 1.0) -> None:
+    """Poll register 0x01 until firmware boot is confirmed.
+    
+    Default timeout increased from 500ms to 1.0s to handle cold boot.
+    """
     start = time.time()
     while True:
         if self.i2c.read_byte(R.FIRMWARE_BOOT_STATUS) & 0x01:
@@ -586,7 +583,11 @@ def health_check(self) -> bool:
         return False
 
 def reinitialize(self) -> None:
-    """Full re-initialization for runtime recovery."""
+    """Full re-initialization for runtime recovery.
+    
+    ⚠️ NOT thread-safe — caller MUST stop ContinuousReader or
+    DistanceMonitor before calling this method.
+    """
     self.__log.warning("Reinitializing sensor...")
     self.reset()
     self._wait_for_firmware_boot()
@@ -604,66 +605,14 @@ def reinitialize(self) -> None:
 
 ---
 
-### Phase 3: Continuous Reader & Config
+### Phase 3: Config Manager
 
-**Goal:** Add continuous background monitoring and config management.
+**Goal:** Add config management. *(ContinuousReader moved to Phase 6.)*
 
 **Files to create:**
-- `src/pi0vl53l0x/core/continuous.py` — `ContinuousReader`
 - `src/pi0vl53l0x/config/__init__.py`
 - `src/pi0vl53l0x/config/config_manager.py` — project-relative config
-- `tests/test_continuous.py`
 - `tests/test_config.py`
-
-**ContinuousReader implementation:**
-
-```python
-class ContinuousReader:
-    def __init__(self, sensor: VL53L0X, interval: float = 0.1):
-        self._sensor = sensor
-        self._interval = interval
-        self._latest = -1
-        self._lock = threading.Lock()
-        self._stop_event = threading.Event()
-        self._thread = None
-
-    def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._poll_loop, daemon=True
-        )
-        self._thread.start()
-
-    def stop(self) -> None:
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join(timeout=1.0)
-
-    @property
-    def latest(self) -> int:
-        with self._lock:
-            return self._latest
-
-    @property
-    def is_running(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
-
-    def _poll_loop(self) -> None:
-        while not self._stop_event.is_set():
-            try:
-                distance = self._sensor.get_range()
-                with self._lock:
-                    self._latest = distance
-            except OSError:
-                pass  # I2C error during shutdown
-            except Exception:
-                with self._lock:
-                    self._latest = -1
-                break
-            time.sleep(self._interval)
-```
 
 **ConfigManager implementation (pi0servo pattern):**
 
@@ -689,7 +638,7 @@ class ConfigManager:
         return json.dumps(self.load(), indent=2)
 ```
 
-**Verification:** `uv run pytest tests/test_continuous.py tests/test_config.py -v`
+**Verification:** `uv run pytest tests/test_config.py -v`
 
 ---
 
@@ -749,6 +698,28 @@ pi0vl53l0x = "pi0vl53l0x.__main__:main"
 
 ---
 
+### Phase 6: ContinuousReader *(DEFERRED — Future)*
+
+**Goal:** Add optional background continuous polling for standalone users.
+
+**Files to create (future):**
+- `src/pi0vl53l0x/core/continuous.py` — `ContinuousReader`
+- `tests/test_continuous.py`
+
+**Scope clarification:**
+
+| Feature | ContinuousReader (driver) | DistanceMonitor (ninja_core) |
+|---------|--------------------------|------------------------------|
+| Background polling | ✅ simple thread | ✅ with velocity tracking |
+| Thread-safe cache | ✅ `latest` property | ✅ `_current_distance` |
+| Velocity tracking | ❌ | ✅ Robot-specific |
+| Emergency stop | ❌ | ✅ Robot-specific |
+| Health auto-recovery | ❌ | ✅ Can call `reinitialize()` |
+
+> **Note:** `reinitialize()` is NOT thread-safe. Caller must stop the reader/monitor before calling it.
+
+---
+
 ## 6. Testing Strategy
 
 ### 6.1 Unit Tests (PC/Mac — mocked pigpio)
@@ -757,9 +728,8 @@ All tests use a mocked `pigpio.pi()` so they run without hardware.
 
 | Test File | Coverage |
 |-----------|----------|
-| `test_i2c.py` | Retry on failure, backoff timing, bus recovery, byte-swap endian, close guard |
-| `test_sensor.py` | Init sequence (boot polling, VHV retry), get_range(), get_data() correctness (offset fix), health_check(), reinitialize(), async via asyncio, error propagation, context manager |
-| `test_continuous.py` | Start/stop lifecycle, latest caching, thread safety, error handling, double-start |
+| `test_i2c.py` | Retry on failure, backoff timing, bus recovery, byte-swap endian, close guard, **thread safety** (concurrent read/write) |
+| `test_sensor.py` | Init sequence (boot polling, VHV retry, **cleanup on failure**), get_range() **exception contract**, get_data() correctness (offset fix), health_check(), reinitialize(), async via asyncio, error propagation, context manager |
 | `test_config.py` | Load/save, default path resolution, missing file handling, export/import |
 
 ```bash
@@ -787,11 +757,11 @@ cd pi0vl53l0x && uv run pytest tests/ -v
 [project]
 dependencies = [
     "click",
-    "pigpio",
     "ninja_utils",
 ]
 
 [project.optional-dependencies]
+pi = ["pigpio"]  # RPi-only — requires pigpiod daemon
 dev = [
     "pytest",
     "ruff",
