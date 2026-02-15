@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-16: pi0vl53l0x — Interactive `vl53l0x-tool` CLI ✓
+- **Action**: Added interactive menu-driven TUI for VL53L0X sensor operations.
+- **Details**:
+    - Created `cli/vl53l0x_tool.py` (475 lines) with 8 menu options: Single Read, Continuous Read, Performance Test, Calibrate, Health Check, Status, Config Management, and Reinitialize.
+    - Uses `blessed` for TUI rendering and `click` for command registration, matching `pi0servo`'s `servo-tool` pattern.
+    - Registered command in `__main__.py` via `cli.add_command()`, exported from `cli/__init__.py`.
+    - Added `blessed` to `pyproject.toml` dependencies.
+    - Updated `pi0vl53l0x/README.md` with usage docs and menu option table.
+- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/cli/vl53l0x_tool.py`, `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/__init__.py`, `pi0vl53l0x/pyproject.toml`, `pi0vl53l0x/README.md`.
+
 ## 2026-02-16: pi0vl53l0x Bug Fix — Entry Point & pigpio Import ✓
 - **Action**: Fixed two critical bugs in pi0vl53l0x CLI and documented `uv sync` installation.
 - **Details**:

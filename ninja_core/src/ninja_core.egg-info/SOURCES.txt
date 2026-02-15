@@ -11,7 +11,6 @@ src/ninja_core/hal.py
 src/ninja_core/movement_cli.py
 src/ninja_core/movement_controller.py
 src/ninja_core/ninja_agent.py
-src/ninja_core/ninja_coder.py
 src/ninja_core/perception.py
 src/ninja_core/robot_sound.py
 src/ninja_core/safe_executor.py

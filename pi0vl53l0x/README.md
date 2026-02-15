@@ -11,6 +11,7 @@ A robust Python driver for the VL53L0X Time-of-Flight distance sensor using pigp
 - **Async ready** — `get_range_async()` for asyncio integration
 - **Config management** — JSON-based offset storage with export/import
 - **Interactive CLI** — 8 commands for standalone testing without writing code
+- **Interactive Tool** — `vl53l0x-tool` TUI for guided sensor testing, calibration & diagnostics
 - **100% backward compatible** — drop-in replacement for ninja_core integration
 
 ## Directory Structure
@@ -38,13 +39,15 @@ pi0vl53l0x/
     │   └── config_manager.py    # JSON load/save/export/import
     └── cli/                     # CLI commands
         ├── __init__.py
-        └── sensor_tool.py       # Click CLI tool (8 commands)
+        ├── sensor_tool.py       # Click CLI tool (8 commands)
+        └── vl53l0x_tool.py      # Interactive TUI tool (blessed)
 ```
 
 ## Requirements
 
 - Python ≥ 3.9
 - `click` — CLI framework
+- `blessed` — Terminal UI for interactive tool
 - `ninja_utils` — logging and Sensor ABC
 - `pigpio` — Raspberry Pi I2C (optional, required only on RPi)
 
@@ -296,6 +299,29 @@ pi0vl53l0x --debug get --count 5
 # Use custom config file
 pi0vl53l0x --config-file custom.json get
 ```
+
+### Interactive Tool (vl53l0x-tool)
+
+```bash
+# Launch the interactive TUI
+pi0vl53l0x vl53l0x-tool
+
+# With custom config
+pi0vl53l0x vl53l0x-tool --config my_sensor.json
+```
+
+The interactive tool provides a menu-driven interface with 8 options:
+
+| # | Function | Description |
+|---|----------|-------------|
+| 1 | Single Read | Take one distance measurement (repeat with Enter) |
+| 2 | Continuous Read | Stream readings at configurable interval |
+| 3 | Performance | Measure readings/second with statistics |
+| 4 | Calibrate | Guided offset calibration at known distance |
+| 5 | Health Check | Verify sensor connection and test reading |
+| 6 | Status | Full diagnostics (health, offset, config, reading) |
+| 7 | Config | Show/export/import sensor settings |
+| 8 | Reinitialize | Reset sensor for recovery from stuck state |
 
 ## Testing
 

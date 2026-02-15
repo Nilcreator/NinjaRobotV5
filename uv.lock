@@ -1265,27 +1265,25 @@ provides-extras = ["ninjarobot", "dev"]
 
 [[package]]
 name = "pi0vl53l0x"
-version = "0.1.0"
+version = "2.0.0"
 source = { editable = "pi0vl53l0x" }
 dependencies = [
+    { name = "blessed" },
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "ninja-utils" },
-    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
-    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "pigpio" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "blessed" },
     { name = "click" },
     { name = "ninja-utils" },
-    { name = "numpy" },
-    { name = "pigpio" },
+    { name = "pigpio", marker = "extra == 'pi'" },
+    { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["pi", "dev"]
 
 [[package]]
 name = "pigpio"
