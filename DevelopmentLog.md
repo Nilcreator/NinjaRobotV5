@@ -1,15 +1,16 @@
 # Development Log
 
 
-## 2026-02-16: pi0vl53l0x — Interactive `vl53l0x-tool` CLI ✓
-- **Action**: Added interactive menu-driven TUI for VL53L0X sensor operations.
+## 2026-02-16: pi0vl53l0x — Consolidated Interactive `sensor-tool` CLI ✓
+- **Action**: Consolidated CLI into a single interactive `sensor-tool` TUI command.
 - **Details**:
-    - Created `cli/vl53l0x_tool.py` (475 lines) with 8 menu options: Single Read, Continuous Read, Performance Test, Calibrate, Health Check, Status, Config Management, and Reinitialize.
+    - Merged interactive TUI (originally `vl53l0x_tool.py`) into `sensor_tool.py` as the `sensor-tool` subcommand.
+    - Removed redundant individual CLI commands (`get`, `performance`, `calibrate`, `test`, `status`, `config`) — all functionality is now accessible through the 8-option interactive menu.
+    - Deleted `vl53l0x_tool.py`. Single file `sensor_tool.py` now contains the `cli` group + `sensor-tool` command.
+    - Simplified `__main__.py` — imports `cli` and `main` directly from `sensor_tool.py`.
     - Uses `blessed` for TUI rendering and `click` for command registration, matching `pi0servo`'s `servo-tool` pattern.
-    - Registered command in `__main__.py` via `cli.add_command()`, exported from `cli/__init__.py`.
-    - Added `blessed` to `pyproject.toml` dependencies.
-    - Updated `pi0vl53l0x/README.md` with usage docs and menu option table.
-- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/cli/vl53l0x_tool.py`, `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/__init__.py`, `pi0vl53l0x/pyproject.toml`, `pi0vl53l0x/README.md`.
+    - Updated `pi0vl53l0x/README.md`: removed old individual command docs, renamed to `sensor-tool`, updated directory structure.
+- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/cli/sensor_tool.py`, `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/__init__.py`, `pi0vl53l0x/pyproject.toml`, `pi0vl53l0x/README.md`.
 
 ## 2026-02-16: pi0vl53l0x Bug Fix — Entry Point & pigpio Import ✓
 - **Action**: Fixed two critical bugs in pi0vl53l0x CLI and documented `uv sync` installation.

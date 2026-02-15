@@ -11,7 +11,7 @@ A robust Python driver for the VL53L0X Time-of-Flight distance sensor using pigp
 - **Async ready** — `get_range_async()` for asyncio integration
 - **Config management** — JSON-based offset storage with export/import
 - **Interactive CLI** — 8 commands for standalone testing without writing code
-- **Interactive Tool** — `vl53l0x-tool` TUI for guided sensor testing, calibration & diagnostics
+- **Interactive Tool** — `sensor-tool` TUI for guided sensor testing, calibration & diagnostics
 - **100% backward compatible** — drop-in replacement for ninja_core integration
 
 ## Directory Structure
@@ -39,8 +39,7 @@ pi0vl53l0x/
     │   └── config_manager.py    # JSON load/save/export/import
     └── cli/                     # CLI commands
         ├── __init__.py
-        ├── sensor_tool.py       # Click CLI tool (8 commands)
-        └── vl53l0x_tool.py      # Interactive TUI tool (blessed)
+        └── sensor_tool.py       # Interactive sensor-tool TUI + CLI entry point
 ```
 
 ## Requirements
@@ -235,82 +234,19 @@ manager.import_config("backup.json")
 | `RuntimeError` | Sensor not initialized |
 | `ConnectionError` | Invalid Model ID (expected 0xEE) or connection failure |
 
-## CLI Commands
+## CLI — Interactive Sensor Tool
 
-**Entry Point:** `pi0vl53l0x <command>` or `uv run pi0vl53l0x <command>`
-
-### Read Distance
-
-```bash
-# Single reading
-pi0vl53l0x get
-
-# 10 readings at 0.5s intervals
-pi0vl53l0x get --count 10 --interval 0.5
-```
-
-### Performance Measurement
-
-```bash
-# Measure readings per second (100 samples)
-pi0vl53l0x performance --count 100
-```
-
-### Calibration
-
-```bash
-# Place a target at exactly 100mm from sensor, then run:
-pi0vl53l0x calibrate --distance 100 --count 10
-```
-
-### Quick Test
-
-```bash
-# Initialize sensor and take 5 test readings
-pi0vl53l0x test
-```
-
-### Health Status
-
-```bash
-# Full sensor health report (Model ID, connection, test reading)
-pi0vl53l0x status
-```
-
-### Configuration Management
-
-```bash
-# View current settings
-pi0vl53l0x config show
-
-# Backup configuration
-pi0vl53l0x config export backup.json
-
-# Restore configuration
-pi0vl53l0x config import backup.json
-```
-
-### Global Options
-
-```bash
-# Enable debug logging
-pi0vl53l0x --debug get --count 5
-
-# Use custom config file
-pi0vl53l0x --config-file custom.json get
-```
-
-### Interactive Tool (vl53l0x-tool)
+**Entry Point:** `pi0vl53l0x sensor-tool` or `uv run pi0vl53l0x sensor-tool`
 
 ```bash
 # Launch the interactive TUI
-pi0vl53l0x vl53l0x-tool
+pi0vl53l0x sensor-tool
 
-# With custom config
-pi0vl53l0x vl53l0x-tool --config my_sensor.json
+# With custom config file
+pi0vl53l0x sensor-tool --config my_sensor.json
 ```
 
-The interactive tool provides a menu-driven interface with 8 options:
+The `sensor-tool` provides a menu-driven interface with 8 options:
 
 | # | Function | Description |
 |---|----------|-------------|
