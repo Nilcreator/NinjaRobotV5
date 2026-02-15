@@ -1,16 +1,15 @@
 # Development Log
 
 
-## 2026-02-16: pi0vl53l0x — Consolidated Interactive `sensor-tool` CLI ✓
-- **Action**: Consolidated CLI into a single interactive `sensor-tool` TUI command.
+## 2026-02-16: pi0vl53l0x — CLI Refinement & README Restructuring ✓
+- **Action**: Restored individual CLI commands alongside `sensor-tool` TUI; restructured README for standalone Pi usage.
 - **Details**:
-    - Merged interactive TUI (originally `vl53l0x_tool.py`) into `sensor_tool.py` as the `sensor-tool` subcommand.
-    - Removed redundant individual CLI commands (`get`, `performance`, `calibrate`, `test`, `status`, `config`) — all functionality is now accessible through the 8-option interactive menu.
-    - Deleted `vl53l0x_tool.py`. Single file `sensor_tool.py` now contains the `cli` group + `sensor-tool` command.
-    - Simplified `__main__.py` — imports `cli` and `main` directly from `sensor_tool.py`.
-    - Uses `blessed` for TUI rendering and `click` for command registration, matching `pi0servo`'s `servo-tool` pattern.
-    - Updated `pi0vl53l0x/README.md`: removed old individual command docs, renamed to `sensor-tool`, updated directory structure.
-- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/cli/sensor_tool.py`, `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/__init__.py`, `pi0vl53l0x/pyproject.toml`, `pi0vl53l0x/README.md`.
+    - Restored individual CLI commands (`get`, `performance`, `calibrate`, `test`, `status`, `config show/export/import`) to `sensor_tool.py` alongside the interactive `sensor-tool` TUI.
+    - Added `_create_sensor()` helper for shared sensor initialization across individual commands.
+    - Restructured `README.md`: Installation focuses on standalone Raspberry Pi with explicit `uv` setup instructions. CLI sections (interactive + individual commands) moved above Quick Start. All command examples use `uv run` prefix.
+    - Fixed stale installation bug: `sensor-tool` command was not found on Pi due to cached old `sensor_tool.py` without the `sensor-tool` subcommand.
+- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/cli/sensor_tool.py`, `pi0vl53l0x/README.md`.
+
 
 ## 2026-02-16: pi0vl53l0x Bug Fix — Entry Point & pigpio Import ✓
 - **Action**: Fixed two critical bugs in pi0vl53l0x CLI and documented `uv sync` installation.

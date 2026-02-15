@@ -10,8 +10,8 @@ A robust Python driver for the VL53L0X Time-of-Flight distance sensor using pigp
 - **Defined exception contract** — `I2CError`, `TimeoutError`, `RuntimeError` for clear error handling
 - **Async ready** — `get_range_async()` for asyncio integration
 - **Config management** — JSON-based offset storage with export/import
-- **Interactive CLI** — 8 commands for standalone testing without writing code
-- **Interactive Tool** — `sensor-tool` TUI for guided sensor testing, calibration & diagnostics
+- **Interactive CLI** — `sensor-tool` TUI with 8 menu options for guided sensor operations
+- **Individual commands** — `get`, `test`, `status`, `calibrate`, `performance`, `config` for scripting
 - **100% backward compatible** — drop-in replacement for ninja_core integration
 
 ## Directory Structure
@@ -39,7 +39,7 @@ pi0vl53l0x/
     │   └── config_manager.py    # JSON load/save/export/import
     └── cli/                     # CLI commands
         ├── __init__.py
-        └── sensor_tool.py       # Interactive sensor-tool TUI + CLI entry point
+        └── sensor_tool.py       # Individual commands + interactive sensor-tool TUI
 ```
 
 ## Requirements
@@ -48,39 +48,135 @@ pi0vl53l0x/
 - `click` — CLI framework
 - `blessed` — Terminal UI for interactive tool
 - `ninja_utils` — logging and Sensor ABC
-- `pigpio` — Raspberry Pi I2C (optional, required only on RPi)
+- `pigpio` — Raspberry Pi I2C (required on RPi)
 
-## Installation
+## Installation (Standalone on Raspberry Pi)
 
-### Using `uv sync` (Recommended)
+### Step 1: Install `uv` (Python package manager)
 
 ```bash
-# On development machine (Mac/PC) — pigpio not needed:
-cd pi0vl53l0x
-uv sync
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc    # or restart your terminal
+```
 
-# On Raspberry Pi — includes pigpio:
+> **Note:** `uv` is a fast Python package manager that replaces `pip` and `venv`. It automatically creates a `.venv` and manages all dependencies.
+
+### Step 2: Clone and install pi0vl53l0x
+
+```bash
+# Clone the repository (or copy the pi0vl53l0x folder to your Pi)
 cd pi0vl53l0x
+
+# Install all dependencies including pigpio for Raspberry Pi
 uv sync --extra pi
 ```
 
-> **Note:** `uv sync` automatically creates a `.venv` and installs all dependencies from `pyproject.toml`. Use `--extra pi` to include the `pigpio` optional dependency required on Raspberry Pi.
-
-### Using `uv pip install` (Alternative)
+### Step 3: Start pigpiod
 
 ```bash
-# On development machine (Mac/PC):
-uv pip install -e ./pi0vl53l0x
-
-# On Raspberry Pi (with pigpio):
-uv pip install -e "./pi0vl53l0x[pi]"
+sudo pigpiod
 ```
 
-### As part of NinjaRobotV5 (root project)
+> **Tip:** To start pigpiod automatically on boot:
+> ```bash
+> sudo systemctl enable pigpiod
+> ```
+
+### Step 4: Verify installation
 
 ```bash
-cd NinjaRobotV5
-uv sync    # pigpio is a main dependency — installed automatically
+uv run pi0vl53l0x --help
+uv run pi0vl53l0x test
+```
+
+## CLI — Interactive Sensor Tool
+
+Launch the interactive TUI with 8 menu options for guided sensor operations:
+
+```bash
+# Launch the interactive TUI
+uv run pi0vl53l0x sensor-tool
+
+# With custom config file
+uv run pi0vl53l0x sensor-tool --config my_sensor.json
+```
+
+The `sensor-tool` provides a menu-driven interface:
+
+| # | Function | Description |
+|---|----------|-------------|
+| 1 | Single Read | Take one distance measurement (repeat with Enter) |
+| 2 | Continuous Read | Stream readings at configurable interval |
+| 3 | Performance | Measure readings/second with statistics |
+| 4 | Calibrate | Guided offset calibration at known distance |
+| 5 | Health Check | Verify sensor connection and test reading |
+| 6 | Status | Full diagnostics (health, offset, config, reading) |
+| 7 | Config | Show/export/import sensor settings |
+| 8 | Reinitialize | Reset sensor for recovery from stuck state |
+
+## CLI — Individual Commands
+
+Individual commands are ideal for scripting, automation, and quick one-off operations.
+
+### Read Distance
+
+```bash
+# Single reading
+uv run pi0vl53l0x get
+
+# 10 readings at 0.5s intervals
+uv run pi0vl53l0x get --count 10 --interval 0.5
+```
+
+### Quick Test
+
+```bash
+# Initialize sensor and take 5 test readings
+uv run pi0vl53l0x test
+```
+
+### Health Status
+
+```bash
+# Full sensor health report (connection, offset, reading, config)
+uv run pi0vl53l0x status
+```
+
+### Performance Benchmark
+
+```bash
+# Measure readings per second (100 samples)
+uv run pi0vl53l0x performance --count 100
+```
+
+### Calibration
+
+```bash
+# Place a target at exactly 100mm from sensor, then run:
+uv run pi0vl53l0x calibrate --distance 100 --count 10
+```
+
+### Configuration Management
+
+```bash
+# View current settings
+uv run pi0vl53l0x config show
+
+# Backup configuration
+uv run pi0vl53l0x config export backup.json
+
+# Restore configuration
+uv run pi0vl53l0x config import backup.json
+```
+
+### Global Options
+
+```bash
+# Enable debug logging
+uv run pi0vl53l0x --debug get --count 5
+
+# Use custom config file
+uv run pi0vl53l0x --config-file custom.json get
 ```
 
 ## Quick Start
@@ -234,31 +330,6 @@ manager.import_config("backup.json")
 | `RuntimeError` | Sensor not initialized |
 | `ConnectionError` | Invalid Model ID (expected 0xEE) or connection failure |
 
-## CLI — Interactive Sensor Tool
-
-**Entry Point:** `pi0vl53l0x sensor-tool` or `uv run pi0vl53l0x sensor-tool`
-
-```bash
-# Launch the interactive TUI
-pi0vl53l0x sensor-tool
-
-# With custom config file
-pi0vl53l0x sensor-tool --config my_sensor.json
-```
-
-The `sensor-tool` provides a menu-driven interface with 8 options:
-
-| # | Function | Description |
-|---|----------|-------------|
-| 1 | Single Read | Take one distance measurement (repeat with Enter) |
-| 2 | Continuous Read | Stream readings at configurable interval |
-| 3 | Performance | Measure readings/second with statistics |
-| 4 | Calibrate | Guided offset calibration at known distance |
-| 5 | Health Check | Verify sensor connection and test reading |
-| 6 | Status | Full diagnostics (health, offset, config, reading) |
-| 7 | Config | Show/export/import sensor settings |
-| 8 | Reinitialize | Reset sensor for recovery from stuck state |
-
 ## Testing
 
 ```bash
@@ -280,10 +351,11 @@ uv run --extra dev ruff check src/ tests/
 ### Manual Testing on Raspberry Pi
 
 1. Start pigpiod: `sudo pigpiod`
-2. Quick test: `pi0vl53l0x test`
-3. Health check: `pi0vl53l0x status`
-4. Read distances: `pi0vl53l0x get -c 5`
-5. Calibrate: `pi0vl53l0x calibrate -d 100 -c 10`
+2. Quick test: `uv run pi0vl53l0x test`
+3. Health check: `uv run pi0vl53l0x status`
+4. Read distances: `uv run pi0vl53l0x get --count 5`
+5. Calibrate: `uv run pi0vl53l0x calibrate --distance 100 --count 10`
+6. Interactive tool: `uv run pi0vl53l0x sensor-tool`
 
 ## Architecture
 
