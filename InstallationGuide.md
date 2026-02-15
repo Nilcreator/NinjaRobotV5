@@ -419,16 +419,30 @@ You should see `(NinjaRobotV5)` or `(.venv)` appear at the start of your termina
 
 ### Step 6.3: Install All Dependencies
 
-Now install the project dependencies into the virtual environment:
+Install the project dependencies into the virtual environment using one of these methods:
+
+**Method A: `uv sync` (Recommended)**
+
+```bash
+uv sync
+```
+
+`uv sync` automatically reads `pyproject.toml`, resolves all dependencies, and installs them into the `.venv`. This is the simplest and most reliable method.
+
+**Method B: `uv pip install -e .` (Alternative)**
 
 ```bash
 uv pip install -e .
 ```
 
-This will:
-- Install all Python dependencies
+This installs the project in editable (development) mode. Use this if you need more control over the installation process.
+
+> **Difference:** `uv sync` creates/manages the `.venv` automatically and uses a lockfile for reproducible installs. `uv pip install -e .` installs into an existing virtual environment without a lockfile.
+
+Both methods will:
+- Install all Python dependencies (including `pigpio`)
 - Set up all the robot's libraries in editable mode
-- Make all CLI commands available
+- Make all CLI commands available (`pi0vl53l0x`, `pi0servo`, etc.)
 
 The installation may take 5-10 minutes.
 
@@ -1210,16 +1224,30 @@ source .venv/bin/activate
 
 ### ステップ6.3: すべての依存関係のインストール
 
-プロジェクトの依存関係を仮想環境にインストールします:
+以下のいずれかの方法で、プロジェクトの依存関係を仮想環境にインストールします:
+
+**方法A: `uv sync`（推奨）**
+
+```bash
+uv sync
+```
+
+`uv sync` は `pyproject.toml` を自動的に読み取り、すべての依存関係を解決して `.venv` にインストールします。最もシンプルで信頼性の高い方法です。
+
+**方法B: `uv pip install -e .`（代替方法）**
 
 ```bash
 uv pip install -e .
 ```
 
-これにより:
-- すべてのPython依存関係がインストールされます
+プロジェクトを編集可能（開発）モードでインストールします。インストールプロセスをより細かく制御したい場合に使用してください。
+
+> **違い:** `uv sync` は `.venv` を自動的に作成・管理し、ロックファイルで再現可能なインストールを行います。`uv pip install -e .` は既存の仮想環境にロックファイルなしでインストールします。
+
+どちらの方法でも:
+- すべてのPython依存関係がインストールされます（`pigpio`を含む）
 - ロボットのすべてのライブラリが編集可能モードで設定されます
-- すべてのCLIコマンドが使用可能になります
+- すべてのCLIコマンドが使用可能になります（`pi0vl53l0x`、`pi0servo` など）
 
 インストールには5〜10分かかる場合があります。
 
@@ -1994,16 +2022,30 @@ source .venv/bin/activate
 
 ### 步驟 6.3：安裝所有依賴項
 
-現在將專案依賴項安裝到虛擬環境中：
+使用以下任一方法將專案依賴項安裝到虛擬環境中：
+
+**方法 A：`uv sync`（推薦）**
+
+```bash
+uv sync
+```
+
+`uv sync` 會自動讀取 `pyproject.toml`，解析所有依賴項並安裝到 `.venv` 中。這是最簡單且最可靠的方法。
+
+**方法 B：`uv pip install -e .`（替代方法）**
 
 ```bash
 uv pip install -e .
 ```
 
-這將：
-- 安裝所有 Python 依賴項
+以可編輯（開發）模式安裝專案。如果您需要更多安裝過程控制，請使用此方法。
+
+> **差異：** `uv sync` 會自動建立/管理 `.venv`，並使用鎖定檔進行可重現的安裝。`uv pip install -e .` 安裝到現有虛擬環境中，不使用鎖定檔。
+
+兩種方法都會：
+- 安裝所有 Python 依賴項（包含 `pigpio`）
 - 以可編輯模式設定機器人的所有函式庫
-- 使所有 CLI 命令可用
+- 使所有 CLI 命令可用（`pi0vl53l0x`、`pi0servo` 等）
 
 安裝可能需要 5-10 分鐘。
 

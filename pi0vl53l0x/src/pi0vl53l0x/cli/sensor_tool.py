@@ -42,7 +42,10 @@ def _connect_pigpio() -> object:
         import pigpio  # type: ignore[import-untyped]
     except ImportError:
         raise click.ClickException(
-            "pigpio is not installed. Install with: pip install pigpio"
+            "pigpio is not installed. Install with:\n"
+            "  Standalone: uv sync --extra pi\n"
+            "  NinjaRobotV5: uv sync  (pigpio is a main dependency)\n"
+            "  Manual: pip install pigpio"
         )
 
     pi = pigpio.pi()

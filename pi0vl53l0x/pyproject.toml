@@ -18,7 +18,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project.scripts]
-pi0vl53l0x = "pi0vl53l0x.__main__:main"
+pi0vl53l0x = "pi0vl53l0x.__main__:cli"
 
 [project.optional-dependencies]
 pi = ["pigpio"]

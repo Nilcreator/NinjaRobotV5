@@ -1,6 +1,17 @@
 # Development Log
 
 
+## 2026-02-16: pi0vl53l0x Bug Fix — Entry Point & pigpio Import ✓
+- **Action**: Fixed two critical bugs in pi0vl53l0x CLI and documented `uv sync` installation.
+- **Details**:
+    - Fixed `ImportError: cannot import name 'cli'` — root `pyproject.toml` referenced `:cli` but `__main__.py` only exported `main`. Now exports both.
+    - Aligned `pi0vl53l0x/pyproject.toml` entry point to `:cli` (matching root convention).
+    - Guarded top-level `VL53L0X` import in `__init__.py` for environments without pigpio.
+    - Improved `_connect_pigpio()` error message with `uv sync --extra pi` instructions.
+    - Added `uv sync` (recommended) alongside `uv pip install -e .` in `InstallationGuide.md` Step 6.3 (EN/JA/ZH-TW).
+    - Updated `pi0vl53l0x/README.md` installation section with `uv sync --extra pi`.
+- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/__init__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/sensor_tool.py`, `pi0vl53l0x/pyproject.toml`, `InstallationGuide.md`, `pi0vl53l0x/README.md`.
+
 ## 2026-02-15: InstallationGuide.md — pi0vl53l0x V2 Content Refinement ✓
 - **Action**: Expanded all pi0vl53l0x sections in `InstallationGuide.md` (EN/JA/ZH-TW) to reflect V2 CLI.
 - **Details**:

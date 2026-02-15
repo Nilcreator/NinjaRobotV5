@@ -50,12 +50,35 @@ pi0vl53l0x/
 
 ## Installation
 
+### Using `uv sync` (Recommended)
+
+```bash
+# On development machine (Mac/PC) — pigpio not needed:
+cd pi0vl53l0x
+uv sync
+
+# On Raspberry Pi — includes pigpio:
+cd pi0vl53l0x
+uv sync --extra pi
+```
+
+> **Note:** `uv sync` automatically creates a `.venv` and installs all dependencies from `pyproject.toml`. Use `--extra pi` to include the `pigpio` optional dependency required on Raspberry Pi.
+
+### Using `uv pip install` (Alternative)
+
 ```bash
 # On development machine (Mac/PC):
 uv pip install -e ./pi0vl53l0x
 
 # On Raspberry Pi (with pigpio):
 uv pip install -e "./pi0vl53l0x[pi]"
+```
+
+### As part of NinjaRobotV5 (root project)
+
+```bash
+cd NinjaRobotV5
+uv sync    # pigpio is a main dependency — installed automatically
 ```
 
 ## Quick Start
