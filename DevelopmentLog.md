@@ -1,6 +1,29 @@
 # Development Log
 
 
+## 2026-02-15: pi0vl53l0x V2 Documentation Update ✓
+- **Action**: Updated all project documentation to reflect the pi0vl53l0x V2 rebuild.
+- **Details**:
+    - `DevelopmentGuide.md`: Rewrote section 3.3 (new I2C/sensor/config/CLI modules, full API reference tables, exception contract, usage examples). Updated file tree, version to 5.2.3, added V5.2.3 change summary, updated dependency graph.
+    - `README.md`: Updated version to 5.2.3 and pi0vl53l0x V2 status in EN/JA/ZH-TW.
+    - `pi0vl53l0x/README.md`: Full rewrite with directory structure, installation, Python API examples, complete API reference, 8 CLI commands with examples, test coverage table, and ASCII architecture diagram.
+- **Related Files**: `DevelopmentGuide.md`, `README.md`, `pi0vl53l0x/README.md`.
+
+## 2026-02-14: pi0vl53l0x V2 Library Rebuild — COMPLETE ✓
+- **Action**: Full rewrite of the VL53L0X distance sensor driver from scratch.
+- **Details**:
+    - **Phase 1 - Scaffold & I2C**: Created `core/i2c.py` with thread-safe `threading.Lock`, exponential backoff retry (10→20→50ms), bus recovery, big-endian word handling. `registers.py` with ~60 semantic constants (22 tests).
+    - **Phase 2 - Sensor Driver**: Created `core/sensor.py` with hardened init (firmware boot polling up to 1.0s), fixed V2 offset bug (raw_value now truly raw), defined exception contract (`I2CError`/`TimeoutError`/`RuntimeError`), async support, health check, reinitialize. `driver.py` backward-compat shim (22 tests).
+    - **Phase 3 - Config Manager**: Created `config/config_manager.py` with load/save, export/import, corrupt JSON handling, project-relative default path (16 tests).
+    - **Phase 4 - CLI Module**: Created `cli/sensor_tool.py` with 8 commands: `get`, `performance`, `calibrate`, `test`, `status`, `config show/export/import`. English output, lazy `pigpio` import.
+    - **Phase 5 - Integration**: Verified backward compat with `ninja_core/hal.py` (`pi0vl53l0x.driver.VL53L0X`). Updated `README.md` with full docs.
+- **Key Fixes**:
+    - **V2 offset bug**: `get_data()` now stores true raw value before offset correction
+    - **Reboot bug**: Firmware boot polling with configurable timeout prevents "returns 0"
+    - **Thread safety**: All I2C access serialized via `threading.Lock`
+- **Validation**: 60/60 tests pass, ruff lint clean.
+- **Related Files**: `pi0vl53l0x/src/pi0vl53l0x/*`, `pi0vl53l0x/tests/*`, `pi0vl53l0x/README.md`.
+
 ## 2026-02-09: Movement Fluidity Enhancement ✓
 - **Issue**: Multi-servo recorded movements feel mechanical with abrupt transitions.
 - **Root Cause**: Each step uses `ease_in_out_cubic` independently, creating stop-start pattern.

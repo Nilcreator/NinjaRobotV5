@@ -104,8 +104,8 @@ Then open `http://ninjarobot.local:8000` in your browser!
 
 ## 📊 Current Status
 
-**Version:** 5.2.1  
-**Status:** Phase 5 Complete ✅ + pi0servo V2
+**Version:** 5.2.3  
+**Status:** Phase 5 Complete ✅ + pi0servo V2 + pi0vl53l0x V2
 
 All core features have been implemented and verified:
 - ✅ Modular Hardware Abstraction Layer
@@ -113,6 +113,7 @@ All core features have been implemented and verified:
 - ✅ Agentic AI with Action Planning
 - ✅ Safe Code Execution Engine
 - ✅ React Web Application
+- ✅ pi0vl53l0x V2 (thread-safe I2C, hardened init, CLI)
 
 ## 📄 License
 
@@ -209,8 +210,8 @@ uv run ninja_core server
 
 ## 📊 現在のステータス
 
-**バージョン:** 5.2.1  
-**ステータス:** フェーズ5完了 ✅ + pi0servo V2
+**バージョン:** 5.2.3  
+**ステータス:** フェーズ5完了 ✅ + pi0servo V2 + pi0vl53l0x V2
 
 すべてのコア機能が実装・検証されました：
 - ✅ モジュール式ハードウェア抽象化レイヤー
@@ -218,6 +219,7 @@ uv run ninja_core server
 - ✅ アクションプランニング付きエージェント型AI
 - ✅ 安全なコード実行エンジン
 - ✅ React Webアプリケーション
+- ✅ pi0vl53l0x V2（スレッドセーフI2C、堅牢な初期化、CLI）
 
 ## 📄 ライセンス
 
@@ -314,8 +316,8 @@ uv run ninja_core server
 
 ## 📊 目前狀態
 
-**版本：** 5.2.1  
-**狀態：** 第五階段完成 ✅ + pi0servo V2
+**版本：** 5.2.3  
+**狀態：** 第五階段完成 ✅ + pi0servo V2 + pi0vl53l0x V2
 
 所有核心功能已實作並驗證：
 - ✅ 模組化硬體抽象層
@@ -323,6 +325,7 @@ uv run ninja_core server
 - ✅ 具動作規劃的代理式AI
 - ✅ 安全程式碼執行引擎
 - ✅ React網頁應用程式
+- ✅ pi0vl53l0x V2（線程安全I2C、強化初始化、CLI）
 
 ## 📄 授權
 

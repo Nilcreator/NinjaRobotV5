@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.2  
-**Last Updated:** 2026-02-09  
+**Version:** 5.2.3  
+**Last Updated:** 2026-02-15  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -18,7 +18,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 |---|---|
 | `ninja_utils` | Added `Sensor`, `Actuator` ABCs and `DistanceData` dataclass |
 | `pi0buzzer` | **Non-blocking** threaded sound queue, implements `Actuator` |
-| `pi0vl53l0x` | Added `get_data()` method, implements `Sensor` |
+| `pi0vl53l0x` | **REBUILT** — Thread-safe I2C, hardened init, retry with bus recovery, V2 offset fix |
 | `pi0disp` | Added `execute()` command API, implements `Actuator` |
 | `pi0servo` | Added `execute()` for batch control, implements `Actuator` |
 | `ninja_core/hal.py` | **Dynamic driver loading** via `importlib` |
@@ -67,6 +67,15 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `movement_controller.py` | **Position-aware easing** for smooth multi-step sequences |
 | Transition Logic | First step: `ease_in_cubic`, Middle: `linear`, Last: `ease_out_cubic` |
 | Result | Eliminates stop-start pattern, creates fluid momentum-preserving motion |
+
+### Key Changes (V5.2.3 - pi0vl53l0x V2):
+| Component | Change |
+|---|---|
+| `pi0vl53l0x` | **REBUILT** — Full rewrite with modular architecture |
+| `core/i2c.py` | Thread-safe I2C with `threading.Lock`, retry + bus recovery |
+| `core/sensor.py` | Hardened init (firmware boot polling), V2 offset bug fix, health check |
+| `config/config_manager.py` | JSON-based config with export/import, `ConfigManager` class |
+| `cli/sensor_tool.py` | Interactive CLI: `get`, `performance`, `calibrate`, `test`, `status`, `config` |
 
 ### Required Setup:
 ```bash
@@ -161,15 +170,22 @@ NinjaRobotV5/
 │       ├── __main__.py         # CLI entry point
 │       └── driver.py           # Buzzer, MusicBuzzer (Actuator ABC)
 │
-├── pi0vl53l0x/                 # VL53L0X distance sensor library
+├── pi0vl53l0x/                 # VL53L0X distance sensor library (V5.2.3 REBUILT)
 │   ├── pyproject.toml
 │   ├── README.md
+│   ├── tests/                  # Unit tests (pytest, 60 tests)
 │   └── src/pi0vl53l0x/
-│       ├── __init__.py
+│       ├── __init__.py         # Exports VL53L0X, ConfigManager
 │       ├── __main__.py         # CLI entry point
-│       ├── constants.py        # Sensor register addresses
-│       ├── driver.py           # VL53L0X (Sensor ABC)
-│       └── config_manager.py   # Configuration I/O
+│       ├── registers.py        # ~60 semantic register constants
+│       ├── driver.py           # Backward-compat shim (re-exports VL53L0X)
+│       ├── core/               # Core sensor modules
+│       │   ├── i2c.py          # Thread-safe I2C bus wrapper
+│       │   └── sensor.py       # VL53L0X driver (Sensor ABC)
+│       ├── config/             # Configuration management
+│       │   └── config_manager.py  # JSON config load/save/export/import
+│       └── cli/                # CLI commands
+│           └── sensor_tool.py  # Click CLI (8 commands)
 │
 ├── pi0disp/                    # ST7789V display library
 │   ├── pyproject.toml
@@ -233,7 +249,7 @@ ninja_core
     ├─→ ninja_utils (interfaces, logging)
     ├─→ ninja_ble → bless, bleak (BLE backend)
     ├─→ pi0buzzer → pigpio, ninja_utils
-    ├─→ pi0vl53l0x → ninja_utils
+    ├─→ pi0vl53l0x → pigpio, click, ninja_utils
     ├─→ pi0disp → PIL, numpy, ninja_utils
     ├─→ pi0servo → pigpio, ninja_utils
     ├─→ fastapi, uvicorn, pyngrok
@@ -568,138 +584,271 @@ buzzer.play_song(melody)
 
 ### 3.3 pi0vl53l0x
 
-**Purpose:** Driver for VL53L0X Time-of-Flight distance sensor
+**Purpose:** Robust driver for VL53L0X Time-of-Flight distance sensor
 
-**Dependencies:** `pigpio`, `numpy`, `click`, `ninja_utils`
+**Dependencies:** `pigpio` (optional, RPi only), `click`, `ninja_utils`
 
 **Location:** `pi0vl53l0x/src/pi0vl53l0x/`
 
-**Hardware Interface:** I2C (default address: 0x29)
+**Hardware Interface:** I2C (default address: 0x29, bus: 1)
 
-#### 3.3.1 `constants.py`
+> [!IMPORTANT]
+> **V5.2.3 REBUILD**: The pi0vl53l0x library was completely rebuilt with a new architecture:
+> - **Thread-safe I2C** via `threading.Lock` — safe for multi-threaded `DistanceMonitor` use
+> - **Hardened initialization** — firmware boot polling (up to 1.0s) prevents "returns 0 after reboot"
+> - **Automatic retry** with exponential backoff (10→20→50ms) and bus recovery
+> - **V2 offset bug fix** — `get_data()` now stores true raw value before offset correction
+> - **Health check + reinitialize** for runtime recovery without reboot
 
-**Module:** `pi0vl53l0x.constants`
+#### 3.3.1 `core/i2c.py`
 
-Contains all register addresses and configuration constants for the VL53L0X sensor.
+**Module:** `pi0vl53l0x.core.i2c`
 
-**Key Constants:**
-- `VL53L0X_REG_SYSRANGE_START = 0x00`
-- `VL53L0X_REG_RESULT_RANGE_STATUS = 0x14`
-- `DEVICE_ADDRESS = 0x29`
+##### Class: `I2CBus`
 
-**Refer to this module** when working with low-level sensor operations.
-
----
-
-#### 3.3.2 `driver.py`
-
-**Module:** `pi0vl53l0x.driver`
-
-##### Class: `VL53L0X`
-
-Main driver for the VL53L0X distance sensor.
+Thread-safe I2C bus wrapper with automatic retry and bus recovery.
 
 **Constructor:**
 ```python
-def __init__(self, pi: pigpio.pi, address: int = 0x29)
+def __init__(
+    self,
+    pi: pigpio.pi,
+    bus: int = 1,
+    address: int = 0x29,
+    max_retries: int = 3,
+)
 ```
 
 **Parameters:**
 - `pi` (pigpio.pi): Shared pigpio connection
-- `address` (int): I2C address (default: 0x29)
+- `bus` (int): I2C bus number (default: 1)
+- `address` (int): 7-bit I2C address (default: 0x29)
+- `max_retries` (int): Max retries per operation (default: 3)
 
-**Methods:**
+**Key Methods:**
 
-**`initialize() -> None`**
-- Performs sensor initialization sequence
-- **Must be called** after construction before taking measurements
-- **Raises:** `RuntimeError` if sensor not detected
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `read_byte(register)` | `int` | Read single byte |
+| `write_byte(register, value)` | `None` | Write single byte |
+| `read_word_big_endian(register)` | `int` | Read 16-bit word (byte-swap) |
+| `write_word_big_endian(register, value)` | `None` | Write 16-bit word (byte-swap) |
+| `read_block(register, count)` | `list[int]` | Read block of bytes |
+| `write_block(register, data)` | `None` | Write block of bytes |
+| `close()` | `None` | Close I2C handle (safe to call multiple times) |
 
-**`get_range() -> int`**
-- Takes a single distance measurement
-- **Returns:** Distance in millimeters (30-2000mm typical range)
-- **Returns:** `8190` if out of range or error
-- **Blocking:** ~30ms per reading
+**Thread Safety:** All operations are serialized via `threading.Lock`. Concurrent access from `DistanceMonitor` and main thread is safe.
 
-**`set_offset(offset_mm: int) -> None`**
-- Sets calibration offset
-- **Parameters:**
-  - `offset_mm` (int): Offset value in mm (-127 to +127)
+**Retry Strategy:** Exponential backoff (10ms → 20ms → 50ms). On exhaustion, attempts bus recovery by closing and reopening the I2C handle.
 
-**`calibrate(true_distance_mm: int, num_samples: int = 10) -> int`**
-- Calculates required offset for accurate readings
-- **Parameters:**
-  - `true_distance_mm` (int): Known actual distance in mm
-  - `num_samples` (int): Number of samples to average
-- **Returns:** Calculated offset value
-- **Side Effect:** Automatically applies the offset via `set_offset()`
+##### Exception: `I2CError`
 
-**`close() -> None`**
-- Cleanup method (currently a no-op, for future use)
+Raised when I2C communication fails after all retries. Inherits from `Exception`.
 
-**Low-Level I2C Methods:**
-- `read_byte(reg: int) -> int`
-- `write_byte(reg: int, value: int) -> None`
-- `read_word(reg: int) -> int`
-- `write_word(reg: int, value: int) -> None`
+---
+
+#### 3.3.2 `registers.py`
+
+**Module:** `pi0vl53l0x.registers`
+
+Contains ~60 semantic register constants for the VL53L0X sensor, replacing magic hex values throughout the codebase.
+
+**Key Constants:**
+- `SYSRANGE_START = 0x00` — Trigger measurement
+- `RESULT_RANGE_STATUS = 0x14` — Result range status
+- `IDENTIFICATION_MODEL_ID = 0xC0` — Model ID register (expected: 0xEE)
+- `DEVICE_ADDRESS = 0x29` — Default I2C address
+
+---
+
+#### 3.3.3 `core/sensor.py`
+
+**Module:** `pi0vl53l0x.core.sensor`
+
+##### Class: `VL53L0X`
+
+Main driver for the VL53L0X distance sensor. Implements the `Sensor` ABC from `ninja_utils.interfaces`.
+
+**Constructor:**
+```python
+def __init__(
+    self,
+    pi: pigpio.pi,
+    i2c_bus: int = 1,
+    i2c_address: int = 0x29,
+    debug: bool = False,
+    config_file_path: Any = None,
+    firmware_boot_timeout: float = 1.0,
+)
+```
+
+**Parameters:**
+- `pi` (pigpio.pi): Shared pigpio connection
+- `i2c_bus` (int): I2C bus number (default: 1)
+- `i2c_address` (int): 7-bit I2C address (default: 0x29)
+- `debug` (bool): Enable debug logging
+- `config_file_path` (str | None): Path to config JSON with offset_mm
+- `firmware_boot_timeout` (float): Firmware boot timeout in seconds (default: 1.0)
+
+> [!NOTE]
+> The constructor auto-calls `initialize()` — no separate init step is needed. If initialization fails, the I2C handle is automatically released.
+
+**Public API — Measurement:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_range()` | `int` | Single-shot distance in mm (with offset applied) |
+| `get_data()` | `dict` | `{distance_mm, is_valid, raw_value, timestamp}` |
+| `get_ranges(num_samples)` | `list[int]` | Multiple consecutive measurements |
+| `get_range_async()` | `int` | Async version (runs in thread pool executor) |
+
+**Public API — Calibration & Configuration:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `set_offset(offset_mm)` | `None` | Set distance offset in mm |
+| `calibrate(target_distance_mm, num_samples)` | `int` | Measure and return calculated offset |
+
+**Public API — Health & Recovery:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `health_check()` | `bool` | Verify sensor responds (reads Model ID) |
+| `reinitialize()` | `None` | Full re-init — NOT thread-safe |
+| `close()` | `None` | Release I2C handle |
+
+**Backward Compatibility Shim Methods:**
+- `read_byte(register)`, `write_byte(register, value)` — delegate to `self.i2c`
+- `read_word(register)`, `write_word(register, value)` — delegate to `self.i2c`
+- `read_block(register, count)`, `write_block(register, data)` — delegate to `self.i2c`
+
+**Exception Contract:**
+
+| Exception | When |
+|-----------|------|
+| `I2CError` | I2C bus failure after retries |
+| `TimeoutError` | Measurement/boot did not complete within timeout |
+| `RuntimeError` | Sensor not initialized |
+| `ConnectionError` | Invalid Model ID or connection failure |
 
 **Usage:**
 ```python
 import pigpio
-from pi0vl53l0x.driver import VL53L0X
+from pi0vl53l0x import VL53L0X
 
 pi = pigpio.pi()
-sensor = VL53L0X(pi)
-sensor.initialize()
+sensor = VL53L0X(pi)  # Auto-initializes
 
-# Take 10 readings
-for _ in range(10):
-    distance = sensor.get_range()
-    print(f"Distance: {distance}mm")
+# Single measurement
+distance = sensor.get_range()
+print(f"Distance: {distance}mm")
 
-# Calibrate with object at 100mm
-offset = sensor.calibrate(true_distance_mm=100)
-print(f"Calibrated with offset: {offset}mm")
+# Structured data with validity check
+data = sensor.get_data()
+if data["is_valid"]:
+    print(f"Distance: {data['distance_mm']}mm (raw: {data['raw_value']}mm)")
+
+# Calibrate at known 100mm distance
+offset = sensor.calibrate(target_distance_mm=100, num_samples=10)
+sensor.set_offset(offset)
+
+# Health check and recovery
+if not sensor.health_check():
+    sensor.reinitialize()
 
 sensor.close()
 pi.stop()
 ```
 
+**Context Manager:**
+```python
+with VL53L0X(pi) as sensor:
+    distance = sensor.get_range()
+```
+
+**Async Support:**
+```python
+distance = await sensor.get_range_async()
+```
+
+**Backward-Compatible Import:**
+```python
+# Both imports work (driver.py is a shim)
+from pi0vl53l0x import VL53L0X
+from pi0vl53l0x.driver import VL53L0X
+```
+
 ---
 
-#### 3.3.3 `config_manager.py`
+#### 3.3.4 `config/config_manager.py`
 
-**Module:** `pi0vl53l0x.config_manager`
+**Module:** `pi0vl53l0x.config.config_manager`
 
-##### Function: `load_config(path: str = "sensor_config.json") -> dict`
+##### Class: `ConfigManager`
 
-Loads sensor configuration from JSON file.
+Manages sensor configuration persistence in `vl53l0x.json`.
 
-**Returns:** `{"offset": int}` or `{}`
+**Constructor:**
+```python
+def __init__(self, config_path: Path | str | None = None)
+```
 
-##### Function: `save_config(config: dict, path: str = "sensor_config.json") -> None`
+**Key Methods:**
 
-Saves sensor configuration to JSON file.
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `load()` | `dict` | Load config from JSON file |
+| `save()` | `None` | Save current config to JSON file |
+| `get(key, default)` | `Any` | Get config value by key |
+| `set(key, value)` | `None` | Set config value |
+| `export_config(path)` | `None` | Export to backup file |
+| `import_config(path)` | `dict` | Import from backup file |
+
+**Properties:**
+- `path` — Config file path
+- `config` — Current configuration dictionary
+
+##### Standalone Functions (backward-compatible):
+
+```python
+from pi0vl53l0x.config import load_config, save_config
+
+config = load_config()          # Returns {"offset_mm": 0} or {}
+save_config(config={"offset_mm": 10})
+```
 
 ---
 
-#### 3.3.4 CLI Commands
+#### 3.3.5 CLI Commands
 
-**Entry Point:** `uv run pi0vl53l0x <command>`
+**Entry Point:** `uv run pi0vl53l0x <command>` or `pi0vl53l0x <command>`
 
-**Commands:**
+| Command | Description |
+|---------|-------------|
+| `get -c 10 -i 1.0` | Take 10 distance readings at 1s intervals |
+| `performance -c 100` | Measure reading speed (readings/sec) |
+| `calibrate -d 100 -c 10` | Guided offset calibration at 100mm |
+| `test` | Quick sensor validation (5 readings) |
+| `status` | Sensor health report (Model ID, connection, test reading) |
+| `config show` | Display current configuration |
+| `config export backup.json` | Export configuration to file |
+| `config import backup.json` | Import configuration from file |
 
-**`get --count N --interval T`**
-- Takes N distance readings at T second intervals
-- **Example:** `uv run pi0vl53l0x get --count 10 --interval 1.0`
+**Examples:**
+```bash
+# Quick health check
+uv run pi0vl53l0x test
 
-**`performance --count N`**
-- Measures sensor sampling rate
-- **Example:** `uv run pi0vl53l0x performance --count 100`
+# Continuous measurement
+uv run pi0vl53l0x get --count 20 --interval 0.5
 
-**`calibrate --distance D`**
-- Interactive calibration tool
-- **Example:** `uv run pi0vl53l0x calibrate --distance 100`
+# Calibration workflow
+uv run pi0vl53l0x calibrate --distance 100 --count 10
+
+# Config management
+uv run pi0vl53l0x config show
+uv run pi0vl53l0x config export backup.json
+```
 
 ---
 
