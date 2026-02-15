@@ -481,13 +481,31 @@ You should hear a short beep.
 
 ### Step 7.2: Test Distance Sensor
 
-Test the sensor:
+Run the built-in self-test to verify the sensor is connected and working:
+
+```bash
+uv run pi0vl53l0x test
+```
+
+Then take a few live readings:
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
 ```
 
 You should see 5 distance readings in millimeters.
+
+Check the sensor status (firmware, offset, health):
+
+```bash
+uv run pi0vl53l0x status
+```
+
+Optionally, calibrate the sensor by placing an object at a known distance (e.g., 100 mm) and running:
+
+```bash
+uv run pi0vl53l0x calibrate --distance 100 --count 10
+```
 
 ### Step 7.3: Calibrate Servos
 
@@ -588,6 +606,13 @@ Measure sensor speed:
 
 ```bash
 uv run pi0vl53l0x performance --count 100
+```
+
+Check sensor status and current configuration:
+
+```bash
+uv run pi0vl53l0x status
+uv run pi0vl53l0x config show
 ```
 
 ### Test 8.5: AI Agent Test (Text Chat)
@@ -766,6 +791,12 @@ Then try running your command again.
    ```
    You should see `29` or `52` in the output
 3. Check wiring (VCC to 3.3V, not 5V)
+4. Run the built-in diagnostic:
+   ```bash
+   uv run pi0vl53l0x test
+   uv run pi0vl53l0x status
+   ```
+5. If status shows errors, try power-cycling the sensor and re-running `uv run pi0vl53l0x test`
 
 ### Problem: Servos not moving
 
@@ -1242,13 +1273,31 @@ uv run pi0buzzer beep
 
 ### ステップ7.2: 距離センサーのテスト
 
-センサーをテスト:
+内蔵セルフテストを実行して、センサーが正しく接続され動作していることを確認します：
+
+```bash
+uv run pi0vl53l0x test
+```
+
+次に、実際の測定を行います：
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
 ```
 
 ミリメートル単位で5つの距離測定値が表示されるはずです。
+
+センサーのステータス（ファームウェア、オフセット、ヘルスチェック）を確認：
+
+```bash
+uv run pi0vl53l0x status
+```
+
+オプションとして、既知の距離（例：100mm）にオブジェクトを配置してセンサーを校正できます：
+
+```bash
+uv run pi0vl53l0x calibrate --distance 100 --count 10
+```
 
 ### ステップ7.3: サーボの校正
 
@@ -1349,6 +1398,13 @@ uv run pi0buzzer playmusic
 
 ```bash
 uv run pi0vl53l0x performance --count 100
+```
+
+センサーのステータスと現在の設定を確認:
+
+```bash
+uv run pi0vl53l0x status
+uv run pi0vl53l0x config show
 ```
 
 ### テスト8.5: AIエージェントテスト（テキストチャット）
@@ -1529,6 +1585,12 @@ sudo pigpiod
    ```
    出力に`29`または`52`が表示されるはずです
 3. 配線を確認（VCCは3.3Vに、5Vではない）
+4. 内蔵診断ツールを実行:
+   ```bash
+   uv run pi0vl53l0x test
+   uv run pi0vl53l0x status
+   ```
+5. ステータスにエラーが表示される場合は、センサーの電源を入れ直して `uv run pi0vl53l0x test` を再実行してください
 
 ### 問題: サーボが動かない
 
@@ -1995,13 +2057,31 @@ uv run pi0buzzer beep
 
 ### 步驟 7.2：測試距離感測器
 
-測試感測器：
+執行內建自我測試以確認感測器已正確連接且正常運作：
+
+```bash
+uv run pi0vl53l0x test
+```
+
+然後進行實際測量：
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
 ```
 
 您應該會看到 5 個以毫米為單位的距離測量值。
+
+檢查感測器狀態（韌體、偏移值、健康檢查）：
+
+```bash
+uv run pi0vl53l0x status
+```
+
+可選操作：將物體放置在已知距離（例如 100mm）處進行校準：
+
+```bash
+uv run pi0vl53l0x calibrate --distance 100 --count 10
+```
 
 ### 步驟 7.3：校準伺服馬達
 
@@ -2102,6 +2182,13 @@ uv run pi0buzzer playmusic
 
 ```bash
 uv run pi0vl53l0x performance --count 100
+```
+
+檢查感測器狀態和目前設定：
+
+```bash
+uv run pi0vl53l0x status
+uv run pi0vl53l0x config show
 ```
 
 ### 測試 8.5：AI 代理測試（文字聊天）
@@ -2276,6 +2363,12 @@ sudo pigpiod
    ```
    輸出中應該會看到 `29` 或 `52`
 3. 檢查接線（VCC 接 3.3V，不是 5V）
+4. 執行內建診斷工具：
+   ```bash
+   uv run pi0vl53l0x test
+   uv run pi0vl53l0x status
+   ```
+5. 如果狀態顯示錯誤，請將感測器電源重新啟動後再執行 `uv run pi0vl53l0x test`
 
 ### 問題：伺服馬達不動
 

@@ -1,6 +1,14 @@
 # Development Log
 
 
+## 2026-02-15: InstallationGuide.md — pi0vl53l0x V2 Content Refinement ✓
+- **Action**: Expanded all pi0vl53l0x sections in `InstallationGuide.md` (EN/JA/ZH-TW) to reflect V2 CLI.
+- **Details**:
+    - Step 7.2 (Test Distance Sensor): Added `test`, `status`, and `calibrate` commands.
+    - Test 8.4 (Performance): Added `status` and `config show` commands.
+    - Troubleshooting (Distance sensor not responding): Added `test`/`status` diagnostics and power-cycle guidance.
+- **Related Files**: `InstallationGuide.md`.
+
 ## 2026-02-15: pi0vl53l0x V2 Documentation Update ✓
 - **Action**: Updated all project documentation to reflect the pi0vl53l0x V2 rebuild.
 - **Details**:
