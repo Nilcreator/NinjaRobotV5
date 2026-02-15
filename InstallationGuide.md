@@ -593,7 +593,7 @@ Press **Ctrl+C** to stop.
 Move a servo to its center position:
 
 ```bash
-uv run pi0servo servo 20 center
+uv run pi0servo move 20 0
 ```
 
 The servo on GPIO 20 should move to 0 degrees.
@@ -601,9 +601,9 @@ The servo on GPIO 20 should move to 0 degrees.
 Try other positions:
 
 ```bash
-uv run pi0servo servo 20 45
-uv run pi0servo servo 20 -45
-uv run pi0servo servo 20 max
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
+uv run pi0servo cmd "20:X"
 ```
 
 ### Test 8.3: Sound Test
@@ -1399,17 +1399,17 @@ uv run pi0disp ball_anime --num-balls 5
 サーボを中央位置に移動:
 
 ```bash
-uv run pi0servo servo 20 center
+uv run pi0servo move 20 0
 ```
 
-GPIO 20のサーボが0度に移動するはずです。
+GPIO 20のサーボが0度（中心）に移動します。
 
-他の位置を試す:
+他の位置も試してみましょう：
 
 ```bash
-uv run pi0servo servo 20 45
-uv run pi0servo servo 20 -45
-uv run pi0servo servo 20 max
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
+uv run pi0servo cmd "20:X"
 ```
 
 ### テスト8.3: サウンドテスト
@@ -2197,7 +2197,8 @@ uv run pi0disp ball_anime --num-balls 5
 將伺服馬達移動到中心位置：
 
 ```bash
-uv run pi0servo servo 20 center
+```bash
+uv run pi0servo move 20 0
 ```
 
 GPIO 20 上的伺服馬達應該移動到 0 度。
@@ -2205,9 +2206,9 @@ GPIO 20 上的伺服馬達應該移動到 0 度。
 嘗試其他位置：
 
 ```bash
-uv run pi0servo servo 20 45
-uv run pi0servo servo 20 -45
-uv run pi0servo servo 20 max
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
+uv run pi0servo cmd "20:X"
 ```
 
 ### 測試 8.3：聲音測試

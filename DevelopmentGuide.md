@@ -1007,8 +1007,6 @@ img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
 
 ### 3.5 pi0servo
 
-### 3.5 pi0servo
-
 **Purpose:** Velocity-based servo control with calibration and smooth easing
 
 **Dependencies:** `pigpio`, `click`, `blessed`, `ninja_utils`
@@ -1025,9 +1023,9 @@ img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
 > - **Thread-safe abort** mechanism
 > - **Cubic easing** curves (`ease_in_out_cubic` default, plus 6 other options)
 
-#### 3.5.1 `core/servo_group.py`
+#### 3.5.1 `core/multi_servos.py`
 
-**Module:** `pi0servo.core.servo_group`
+**Module:** `pi0servo.core.multi_servos`
 
 ##### Class: `ServoGroup`
 
@@ -1050,16 +1048,24 @@ def __init__(
 
 **Key Methods:**
 
-**`move_all_sync(targets: list[float | None], speed_mode: str | list[str] = "M", easing: str = "ease_in_out_cubic") -> bool`**
+**`move_all_sync(targets: list[float | None], speed_mode: str | list[str] = "M", easing: str = "ease_in_out_cubic", force: bool = False) -> bool`**
 - Moves all servos to target angles synchronously with smooth easing
 - **Parameters:**
   - `targets` (list): Target angles (-90 to 90), `None` = skip servo
   - `speed_mode` (str | list): "F"/"M"/"S" or list for per-servo speeds
-  - `easing` (str): Easing function name (default: `ease_in_out_cubic`)
+  - `easing` (str | Callable): Easing function name or callable (default: `ease_in_out_cubic`)
+  - `force` (bool): If `True`, send PWM even for very small movements (prevents limpness)
 - **Returns:** `True` if completed, `False` if aborted
 
-**`move_all_async(targets, speed_mode, easing) -> None`**
-- Same as `move_all_sync` but returns immediately
+**`move_all_async(targets, speed_mode, easing) -> bool`**
+- Async (non-blocking) version of `move_all_sync` using `asyncio.sleep`
+- **Returns:** `True` if completed, `False` if aborted
+
+**`execute_command(command: str, easing: str = "ease_in_out_cubic") -> bool`**
+- Execute a movement-tool format command string (e.g., `"F_20:45/21:-30"`)
+
+**`execute_command_async(command: str, easing: str = "ease_in_out_cubic") -> bool`**
+- Async version of `execute_command`
 
 **`get_all_angles() -> list[float]`**
 - Returns current angles for all servos
@@ -1070,9 +1076,17 @@ def __init__(
 **`off() -> None`**
 - Turns off PWM for all servos
 
+**`center_all() -> None`**
+- Moves all servos to their calibrated center position
+
+**`refresh_all() -> None`**
+- Re-sends PWM to all servos with known positions (prevents limpness)
+
 **Legacy Compatibility Methods:**
-- `move_all_angles(angles: list[float])` - Instant move (legacy)
-- `servo[pin]` - Direct servo access (legacy)
+- `move_all_angles(angles: list[float])` — Instant move (no interpolation)
+- `move_all_angles_sync(target_angles, move_sec, step_n)` — Duration-based (maps to velocity internally)
+- `get_all_angles() -> list[float]` — Returns current angles for all servos
+- `servo` property — List access by pin order
 
 **Usage:**
 ```python
@@ -1111,11 +1125,13 @@ Manages servo calibration persistence in `servo.json`.
 
 **Key Methods:**
 
-**`load() -> None`**
+**`load() -> bool`**
 - Loads calibration from JSON file
+- **Returns:** `True` if loaded successfully, `False` if file missing or error
 
-**`save() -> None`**
+**`save() -> bool`**
 - Saves calibration to JSON file
+- **Returns:** `True` if saved successfully, `False` on error
 
 **`get_calibration(pin: int) -> ServoCalibration`**
 - Returns calibration data for a pin
@@ -1125,31 +1141,46 @@ Manages servo calibration persistence in `servo.json`.
 
 ##### Dataclass: `ServoCalibration`
 
+Defined in `pi0servo.core.servo`:
+
 ```python
 @dataclass
 class ServoCalibration:
-    pulse_min: int = 1500     # Default = center (uncalibrated)
-    pulse_center: int = 1500
-    pulse_max: int = 1500
-    speed: int = 80           # Speed limit (0-100%)
+    pulse_min: int = 1500       # Min pulse width (μs) — defaults to center (uncalibrated)
+    pulse_max: int = 1500       # Max pulse width (μs)
+    pulse_center: int = 1500    # Center pulse width (μs)
+    angle_min: float = -90.0    # Minimum angle (degrees)
+    angle_max: float = 90.0     # Maximum angle (degrees)
+    angle_center: float = 0.0   # Center angle (degrees)
+    speed: int = 80             # Speed limit (0-100%)
 ```
 
 ---
 
-#### 3.5.3 `motion/motion_planner.py`
+#### 3.5.3 `motion/calculator.py` + `motion/easing.py`
 
-**Module:** `pi0servo.motion.motion_planner`
+**Module:** `pi0servo.motion.calculator` — velocity/duration calculations  
+**Module:** `pi0servo.motion.easing` — interpolation curves
 
-Handles velocity calculation and trajectory generation.
+**Key Functions (calculator):**
 
-**Key Functions:**
+**`calculate_duration(distance: float, speed_limit: int, speed_mode: str) -> float`**
+- Calculates movement duration from angle distance and velocity
+- Uses physics: `velocity = 600°/s × (speed_limit/100) × FMS_multiplier`
 
-**`compute_duration(angle_delta: float, speed_mode: str, speed_limit: int) -> float`**
-- Calculates movement duration based on physics
+**Easing Functions (easing):**
 
-**`get_easing_function(name: str) -> Callable`**
-- Returns easing function
-- **Available:** `ease_in_out_cubic` (default), `ease_out_cubic`, `ease_in_cubic`, `ease_in_out`, `ease_out`, `ease_in`, `linear`
+Available via `EASING_FUNCTIONS` dict lookup or direct import:
+
+| Function | Type | Description |
+|----------|------|-------------|
+| `linear` | — | No easing |
+| `ease_in` | Quadratic | Start slow, end fast |
+| `ease_out` | Quadratic | Start fast, end slow |
+| `ease_in_out` | Quadratic | Smooth accel/decel |
+| `ease_in_cubic` | Cubic | Very slow start |
+| `ease_out_cubic` | Cubic | Very slow end |
+| `ease_in_out_cubic` | Cubic | **Default** — smoothest |
 
 ---
 

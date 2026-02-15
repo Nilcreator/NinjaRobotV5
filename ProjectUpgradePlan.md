@@ -83,16 +83,18 @@ This document outlines the comprehensive plan for upgrading the NinjaRobotV5 har
 NinjaRobotV5/
 ├── pi0servo/          # Servo motor driver (8 channels)
 │   └── src/pi0servo/
-│       ├── core/      # PiServo, CalibrableServo, MultiServo
-│       ├── helper/    # ThreadMultiServo, ThreadWorker (UNUSED)
-│       ├── utils/     # ServoConfigManager
-│       └── command/   # CLI tools
+│       ├── core/      # Servo, MultiServo (ServoGroup)
+│       ├── motion/    # Calculator, Easing
+│       ├── config/    # ConfigManager
+│       ├── parser/    # Command Parser
+│       └── cli/       # CLI tools
 │
 ├── pi0vl53l0x/        # Distance sensor driver (VL53L0X)
 │   └── src/pi0vl53l0x/
-│       ├── driver.py
-│       ├── constants.py
-│       └── config_manager.py
+│       ├── core/      # Sensor, I2C wrapper
+│       ├── config/    # ConfigManager
+│       ├── cli/       # Sensor Tool, CLI commands
+│       └── driver.py  # Compatibility shim
 │
 ├── pi0disp/           # Display driver (ST7789V)
 │   └── src/pi0disp/
@@ -113,8 +115,8 @@ All drivers integrate with ninja_core via the Hardware Abstraction Layer (HAL):
 ```python
 # ninja_core/hal.py
 DRIVER_REGISTRY = {
-    "servos": {"module": "pi0servo.core.multi_servo", "class": "MultiServo"},
-    "distance": {"module": "pi0vl53l0x.driver", "class": "VL53L0XDriver"},
+    "servos": {"module": "pi0servo.core.multi_servos", "class": "ServoGroup"},
+    "distance": {"module": "pi0vl53l0x.core.sensor", "class": "VL53L0X"},
     "display": {"module": "pi0disp.disp.dispv3", "class": "DisplayDriverV3"},
     "buzzer": {"module": "pi0buzzer.driver", "class": "BuzzerDriver"},
 }
@@ -829,10 +831,10 @@ cd pi0buzzer && uv run pytest tests/ -v
 
 | Phase | Library | Duration | Status |
 |-------|---------|----------|--------|
-| Phase 1 | pi0servo rebuild | 1-2 weeks | **Plan Complete** |
-| Phase 2 | pi0servo verification | 1 week | Pending |
+| Phase 1 | pi0servo rebuild | 1-2 weeks | **✅ Complete** |
+| Phase 2 | pi0servo verification | 1 week | **✅ Complete** |
 | Phase 3 | pi0vl53l0x analysis | 2-3 days | **✅ Complete** |
-| Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **In Progress** |
+| Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **✅ Complete** |
 | Phase 5 | pi0disp analysis | 2-3 days | Pending |
 | Phase 6 | pi0disp upgrade | 1 week | Pending |
 | Phase 7 | pi0buzzer analysis | 1-2 days | Pending |
@@ -1133,4 +1135,4 @@ def move_servos(self, movements: dict[int, float], speed: str = "M", ...):
 ---
 
 **Document maintained by:** Development Team  
-**Last updated:** 2026-02-08
+**Last updated:** 2026-02-16

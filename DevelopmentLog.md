@@ -1,6 +1,15 @@
 # Development Log
 
 
+## 2026-02-16: Comprehensive Documentation Audit & Refinement ✓
+- **Action**: detailed audit of `DevelopmentGuide.md`, `InstallationGuide.md`, and `ProjectUpgradePlan.md` against actual codebase (`pi0servo`, `pi0vl53l0x`).
+- **Details**:
+    - **DevelopmentGuide.md**: Corrected wrong module names (`multi_servos.py`, `calculator.py`), function signatures (`move_all_sync`, `calculate_duration`), return types, and `ServoCalibration` (7 fields). Added missing method docs.
+    - **InstallationGuide.md**: Replaced invalid `uv run pi0servo servo ...` commands with correct `move` or `cmd` syntax across English, Japanese, and Chinese sections.
+    - **ProjectUpgradePlan.md**: Updated library inventory to reflect current file structure, refreshed DRIVER_REGISTRY paths, marked pi0servo/pi0vl53l0x phases as Complete, and updated "Last updated" date.
+- **Related Files**: `DevelopmentGuide.md`, `InstallationGuide.md`, `ProjectUpgradePlan.md`.
+
+
 ## 2026-02-16: pi0vl53l0x — CLI Refinement & README Restructuring ✓
 - **Action**: Restored individual CLI commands alongside `sensor-tool` TUI; restructured README for standalone Pi usage.
 - **Details**:
