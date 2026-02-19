@@ -229,52 +229,210 @@ sudo apt install -y git pigpio python3-pip
 *For the lastest Raspberry Pi Bookworm 64-bit OS your will encounter "Package 'pigpio' has no installation candidate" error.
 You can only install pigpio from the sorce, here is the step-by-step solution:
 
-Step1:
+Here is the complete, step-by-step guide to installing `pigpio` on a Raspberry Pi Zero 2 W running the latest Raspberry Pi OS (Bookworm 64-bit).
 
+This guide is designed to navigate the specific security changes in the new OS (PEP 668) and fix the common installation errors (missing candidates, `distutils` removal, and shared library linking issues).
+
+---
+
+# 🛠️ Complete pigpio Installation Guide (Raspberry Pi OS Bookworm 64-bit)
+
+**Target Hardware:** Raspberry Pi Zero 2 W 
+**Target OS:** Raspberry Pi OS "Bookworm" (64-bit)
+
+## Phase 1: System Preparation
+
+Before starting, ensure your system package list is up-to-date and you have the necessary tools to compile software from source.
+
+1. **Install build tools:**
+We need `make` and `gcc` (included in `build-essential`) to compile the C library, and `unzip` to handle the download.
 ```bash
-sudo apt update
-sudo apt install -y build-essential unzip wget python3-pigpio
+sudo apt install -y build-essential unzip wget
+
 ```
 
-Step2: download zip file
 
+
+---
+
+## Phase 2: Compile and Install the C Library
+
+Since the `pigpio` package was removed from the standard repository in Bookworm, we must install it from the source code.
+
+1. **Download the source code:**
 ```bash
 wget https://github.com/joan2937/pigpio/archive/master.zip
+
 ```
 
-Stpe3: Unzip
 
+2. **Unzip and enter the directory:**
 ```bash
 unzip master.zip
-```
-
-Step4: 
-```bash
 cd pigpio-master
+
 ```
 
-Step5: install
+
+3. **Compile the code:**
 ```bash
 make
+
+```
+
+
+4. **Install the library:**
+```bash
 sudo make install
+
 ```
 
-Step6: remove installer
+
+> **⚠️ IMPORTANT EXPECTED ERROR:**
+> You will likely see an error at the end saying:
+> `ModuleNotFoundError: No module named 'distutils'`
+> `make: *** [Makefile:107: install] Error 1`
+
+
+> **Ignore this error.** It happens because the installer tries to install the Python bindings using an outdated method. The core C library (which is what we really need from this step) has installed successfully. We will fix the Python part in Phase 4.
+
+
+
+---
+
+## Phase 3: Fix Shared Library Linking
+
+This step fixes the error: `pigpiod: error while loading shared libraries: libpigpio.so.1: cannot open shared object file`.
+
+1. **Update the system library cache:**
+The installer placed `libpigpio.so` in `/usr/local/lib`, but the OS doesn't know it's there yet. Run this command to register it:
 ```bash
-cd ..
-rm -rf pigpio-master master.zip
+sudo ldconfig
+
 ```
 
-Step7 varification
+
+
+---
+
+## Phase 4: Install the Python Library
+
+Since the automatic Python installation failed in Phase 2, we will install the Python interface manually using a method compatible with Bookworm.
+
+**Option A: The Recommended Method (APT)**
+Try this first. It installs the pre-compiled Python wrapper provided by the OS maintainers.
+
 ```bash
-sudo pigpiod
+sudo apt install python3-pigpio
+
 ```
 
-and run following command to test, if you see a series number, it works
+**Option B: The Fallback Method (PIP)**
+If Option A fails (unable to locate package), use `pip`. Note the `--break-system-packages` flag, which is required on Bookworm to allow installation outside a virtual environment.
+
+```bash
+sudo pip3 install pigpio --break-system-packages
+
+```
+
+---
+
+## Phase 5: Create the System Service (Auto-start)
+
+This step fixes the error: `Failed to enable unit: Unit pigpiod.service does not exist`.
+We must manually create the configuration file to tell the system how to run the daemon in the background.
+
+1. **Create the service file:**
+```bash
+sudo nano /etc/systemd/system/pigpiod.service
+
+```
+
+
+2. **Paste the following configuration:**
+(Copy and paste the text below into the editor)
+```ini
+[Unit]
+Description=Pigpio daemon
+Documentation=https://github.com/joan2937/pigpio
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/local/bin/pigpiod
+# ExecStart=/usr/local/bin/pigpiod -l
+# (Uncomment the line above with -l if you want to restrict access to localhost only)
+
+[Install]
+WantedBy=multi-user.target
+
+```
+
+
+3. **Save and Exit:**
+* Press `Ctrl + O` then `Enter` to save.
+* Press `Ctrl + X` to exit.
+
+
+4. **Enable and Start the service:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable pigpiod
+sudo systemctl start pigpiod
+
+```
+
+
+
+---
+
+## Phase 6: Verification
+
+Let's verify everything is working correctly on your Raspberry Pi Zero 2 W.
+
+1. **Check the Daemon:**
+Run the `pigs` command (pigpio command-line tool).
 ```bash
 pigs t
+
 ```
 
+
+**Success:** You should see a large number (the current microsecond timestamp).
+**Failure:** If it says "socket connect failed", ensure you ran `sudo systemctl start pigpiod`.
+2. **Check Python:**
+Create a quick test script:
+```bash
+python3 -c "import pigpio; pi=pigpio.pi(); print('Connected:', pi.connected)"
+
+```
+
+
+**Success:** It should print `Connected: True`.
+
+---
+
+## 🧹 Cleanup (Optional)
+
+You can now remove the source code files to save space on your SD card.
+
+```bash
+cd ~
+rm -rf pigpio-master master.zip
+
+```
+
+**Troubleshooting Tips for Zero 2 W:**
+
+* 
+**Performance:** The Zero 2 W is powerful (Quad-core), but if you are running heavy compiles, it may get warm. Ensure it's not enclosed in a case without ventilation during the `make` process.
+
+
+* **Remote Access:** If you plan to control the GPIOs remotely from a PC, remember to remove the `-l` flag in the service file created in Phase 5 to allow network connections.
+
+---
+
+## Phase 7: setup auto start
 Step8: find the path where pigpio is installed
 ```bash
 which pigpiod
@@ -294,7 +452,7 @@ After=network.target
 [Service]
 Type=forking
 ExecStart=/usr/local/bin/pigpiod
-# 如果您只想允許本機存取（安全性較高），請將上一行改成：ExecStart=/usr/local/bin/pigpiod -l
+# If you only want to allow local access (higher security), change the line above to: ExecStart=/usr/local/bin/pigpiod -l
 
 [Install]
 WantedBy=multi-user.target
