@@ -235,7 +235,7 @@ This guide is designed to navigate the specific security changes in the new OS (
 
 ---
 
-# 🛠️ Complete pigpio Installation Guide (Raspberry Pi OS Bookworm 64-bit)
+## 🛠️ Complete pigpio Installation Guide (Raspberry Pi OS Bookworm 64-bit)
 
 **Target Hardware:** Raspberry Pi Zero 2 W 
 **Target OS:** Raspberry Pi OS "Bookworm" (64-bit)
@@ -429,34 +429,6 @@ rm -rf pigpio-master master.zip
 
 
 * **Remote Access:** If you plan to control the GPIOs remotely from a PC, remember to remove the `-l` flag in the service file created in Phase 5 to allow network connections.
-
----
-
-## Phase 7: setup auto start
-Step8: find the path where pigpio is installed
-```bash
-which pigpiod
-```
-copy the path and run
-```bash
-sudo nano /etc/systemd/system/pigpiod.service
-```
-
-Paste the following code into the service file
-```bash
-[Unit]
-Description=Pigpio daemon
-Documentation=https://github.com/joan2937/pigpio
-After=network.target
-
-[Service]
-Type=forking
-ExecStart=/usr/local/bin/pigpiod
-# If you only want to allow local access (higher security), change the line above to: ExecStart=/usr/local/bin/pigpiod -l
-
-[Install]
-WantedBy=multi-user.target
-```
 
 Reload systemd setting
 ```bash
