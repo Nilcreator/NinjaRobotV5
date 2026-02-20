@@ -205,6 +205,7 @@ pi0disp/
 │   ├── cli/
 │   │   ├── __init__.py
 │   │   ├── display_tool.py        # Interactive display tool (menu)
+│   │   ├── init_cmd.py            # Init / first-time setup wizard
 │   │   ├── image_cmd.py           # Image display command
 │   │   ├── text_cmd.py            # Text display / scroll command
 │   │   ├── demo_cmd.py            # Ball animation demo
@@ -427,15 +428,23 @@ def execute(self, command: dict) -> None:
 ```python
 DISPLAY_PROFILES = {
     "st7789v_240x240": {
+        "name": "Generic ST7789V 240×240",
         "width": 240, "height": 240,
         "x_offset": 0, "y_offset": 0,
         "speed_hz": 32_000_000,
     },
     "waveshare_2inch": {
+        "name": "Waveshare 2.0-inch IPS 240×320",
         "width": 240, "height": 320,
         "x_offset": 0, "y_offset": 0,
         "speed_hz": 32_000_000,
     },
+}
+
+DEFAULT_PINS = {
+    "dc_pin": 14,
+    "rst_pin": 15,
+    "backlight_pin": 16,
 }
 ```
 
@@ -535,16 +544,19 @@ def _load_font(language: str, size: int) -> ImageFont.FreeTypeFont:
 
 ```json
 {
+    "display_profile": "waveshare_2inch",
     "dc_pin": 14,
     "rst_pin": 15,
     "backlight_pin": 16,
     "width": 240,
-    "height": 240,
+    "height": 320,
     "rotation": 0,
     "brightness": 100,
     "spi_speed_mhz": 32
 }
 ```
+
+This file is created by `uv run pi0disp init` or via the interactive display-tool. If it does not exist, all values fall back to the defaults above.
 
 ### 9.2 ConfigManager Class
 
@@ -561,6 +573,55 @@ class ConfigManager:
     def set(self, key: str, value: Any) -> None: ...
     def export_config(self, path: str) -> None: ...
     def import_config(self, path: str) -> dict: ...
+
+    def init_config(self, interactive: bool = True) -> dict:
+        """Initialize display configuration.
+
+        When interactive=True, prompts the user step by step:
+          1. Select display profile (ST7789V 240×240 / Waveshare 2.0-inch 240×320)
+          2. Set DC pin (default: 14)
+          3. Set RST pin (default: 15)
+          4. Set BLK pin (default: 16)
+          5. Set rotation (default: 0)
+          6. Set brightness (default: 100)
+
+        When interactive=False, creates display.json with all defaults.
+        Saves the result to display.json and returns the config dict.
+        """
+```
+
+### 9.3 Init Flow (User Experience)
+
+```
+$ uv run pi0disp init
+
+╔══════════════════════════════════════════════════════════════╗
+║               pi0disp — Display Initialization               ║
+╚══════════════════════════════════════════════════════════════╝
+
+Select your display module:
+  1. Generic ST7789V 240×240
+  2. Waveshare 2.0-inch IPS 240×320
+Choice [2]: 2
+
+--- Pin Configuration (BCM GPIO numbers) ---
+
+  DC pin  [14]: 14
+  RST pin [15]: 15
+  BLK pin [16]: 16
+
+--- Display Settings ---
+
+  Rotation (0/90/180/270) [0]: 90
+  Brightness (0-100%)     [100]: 100
+
+✅ Configuration saved to display.json
+
+  Display:    Waveshare 2.0-inch IPS 240×320
+  Resolution: 240 × 320
+  Pins:       DC=14, RST=15, BLK=16
+  Rotation:   90°
+  Brightness: 100%
 ```
 
 ### 9.3 ninja_core Config Sync
@@ -580,6 +641,10 @@ The existing `DisplayConfig` in `config.py` (dc, rst, blk) should be extended to
 ### 10.1 Command Overview
 
 ```bash
+# Initialize display (first-time setup)
+uv run pi0disp init
+uv run pi0disp init --defaults              # Skip prompts, use all defaults
+
 # Interactive tool
 uv run pi0disp display-tool
 
@@ -614,14 +679,15 @@ uv run pi0disp brightness 50
 ╔══════════════════════════════════════════════════════════════╗
 ║               pi0disp Interactive Tool                      ║
 ╠══════════════════════════════════════════════════════════════╣
-║  1. Show Image    - Display an image file                   ║
-║  2. Show Text     - Display text (with optional scroll)     ║
-║  3. Ball Demo     - Run bouncing ball animation             ║
-║  4. Brightness    - Adjust backlight brightness             ║
-║  5. Info          - Show driver state & config              ║
-║  6. Clear         - Clear the display                       ║
-║  7. Config        - Export/import configuration             ║
-║  8. Exit                                                    ║
+║  1. Init          - Set up display module & pin config      ║
+║  2. Show Image    - Display an image file                   ║
+║  3. Show Text     - Display text (with optional scroll)     ║
+║  4. Ball Demo     - Run bouncing ball animation             ║
+║  5. Brightness    - Adjust backlight brightness             ║
+║  6. Info          - Show driver state & config              ║
+║  7. Clear         - Clear the display                       ║
+║  8. Config        - Export/import configuration             ║
+║  9. Exit                                                    ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
@@ -714,6 +780,8 @@ from .config.config_manager import ConfigManager
 | Task | Deliverable |
 |------|-------------|
 | Implement `ConfigManager` (load/save/get/set/export/import) | `config/config_manager.py` |
+| Implement `init_config()` with interactive prompts | `config/config_manager.py` |
+| Implement display profile selection (ST7789V 240×240 / Waveshare 2.0-inch) | `config/config_manager.py` |
 | Create default `display.json` | `display.json` |
 | Write unit tests | `tests/test_config.py` |
 
@@ -738,6 +806,7 @@ from .config.config_manager import ConfigManager
 | Task | Deliverable |
 |------|-------------|
 | Create `__main__.py` Click CLI group | `__main__.py` |
+| `init` command (first-time setup wizard) | `cli/init_cmd.py` |
 | `image` command (display image) | `cli/image_cmd.py` |
 | `text` command (display/scroll text) | `cli/text_cmd.py` |
 | `demo` command (ball animation) | `cli/demo_cmd.py` |
@@ -745,7 +814,7 @@ from .config.config_manager import ConfigManager
 | `info` command (driver state) | `cli/info_cmd.py` |
 | `config` command group (show/set/export/import) | Part of `__main__.py` |
 | `brightness` command | Part of `__main__.py` |
-| `display-tool` interactive menu | `cli/display_tool.py` |
+| `display-tool` interactive menu (includes Init option) | `cli/display_tool.py` |
 
 **Verification:** `uv run pi0disp --help` (structure check on PC/Mac).
 
@@ -791,6 +860,7 @@ All tests use mocked `pigpio.pi()` (same pattern as `pi0servo` and `pi0vl53l0x` 
 
 | Test | Command | Pass Criteria |
 |------|---------|---------------|
+| Init setup | `uv run pi0disp init` | Prompts for display & pins, saves `display.json` |
 | Image display | `uv run pi0disp image assets/images/sample_face.jpg` | Image visible, correct colors |
 | Clear display | `uv run pi0disp clear` | Screen turns black |
 | Ball demo | `uv run pi0disp demo --num-balls 5` | Smooth animation, ~30 FPS |
@@ -848,7 +918,8 @@ threading.Thread(target=t2).start()
 | `src/pi0disp/config/__init__.py` | Config module exports | 3 |
 | `src/pi0disp/config/config_manager.py` | Pin config persistence | 3 |
 | `src/pi0disp/cli/__init__.py` | CLI module exports | 5 |
-| `src/pi0disp/cli/display_tool.py` | Interactive tool menu | 5 |
+| `src/pi0disp/cli/display_tool.py` | Interactive tool menu (w/ Init) | 5 |
+| `src/pi0disp/cli/init_cmd.py` | Init / setup wizard CLI | 5 |
 | `src/pi0disp/cli/image_cmd.py` | Image display CLI | 5 |
 | `src/pi0disp/cli/text_cmd.py` | Text display CLI | 5 |
 | `src/pi0disp/cli/demo_cmd.py` | Ball animation demo | 5 |

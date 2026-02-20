@@ -776,6 +776,7 @@ pi0disp/
 │   │
 │   ├── cli/
 │   │   ├── display_tool.py        # Interactive display tool (menu)
+│   │   ├── init_cmd.py            # Init / first-time setup wizard
 │   │   ├── image_cmd.py           # Image display command
 │   │   ├── text_cmd.py            # Text display / scroll command
 │   │   ├── demo_cmd.py            # Ball animation demo (from old ball_anime.py)
@@ -887,7 +888,9 @@ class ST7789V(Actuator):  # Actuator ABC from ninja_utils
 ### 6.8 CLI Commands
 
 ```bash
-uv run pi0disp display-tool              # Interactive menu tool
+uv run pi0disp init                      # First-time setup (display module + pin config)
+uv run pi0disp init --defaults           # Setup with all defaults (no prompts)
+uv run pi0disp display-tool              # Interactive menu tool (includes Init)
 uv run pi0disp image <path/to/image.png>  # Display an image
 uv run pi0disp text "Hello!" --scroll --lang ja  # Text / marquee
 uv run pi0disp clear                     # Clear display
@@ -905,9 +908,9 @@ uv run pi0disp config import <path>      # Import config
 |-------|---------|-------------------|
 | 1 | Scaffold & Renderer | `renderer.py` (ColorConverter, RegionOptimizer), `test_renderer.py` |
 | 2 | Core Driver | `driver.py` (ST7789V with delta + Lock), `test_driver.py` |
-| 3 | Config Manager | `config_manager.py`, `display.json`, `test_config.py` |
+| 3 | Config Manager + Init | `config_manager.py` with `init_config()`, display profile selection, `display.json`, `test_config.py` |
 | 4 | Effects Module | `text_ticker.py`, bundled multilingual fonts |
-| 5 | CLI Commands | `__main__.py`, `display_tool.py`, image/text/demo/info/brightness cmds |
+| 5 | CLI Commands | `__main__.py`, `display_tool.py`, `init_cmd.py`, image/text/demo/info/brightness cmds |
 | 6 | Hardware Validation | Test on both 240×240 and Waveshare 240×320, ninja_core integration |
 
 > **Full implementation details with code snippets:** [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md)
@@ -923,6 +926,7 @@ cd pi0disp && uv run pytest tests/ -v
 
 | Test | Command | Pass Criteria |
 |------|---------|---------------|
+| **Init setup** | `uv run pi0disp init` | Prompts for display & pins, saves `display.json` |
 | Image display | `uv run pi0disp image sample.jpg` | Correct colors, proper sizing |
 | Ball demo | `uv run pi0disp demo --num-balls 5` | Smooth ~30 FPS animation |
 | Text scroll | `uv run pi0disp text "ニンジャ" --scroll --lang ja` | Smooth scrolling |
