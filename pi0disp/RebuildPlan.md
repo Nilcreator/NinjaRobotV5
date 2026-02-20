@@ -1,69 +1,108 @@
-# pi0disp Library Health Report & V2 Rebuild Plan
+# pi0disp Library V2 Detailed Rebuild Plan
 
-## 1. Current Health Report & Vulnerability Evaluation
-
-After a comprehensive line-by-line audit of the existing `pi0disp` library and its integration with `ninja_core` (specifically `hal.py` and `facial_expressions.py`), several critical vulnerabilities and architectural bottlenecks were identified.
-
-> **Note on Prompt Clarification:** The request mentioned achieving "reliable distance detection" in the new `pi0disp` library. As `pi0disp` is solely an LCD display driver (while `pi0vl53l0x` handles distance), I have tailored this enhancement plan to focus strictly on your primary goal: **sophisticated and animated facial expressions**.
-
-### 1.1 SPI Bandwidth Bottleneck (The "Full Frame" Problem)
-Currently, `ninja_core/facial_expressions.py` explicitly calls `display(image)` at ~60 FPS. The `ST7789V.display()` method converts the entire 240x240 image to RGB565 and blasts the full 115KB payload over the SPI bus every single frame. This requires ~6.9 MB/s of bandwidth, which severely impacts the Raspberry Pi Zero 2W's CPU and blocks other critical sensor polling.
-
-### 1.2 Garbage Collection & Memory Allocation Pressure
-In `facial_expressions.py`, the `_animation_loop` creates a brand new `Image.new("RGB")` and a new `ImageDraw.Draw` object 60 times a second. Simultaneously, the `performance_core.py` module in `pi0disp` contains complex abstractions (like `MemoryPool` and `RegionOptimizer`) that are completely **bypassed** and ignored during this full-frame update. This rapid allocation triggers frequent Python Garbage Collection (GC) pauses, causing animations to stutter.
-
-### 1.3 Blocking I/O vs. Asyncio
-The current facial expression engine runs in a synchronous `threading.Thread` loop using `time.sleep(1/60)` and blocking `pigpio.spi_write()` calls. This violates the overarching V5 "Asyncio First" principle, increasing the risk of threading deadlocks or SPI resource contention with other drivers.
+This document serves as the definitive engineering guideline for building the new `pi0disp` library from scratch. It provides a deeper understanding of the legacy implementation, an analysis of its critical vulnerabilities, and strictly defined architectural boundaries for the new library.
 
 ---
 
-## 2. Redundancy Removal
+## 1. Analysis of the Old Library (`pi0disp_bak`)
 
-To make `pi0disp` lean and laser-focused on sophisticated animation rendering, the following redundancies will be eliminated:
+The legacy `pi0disp_bak` library was a synchronous, object-heavy driver designed for the ST7789V SPI display. 
 
-1.  **`utils/image_processor.py`**: **DELETE**. It provides high-level resizing tools never utilized by the robot's core systems.
-2.  **`utils/performance_core.py`**: **REPLACE**. The hyper-complex, unused `MemoryPool`, `AdaptiveChunking`, and `RegionOptimizer` will be completely removed. We will replace them with a single, highly efficient Numpy-based "Delta Rectangle" calculator.
-3.  **`commands/ball_anime.py` & `commands/image.py`**: **MERGE**. These standalone test scripts will be collapsed into a modern, unified `disp-tool` CLI via `cli()` in `__main__.py` (matching the robust pattern established in `pi0servo` and `pi0vl53l0x`).
+### 1.1 File Structure & Logic
+- **`disp/st7789v.py`**: The core driver class. It manipulated GPIO states manually using `pigpio` to manage the DC, RST, and BLK pins and wrote pixel buffers over SPI.
+- **`utils/performance_core.py`**: An over-engineered set of optimization tools containing a `MemoryPool`, `RegionOptimizer`, and `AdaptiveChunking` logic.
+- **`utils/image_processor.py`**: High-level image resizing tools.
+- **`commands/`**: Fragmented test scripts (`ball_anime.py`, `image.py`) that lacked a cohesive CLI entry point.
 
----
-
-## 3. Enhancement Plan: Sophisticated Facial Expressions
-
-To support fluid, sophisticated facial expressions without locking up the robot's brain, the V2 library will introduce the following core features:
-
-### 3.1 Smart Delta Updates (Bounding Box Rendering)
-Instead of relying on the caller to specify regions, the `ST7789V.display()` function will automatically cache the `previous_frame` (as a Numpy array). By executing a fast diff (`np.where(current != previous)`), the driver will automatically crop down to the exact minimal bounding box of changed pixels (e.g., just the blinking eyelid) and perform a `display_region()` update. This will reduce SPI traffic by over 90%.
-
-### 3.2 Actuator ABC Full Compliance
-The new library will remain 100% compatible with `ninja_core.hal` by strictly adhering to the `Actuator` interface from `ninja_utils`, while exposing `initialize()`, `execute()`, and `off()` as first-class citizens.
-
-### 3.3 Async-Ready Drawing (Ninja Core Update)
-While the `pi0disp` driver itself handles the SPI payload, the rendering loop in `facial_expressions.py` will be rewritten to reuse a single persistent `PIL.Image` canvas, vastly reducing GC pauses and allowing integration into the main `asyncio` event loop.
+### 1.2 Core Execution Flow
+The driver exposed a `display(Image.Image)` method. Whenever the robot needed to update its face (e.g., from `facial_expressions.py`), it generated a brand new 240x320 or 240x240 Pillow (`PIL.Image`) object, converted the *entire* image into a Numpy array, translated the array into an RGB565 byte array, and then blasted the full 100+ KB payload across the SPI bus.
 
 ---
 
-## 4. Phased Implementation Plan
+## 2. Vulnerability Deep Dive
 
-### Phase 1: Project Scaffolding & Cleanup
-- Delete `utils/image_processor.py` and `utils/performance_core.py`.
-- Delete `commands/ball_anime.py` and `commands/image.py`.
-- Initialize `__main__.py` with the boilerplate for `disp-tool` (Click CLI).
+The legacy architecture introduced two catastrophic performance vulnerabilities that prevented fluid, responsive robotic behavior.
 
-### Phase 2: Core Driver Optimization (`st7789v.py`)
-- Refactor `ST7789V` to include the **Smart Delta Update** mechanism.
-- Implement highly efficient Numpy-to-RGB565 conversion natively without the bloated dependencies.
-- Ensure 100% API compatibility with `ninja_core.hal` (maintain `set_window`, `display`, `display_region`, `execute`).
+### 2.1 The "Full Frame" SPI Bottleneck
+- **How it was introduced**: `st7789v.display()` lacked any internal tracking of the display's current state. Even if 99% of the screen was stationary (e.g., a static face with only blinking eyes), the driver forced a full-screen redraw.
+- **The Impact**: Transmitting ~115KB of SPI data per frame at 60 FPS consumes ~6.9 MB/s of bandwidth. The blocking `spi_write` operations stalled the Python GIL (Global Interpreter Lock), preventing `asyncio` from polling critical sensors like the `pi0vl53l0x` distance sensor in real-time.
+- **The Solution**: Implement "Smart Delta Rendering." The driver must cache the previous frame's pixel data and calculate a bounding box of only the *changed* pixels, vastly reducing the SPI payload.
 
-### Phase 3: CLI Tooling (`pi0disp/__main__.py`)
-- Build the `disp-tool` CLI to allow standalone testing without Ninja Core.
-- Commands: `uv run pi0disp clear`, `uv run pi0disp image <file>`, `uv run pi0disp test-fps`.
+### 2.2 Garbage Collection (GC) Stutter
+- **How it was introduced**: The `performance_core.MemoryPool` was useless because the core rendering loop continuously instantiated new `PIL.Image` and `ImageDraw` objects.
+- **The Impact**: Rapid instantiation and destruction of large image matrices saturated the RAM, forcing Python to pause the entire program to run the Garbage Collector, resulting in visible visual "stutters."
+- **The Solution**: Move to persistent, pre-allocated canvas objects.
 
-### Phase 4: `ninja_core` Integration Validation
-- Refactor `ninja_core/src/ninja_core/facial_expressions.py`.
-- Migrate away from `threading.Thread` and `Image.new()` per frame.
-- Implement persistent canvas drawing and `asyncio.sleep` to guarantee zero stutter.
+---
 
-### Phase 5: Linting, Validation & Documentation
-- Run `uv run ruff check pi0disp/`.
-- Perform manual hardware validation on Raspberry Pi 2W to confirm FPS improvements.
-- Update `DevelopmentLog.md` and `README.md` to reflect V2 specs.
+## 3. Detailed Rebuild Plan for New `pi0disp`
+
+### 3.1 Development Directive
+**MANDATORY**: The developer must build the new `pi0disp` library entirely from scratch. You may reference the old `pi0disp_bak` library to understand SPI command bytes (like `CMD_MADCTL` or `CMD_RAMWR`) and color offset math, but **under no circumstances should legacy driver code be copied and pasted**. The new library must be a clean, modern implementation.
+
+### 3.2 Architecture & Solution
+
+#### Target File Structure
+```text
+pi0disp/
+├── pyproject.toml              # Managed via uv
+├── README.md                   
+├── src/
+│   └── pi0disp/
+│       ├── __init__.py
+│       ├── __main__.py         # Unified CLI Entry point
+│       ├── driver.py           # The new, lean ST7789V class (implements Actuator interface)
+│       └── effects.py          # Contains text animation / news ticker logic
+```
+
+#### Smart Delta Rendering (Execution Logic Example)
+The new driver must abstract away differential updates. Here is a conceptual blueprint demonstrating how the new design resolves the "Full Frame" vulnerability:
+
+```python
+import numpy as np
+from PIL import ImageChops
+
+class ST7789V:
+    def __init__(self, ...):
+        self._previous_image = None
+
+    def display(self, image: Image.Image) -> None:
+        """Smart display function that only updates changed pixels."""
+        if self._previous_image is None or self._previous_image.size != image.size:
+            # First frame, or size changed: Full update
+            self._write_full_frame(image)
+        else:
+            # Calculate minimal bounding box of changes
+            diff = ImageChops.difference(self._previous_image, image)
+            bbox = diff.getbbox()
+            
+            if bbox:
+                # bbox = (left, upper, right, lower)
+                cropped_img = image.crop(bbox)
+                self._write_partial_frame(cropped_img, bbox)
+                
+        # Cache the current frame for the next delta calculation
+        self._previous_image = image.copy()
+```
+
+### 3.3 New Features Specification
+
+#### a. Universal Display Support
+The new driver must support the default 240x240/240x320 ST7789V IPS configurations natively. Furthermore, it must explicitly verify compatibility and color channels with the **Waveshare 2.0-inch SPI LCD Module** (Resolution: 240x320, Driver IC: ST7789V/ST7789VW). The codebase should easily handle rotation (0, 90, 180, 270) to adapt to either screen size.
+
+#### b. Customizable Pinout via Config
+SPI hardware pins on the Raspberry Pi Zero 2W (MOSI, SCLK, CE0) are fixed, but the control pins must be fully customizable upon initialization.
+- The `ST7789V.__init__()` must accept `dc_pin`, `rst_pin`, and `backlight_pin` as explicit keyword arguments.
+- The `ninja_core.hal` will read these assignments from the master `config.json` and inject them during object instantiation.
+
+#### c. Animated Text Function ("News Ticker")
+A dedicated method or helper class (e.g., in `effects.py`) must be implemented to accept a user-defined string and smoothly scroll it across the display from right to left (marquee style).
+- Ensure the animation loop employs non-blocking `asyncio` sweeps or is heavily optimized to maintain high framerates.
+- The text animation should auto-generate frames and pipe them into the Smart Delta `display()` function.
+
+#### d. Unified CLI Tool
+Mimicking the `pi0servo` and `pi0vl53l0x` designs, create a single Command Line Interface powered by `click` or `argparse` executed via `uv run pi0disp`.
+- `uv run pi0disp clear` – Empties the screen (blacks it out).
+- `uv run pi0disp image <path/to/image.png>` – Renders an image.
+- `uv run pi0disp text "Testing!" --scroll` – Triggers the new Animated Text marquee logic.
+- `uv run pi0disp info` – Prints current driver state and initialization config.
