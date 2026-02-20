@@ -802,7 +802,7 @@ pi0disp/
 | Delta rendering | `PIL.ImageChops.difference()` + bbox | Reduce SPI traffic by ~90% for facial animations |
 | Backlight | PWM brightness (0-100%) via pigpio | User-adjustable brightness |
 | Fonts | Bundled multilingual (EN/JA/ZH-TW) | Standalone text display without external deps |
-| Display support | Both 240×240 and 240×320 ST7789V | Support generic + Waveshare 2.0-inch module |
+| Display support | ST7789V 2.8" (240×320) + Waveshare 2.0" (240×320) | Both displays use same resolution |
 | pigpio | Optional dependency (RPi-only) | Not installable on PC/Mac |
 | Config | Project-relative `display.json` | Matches pi0servo/pi0vl53l0x pattern |
 | Ball demo | Retained as `uv run pi0disp demo` | Excellent visual hardware validation tool |
@@ -911,7 +911,7 @@ uv run pi0disp config import <path>      # Import config
 | 3 | Config Manager + Init | `config_manager.py` with `init_config()`, display profile selection, `display.json`, `test_config.py` |
 | 4 | Effects Module | `text_ticker.py`, bundled multilingual fonts |
 | 5 | CLI Commands | `__main__.py`, `display_tool.py`, `init_cmd.py`, image/text/demo/info/brightness cmds |
-| 6 | Hardware Validation | Test on both 240×240 and Waveshare 240×320, ninja_core integration |
+| 6 | Hardware Validation | Test on both ST7789V 2.8" and Waveshare 2.0" (both 240×320), ninja_core integration |
 
 > **Full implementation details with code snippets:** [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md)
 

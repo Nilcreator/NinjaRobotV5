@@ -58,7 +58,7 @@ pi0disp_bak/src/pi0disp/        ~1,800 lines total
 When ninja_core calls `lcd.display(image)`:
 1. A new PIL `Image` is sized to (width × height)
 2. The **entire** image is converted to a numpy array
-3. LookupTable-based RGB → RGB565 conversion (~115 KB for 240×240)
+3. LookupTable-based RGB → RGB565 conversion (~153 KB for 240×320)
 4. The **entire** RGB565 buffer is blasted across SPI in chunks
 5. Adaptive chunking adjusts SPI transfer sizes dynamically
 
@@ -110,7 +110,7 @@ There is **no locking mechanism** on SPI writes. Concurrent `pi.spi_write()` cal
 |----------|----------|--------|
 | **CRITICAL** | `st7789v.display()` | ~115 KB per frame at 60 FPS = 6.9 MB/s SPI traffic |
 
-**Root Cause:** `display()` has no internal state tracking. Even if only the eyes blink (< 5% of pixels change), the entire 240×240×2 = 115,200 bytes are transmitted.
+**Root Cause:** `display()` has no internal state tracking. Even if only the eyes blink (< 5% of pixels change), the entire 240×320×2 = 153,600 bytes are transmitted.
 
 **Impact:** Blocking `spi_write` stalls the Python GIL, preventing `asyncio` from polling sensors in real-time.
 
@@ -231,7 +231,7 @@ pi0disp/
 | Delta rendering | `PIL.ImageChops.difference()` + bbox | Reduce SPI traffic by ~90% for facial animations |
 | Backlight | PWM brightness (0-100%) via pigpio | User-adjustable brightness |
 | Fonts | Bundled multilingual (EN/JA/ZH-TW) | Standalone text display without external deps |
-| Display support | Both 240×240 and 240×320 ST7789V | Support generic + Waveshare 2.0-inch module |
+| Display support | ST7789V 2.8" (240×320) + Waveshare 2.0" (240×320) | Both displays use same resolution |
 | pigpio | **Optional** dependency (RPi-only) | Not installable on PC/Mac |
 | Config | Project-relative `display.json` | Matches pi0servo/pi0vl53l0x pattern |
 | SPI chunk size | Fixed 4096 bytes | Simpler than adaptive; pigpio daemon handles buffering |
@@ -258,7 +258,7 @@ class ST7789V(Actuator):
         backlight_pin: int = 16,
         speed_hz: int = 32_000_000,
         width: int = 240,
-        height: int = 240,
+        height: int = 320,
         rotation: int = 0,
     ) -> None: ...
 
@@ -418,23 +418,23 @@ def execute(self, command: dict) -> None:
 
 ### 7.1 Supported Displays
 
-| Display | Resolution | Driver IC | Color Offset | Notes |
-|---------|-----------|-----------|--------------|-------|
-| Generic ST7789V (square) | 240×240 | ST7789V | May need x_offset/y_offset | Default |
-| Waveshare 2.0-inch IPS | 240×320 | ST7789V | (0, 0) | Production display |
+| Display | Size | Resolution | Driver IC | Color Offset | Notes |
+|---------|------|-----------|-----------|--------------|-------|
+| ST7789V IPS TFT | 2.8 inch | 240×320 | ST7789V | May need x_offset/y_offset | Default |
+| Waveshare IPS LCD | 2.0 inch | 240×320 | ST7789V | (0, 0) | Production display |
 
 ### 7.2 Display Profiles
 
 ```python
 DISPLAY_PROFILES = {
-    "st7789v_240x240": {
-        "name": "Generic ST7789V 240×240",
-        "width": 240, "height": 240,
+    "st7789v_2inch8": {
+        "name": "ST7789V 2.8-inch IPS TFT 240×320",
+        "width": 240, "height": 320,
         "x_offset": 0, "y_offset": 0,
         "speed_hz": 32_000_000,
     },
     "waveshare_2inch": {
-        "name": "Waveshare 2.0-inch IPS 240×320",
+        "name": "Waveshare 2.0-inch IPS LCD 240×320",
         "width": 240, "height": 320,
         "x_offset": 0, "y_offset": 0,
         "speed_hz": 32_000_000,
@@ -451,10 +451,10 @@ DEFAULT_PINS = {
 ### 7.3 Constructor Usage
 
 ```python
-# Auto-detect from width/height (default: 240x240)
-lcd = ST7789V(pi=pi, width=240, height=240)
+# ST7789V 2.8-inch (default)
+lcd = ST7789V(pi=pi, width=240, height=320)
 
-# Waveshare 2.0-inch
+# Waveshare 2.0-inch (same resolution)
 lcd = ST7789V(pi=pi, width=240, height=320)
 
 # With ninja_core HAL (reads from config.json)
@@ -470,7 +470,7 @@ lcd = ST7789V(
 
 ### 7.4 MADCTL & Rotation
 
-Both displays use the same MADCTL values for rotation, but color offsets may differ for 240×240 panels (some have a 40px or 80px X/Y offset in the ST7789V framebuffer):
+Both displays use the same MADCTL values for rotation. Color offsets may differ between display modules (some have a 40px or 80px X/Y offset in the ST7789V framebuffer):
 
 ```python
 def set_rotation(self, rotation: int) -> None:
@@ -556,6 +556,8 @@ def _load_font(language: str, size: int) -> ImageFont.FreeTypeFont:
 }
 ```
 
+> **Note:** Both supported displays share the same 240×320 resolution.
+
 This file is created by `uv run pi0disp init` or via the interactive display-tool. If it does not exist, all values fall back to the defaults above.
 
 ### 9.2 ConfigManager Class
@@ -578,7 +580,7 @@ class ConfigManager:
         """Initialize display configuration.
 
         When interactive=True, prompts the user step by step:
-          1. Select display profile (ST7789V 240×240 / Waveshare 2.0-inch 240×320)
+          1. Select display profile (ST7789V 2.8-inch / Waveshare 2.0-inch)
           2. Set DC pin (default: 14)
           3. Set RST pin (default: 15)
           4. Set BLK pin (default: 16)
@@ -600,9 +602,9 @@ $ uv run pi0disp init
 ╚══════════════════════════════════════════════════════════════╝
 
 Select your display module:
-  1. Generic ST7789V 240×240
-  2. Waveshare 2.0-inch IPS 240×320
-Choice [2]: 2
+  1. ST7789V 2.8-inch IPS TFT 240×320
+  2. Waveshare 2.0-inch IPS LCD 240×320
+Choice [1]: 1
 
 --- Pin Configuration (BCM GPIO numbers) ---
 
@@ -617,7 +619,7 @@ Choice [2]: 2
 
 ✅ Configuration saved to display.json
 
-  Display:    Waveshare 2.0-inch IPS 240×320
+  Display:    ST7789V 2.8-inch IPS TFT 240×320
   Resolution: 240 × 320
   Pins:       DC=14, RST=15, BLK=16
   Rotation:   90°
@@ -781,7 +783,7 @@ from .config.config_manager import ConfigManager
 |------|-------------|
 | Implement `ConfigManager` (load/save/get/set/export/import) | `config/config_manager.py` |
 | Implement `init_config()` with interactive prompts | `config/config_manager.py` |
-| Implement display profile selection (ST7789V 240×240 / Waveshare 2.0-inch) | `config/config_manager.py` |
+| Implement display profile selection (ST7789V 2.8" / Waveshare 2.0") | `config/config_manager.py` |
 | Create default `display.json` | `display.json` |
 | Write unit tests | `tests/test_config.py` |
 
@@ -824,8 +826,8 @@ from .config.config_manager import ConfigManager
 
 | Task | Deliverable |
 |------|-------------|
-| Test on 240×240 ST7789V display | Hardware validation |
-| Test on Waveshare 2.0-inch 240×320 display | Hardware validation |
+| Test on ST7789V 2.8-inch IPS TFT (240×320) | Hardware validation |
+| Test on Waveshare 2.0-inch IPS LCD (240×320) | Hardware validation |
 | Test PWM brightness (0%, 50%, 100%) | Brightness verification |
 | Run ball_anime demo at 30 FPS | Animation performance |
 | Test text ticker with multilingual text | Font rendering |
