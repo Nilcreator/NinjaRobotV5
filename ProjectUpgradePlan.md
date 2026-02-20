@@ -35,9 +35,9 @@ This document outlines the comprehensive plan for upgrading the NinjaRobotV5 har
 
 | Library | Purpose | Priority | Status |
 |---------|---------|----------|--------|
-| **pi0servo** | Servo motor control | 🔴 High | Plan Complete |
-| **pi0vl53l0x** | Distance sensor | 🟡 Medium | Planned |
-| **pi0disp** | Display rendering | 🟡 Medium | Planned |
+| **pi0servo** | Servo motor control | 🔴 High | ✅ Complete |
+| **pi0vl53l0x** | Distance sensor | 🟡 Medium | ✅ Complete |
+| **pi0disp** | Display rendering | 🟡 Medium | Plan Complete |
 | **pi0buzzer** | Sound generation | 🟢 Low | Planned |
 
 ---
@@ -96,12 +96,13 @@ NinjaRobotV5/
 │       ├── cli/       # Sensor Tool, CLI commands
 │       └── driver.py  # Compatibility shim
 │
-├── pi0disp/           # Display driver (ST7789V)
+├── pi0disp/           # Display driver (ST7789V) — V2 Rebuild
 │   └── src/pi0disp/
-│       ├── disp/      # Display controllers
-│       ├── fonts/     # Font resources
-│       ├── utils/     # Utilities
-│       └── commands/  # CLI tools
+│       ├── core/      # ST7789V driver + renderer
+│       ├── effects/   # Text ticker
+│       ├── config/    # ConfigManager
+│       ├── cli/       # CLI commands
+│       └── fonts/     # Multilingual fonts
 │
 └── pi0buzzer/         # Buzzer driver (PWM)
     └── src/pi0buzzer/
@@ -116,9 +117,9 @@ All drivers integrate with ninja_core via the Hardware Abstraction Layer (HAL):
 # ninja_core/hal.py
 DRIVER_REGISTRY = {
     "servos": {"module": "pi0servo.core.multi_servos", "class": "ServoGroup"},
-    "distance": {"module": "pi0vl53l0x.core.sensor", "class": "VL53L0X"},
-    "display": {"module": "pi0disp.disp.dispv3", "class": "DisplayDriverV3"},
-    "buzzer": {"module": "pi0buzzer.driver", "class": "BuzzerDriver"},
+    "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},
+    "display": {"module": "pi0disp.core.driver", "class": "ST7789V"},
+    "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
 }
 ```
 
@@ -689,36 +690,246 @@ cd pi0vl53l0x && uv run pytest tests/ -v
 
 ---
 
-## 6. pi0disp Library Upgrade (Planned)
+## 6. pi0disp Library Upgrade (Full Rewrite)
 
-### 6.1 Current Structure
+> **Status:** Analysis Complete → Refined Plan Approved → Ready for Implementation  
+> **Approach:** Full rewrite from scratch (previous code backed up to `pi0disp_bak/`)  
+> **Detailed Plan:** [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md)  
+> **Last Refined:** 2026-02-20 (comprehensive code review + user-approved design decisions)
+
+### 6.1 Previous Structure (Backed Up)
 
 ```
-pi0disp/src/pi0disp/
-├── __init__.py
-├── __main__.py
-├── disp/               # Display controllers
-├── fonts/              # Font resources
-├── utils/              # Utilities
-└── commands/           # CLI tools
+pi0disp_bak/src/pi0disp/        ~1,800 lines total
+├── __init__.py                  # Empty
+├── __main__.py                  # Click CLI group
+├── disp/
+│   └── st7789v.py               # 312 lines — Core SPI driver (Actuator ABC)
+├── utils/
+│   ├── performance_core.py      # 446 lines — MemoryPool, LUT, RegionOptimizer, etc.
+│   └── image_processor.py       # ~80 lines — Resize, gamma
+├── commands/
+│   ├── ball_anime.py            # 531 lines — Physics bouncing ball demo
+│   └── image.py                 # ~50 lines — Image display + gamma cycling
+└── fonts/                       # NotoSans (EN/JP/TC)
 ```
 
-### 6.2 Identified Issues (Preliminary)
+### 6.2 Identified Vulnerabilities
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Animation performance | Medium | Frame buffer management |
-| Font rendering | Low | Unicode support |
-| CLI consistency | Low | Match pi0servo pattern |
+> **Summary:** 6 vulnerabilities identified across ~1,800 lines reviewed
 
-### 6.3 Planned Improvements
+| ID | Severity | Issue | Impact |
+|----|----------|-------|--------|
+| V1 | 🔴 Critical | **No thread safety — SPI race condition** | `AnimatedFaces` (background thread at ~60 FPS) and `web_server.py` (main thread) call `lcd.display()` concurrently with no locking. Interleaved `spi_write()` corrupts display data. |
+| V2 | 🔴 Critical | Full-frame SPI bottleneck | `display()` always sends ~115 KB/frame regardless of change amount; blocks GIL, starves asyncio sensor polling |
+| V3 | 🟡 Medium | GC stutter from PIL.Image instantiation | Every frame allocates+discards Image+ImageDraw objects; triggers garbage collection pauses |
+| V4 | 🟡 Medium | No backlight brightness control | Backlight is digital ON/OFF only; no PWM brightness adjustment |
+| V5 | 🟢 Low | Over-engineered utility layer (446 lines) | `MemoryPool`, `AdaptiveChunking` have marginal benefit; add complexity without measurable gain |
+| V6 | 🟢 Low | No error recovery on SPI failure | Uncaught SPI errors crash the driver |
 
-- [ ] Unified API protocol matching pi0servo pattern
-- [ ] Optimized animation rendering
-- [ ] Async-compatible display updates
-- [ ] CLI tool enhancement
+#### V1 Root Cause Analysis: SPI Race Condition
 
-> **Status:** Detailed analysis pending after pi0servo completion
+The display driver is accessed from **multiple threads** without synchronization:
+
+```
+┌─────────────────────┐     ┌──────────────────────┐
+│ AnimatedFaces Thread │     │  Main / Asyncio      │
+│ (60 FPS loop)        │     │                      │
+│ lcd.display(face)  ──┤     ├── display.display(qr) │
+│                      │     │   (web_server.py)     │
+│                      │     ├── display.execute()   │
+│                      │     │   (dispatcher.py)     │
+└──────────┬───────────┘     └──────────┬────────────┘
+           │                            │
+           ▼    ⚠️ NO LOCK ⚠️           ▼
+       ┌───────────────────────────────────┐
+       │         SPI Bus (pigpio)          │
+       │   pi.spi_write(handle, bytes)     │
+       └───────────────────────────────────┘
+```
+
+**Fix:** `threading.Lock()` protecting all SPI read/write operations in the new driver.
+
+### 6.3 New Architecture
+
+```
+pi0disp/
+├── pyproject.toml
+├── README.md
+├── LICENSE
+├── display.json                   # Default pin config (standalone)
+├── RebuildPlan.md
+│
+├── src/pi0disp/
+│   ├── __init__.py                # Exports: ST7789V, ConfigManager
+│   ├── __main__.py                # CLI entry point (Click)
+│   │
+│   ├── core/
+│   │   ├── driver.py              # ST7789V class (Actuator ABC, thread-safe SPI)
+│   │   └── renderer.py            # ColorConverter (RGB565 LUT), RegionOptimizer
+│   │
+│   ├── effects/
+│   │   └── text_ticker.py         # Scrolling text / marquee animation
+│   │
+│   ├── config/
+│   │   └── config_manager.py      # Pin config persistence (display.json)
+│   │
+│   ├── cli/
+│   │   ├── display_tool.py        # Interactive display tool (menu)
+│   │   ├── image_cmd.py           # Image display command
+│   │   ├── text_cmd.py            # Text display / scroll command
+│   │   ├── demo_cmd.py            # Ball animation demo (from old ball_anime.py)
+│   │   └── info_cmd.py            # Display status/config info
+│   │
+│   └── fonts/
+│       ├── NotoSans-Regular.ttf        # Latin/English
+│       ├── NotoSansJP-Regular.otf      # Japanese
+│       └── NotoSansTC-Regular.otf      # Traditional Chinese
+│
+└── tests/
+    ├── test_driver.py             # ST7789V unit tests (mock pigpio)
+    ├── test_renderer.py           # ColorConverter, RegionOptimizer tests
+    └── test_config.py             # ConfigManager tests
+```
+
+### 6.4 Key Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| RGB565 conversion | numpy LUT (keep numpy) | 60 FPS facial animation performance |
+| Thread safety | `threading.Lock()` in driver | SPI concurrent access from AnimatedFaces + web_server |
+| Delta rendering | `PIL.ImageChops.difference()` + bbox | Reduce SPI traffic by ~90% for facial animations |
+| Backlight | PWM brightness (0-100%) via pigpio | User-adjustable brightness |
+| Fonts | Bundled multilingual (EN/JA/ZH-TW) | Standalone text display without external deps |
+| Display support | Both 240×240 and 240×320 ST7789V | Support generic + Waveshare 2.0-inch module |
+| pigpio | Optional dependency (RPi-only) | Not installable on PC/Mac |
+| Config | Project-relative `display.json` | Matches pi0servo/pi0vl53l0x pattern |
+| Ball demo | Retained as `uv run pi0disp demo` | Excellent visual hardware validation tool |
+
+### 6.5 Smart Delta Rendering (Core Feature)
+
+The centerpiece optimization. The new driver automatically caches the previous frame and calculates the minimal bounding box of changed pixels:
+
+```python
+def display(self, image: Image.Image) -> None:
+    with self._spi_lock:  # Thread-safe
+        if self._previous_image is None:
+            self._write_full_frame(image)  # First frame
+        else:
+            diff = ImageChops.difference(self._previous_image, image)
+            bbox = diff.getbbox()
+            if bbox is None:
+                return  # No changes — skip SPI entirely
+            region = image.crop(bbox)
+            self._write_partial_frame(region, *bbox)
+        self._previous_image = image.copy()
+```
+
+**Expected performance improvement:**
+
+| Scenario | Old (Full Frame) | New (Delta) | Reduction |
+|----------|-------------------|-------------|----------|
+| Idle face (blinking) | 115 KB/frame | ~5-10 KB/frame | **~90-95%** |
+| Speaking (mouth) | 115 KB/frame | ~15-20 KB/frame | **~83%** |
+| Full expression change | 115 KB/frame | 115 KB/frame | 0% |
+| Static QR code | 115 KB/frame | 0 KB (skipped) | **100%** |
+
+### 6.6 Public API Overview
+
+```python
+class ST7789V(Actuator):  # Actuator ABC from ninja_utils
+    def __init__(self, pi=None, channel=0, dc_pin=14, rst_pin=15,
+                 backlight_pin=16, speed_hz=32_000_000,
+                 width=240, height=240, rotation=0): ...
+
+    # --- Core Display Methods (thread-safe) ---
+    def display(self, image: Image.Image) -> None: ...     # Smart delta rendering
+    def display_region(self, image, x0, y0, x1, y1): ...   # Manual partial update
+    def clear(self, color=(0,0,0)) -> None: ...             # Fill with solid color
+
+    # --- Brightness Control ---
+    def set_brightness(self, percent: int) -> None: ...     # PWM 0-100%
+
+    # --- Configuration ---
+    def set_rotation(self, rotation: int) -> None: ...      # 0/90/180/270
+    @property
+    def width(self) -> int: ...
+    @property
+    def height(self) -> int: ...
+
+    # --- Power Management ---
+    def sleep(self) -> None: ...
+    def wake(self) -> None: ...
+    def close(self) -> None: ...                            # Release SPI + GPIO
+    def health_check(self) -> bool: ...
+
+    # --- Actuator ABC Interface (ninja_core compat) ---
+    def initialize(self) -> None: ...
+    def execute(self, command: dict) -> None: ...
+        # Keys: "image", "clear", "backlight", "brightness"
+    def off(self) -> None: ...
+```
+
+### 6.7 Backward Compatibility
+
+**One line change required in ninja_core.** All existing call patterns preserved:
+
+| ninja_core Usage | Old API | New API | Status |
+|------------------|---------|---------|--------|
+| `hal.py` DRIVER_REGISTRY | `"pi0disp.disp.st7789v"` | `"pi0disp.core.driver"` | ⚠️ Update path |
+| `hal.py` constructor | `ST7789V(pi, channel, dc_pin, rst_pin, backlight_pin)` | Same signature | ✅ Compatible |
+| `facial_expressions.py` | `lcd.display(image)`, `lcd.width`, `lcd.height` | Same methods/properties | ✅ Compatible |
+| `web_server.py` | `display.display(qr)` | Same method | ✅ Compatible |
+| `dispatcher.py` | `display.execute({"image": img})` | Same + new keys | ✅ Compatible |
+| `api_wrappers.py` | `execute({"image": img})`, `execute({"clear": True})` | Same methods | ✅ Compatible |
+| `hal.py` shutdown | `display.off()`, `display.close()` | Same methods | ✅ Compatible |
+
+### 6.8 CLI Commands
+
+```bash
+uv run pi0disp display-tool              # Interactive menu tool
+uv run pi0disp image <path/to/image.png>  # Display an image
+uv run pi0disp text "Hello!" --scroll --lang ja  # Text / marquee
+uv run pi0disp clear                     # Clear display
+uv run pi0disp demo --num-balls 5        # Ball animation demo
+uv run pi0disp info                      # Driver state & config
+uv run pi0disp brightness 50             # Set PWM brightness
+uv run pi0disp config show               # Show configuration
+uv run pi0disp config export <path>      # Export config
+uv run pi0disp config import <path>      # Import config
+```
+
+### 6.9 Implementation Phases
+
+| Phase | Content | Key Deliverables |
+|-------|---------|-------------------|
+| 1 | Scaffold & Renderer | `renderer.py` (ColorConverter, RegionOptimizer), `test_renderer.py` |
+| 2 | Core Driver | `driver.py` (ST7789V with delta + Lock), `test_driver.py` |
+| 3 | Config Manager | `config_manager.py`, `display.json`, `test_config.py` |
+| 4 | Effects Module | `text_ticker.py`, bundled multilingual fonts |
+| 5 | CLI Commands | `__main__.py`, `display_tool.py`, image/text/demo/info/brightness cmds |
+| 6 | Hardware Validation | Test on both 240×240 and Waveshare 240×320, ninja_core integration |
+
+> **Full implementation details with code snippets:** [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md)
+
+### 6.10 Testing Strategy
+
+**Automated (PC/Mac):**
+```bash
+cd pi0disp && uv run pytest tests/ -v
+```
+
+**Manual Hardware (Raspberry Pi):**
+
+| Test | Command | Pass Criteria |
+|------|---------|---------------|
+| Image display | `uv run pi0disp image sample.jpg` | Correct colors, proper sizing |
+| Ball demo | `uv run pi0disp demo --num-balls 5` | Smooth ~30 FPS animation |
+| Text scroll | `uv run pi0disp text "ニンジャ" --scroll --lang ja` | Smooth scrolling |
+| Brightness | `uv run pi0disp brightness 50` | Noticeably dimmer |
+| Clear | `uv run pi0disp clear` | Screen turns black |
+| Integration | `uv run ninja_core server` | Facial expressions at ~60 FPS |
+| **Thread safety** | Run AnimatedFaces + send QR display simultaneously | **No SPI corruption** |
 
 ---
 
@@ -754,15 +965,15 @@ pi0buzzer/src/pi0buzzer/
 
 ### 8.1 ninja_core HAL Updates
 
-After all driver upgrades, the HAL will remain unchanged:
+After all driver upgrades, the HAL will use updated module paths:
 
 ```python
-# ninja_core/hal.py (no changes needed)
+# ninja_core/hal.py (updated DRIVER_REGISTRY)
 DRIVER_REGISTRY = {
-    "servos": {"module": "pi0servo", "class": "ServoGroup"},  # NEW alias works
-    "distance": {"module": "pi0vl53l0x", "class": "VL53L0XDriver"},
-    "display": {"module": "pi0disp", "class": "DisplayDriver"},
-    "buzzer": {"module": "pi0buzzer", "class": "BuzzerDriver"},
+    "servos": {"module": "pi0servo.core.multi_servos", "class": "ServoGroup"},
+    "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},
+    "display": {"module": "pi0disp.core.driver", "class": "ST7789V"},
+    "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
 }
 ```
 
@@ -835,8 +1046,8 @@ cd pi0buzzer && uv run pytest tests/ -v
 | Phase 2 | pi0servo verification | 1 week | **✅ Complete** |
 | Phase 3 | pi0vl53l0x analysis | 2-3 days | **✅ Complete** |
 | Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **✅ Complete** |
-| Phase 5 | pi0disp analysis | 2-3 days | Pending |
-| Phase 6 | pi0disp upgrade | 1 week | Pending |
+| Phase 5 | pi0disp analysis & plan refinement | 2-3 days | **✅ Complete** |
+| Phase 6 | pi0disp rebuild (full rewrite) | 1-2 weeks | Ready for Implementation |
 | Phase 7 | pi0buzzer analysis | 1-2 days | Pending |
 | Phase 8 | pi0buzzer upgrade | 3-5 days | Pending |
 | Phase 9 | Integration testing | 1 week | Pending |
@@ -869,6 +1080,7 @@ The RebuildPlan.md contains:
 | [README.md](README.md) | Project overview |
 | [pi0servo/RebuildPlan.md](pi0servo/RebuildPlan.md) | Modular step-by-step pi0servo implementation guide |
 | [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md) | Complete pi0vl53l0x rebuild plan (analysis, root cause, architecture, phases) |
+| [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md) | Complete pi0disp rebuild plan (vulnerability analysis, smart delta rendering, multi-display support) |
 
 ---
 
@@ -1135,4 +1347,4 @@ def move_servos(self, movements: dict[int, float], speed: str = "M", ...):
 ---
 
 **Document maintained by:** Development Team  
-**Last updated:** 2026-02-16
+**Last updated:** 2026-02-20
