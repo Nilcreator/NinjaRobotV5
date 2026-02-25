@@ -236,9 +236,15 @@ class HardwareAbstractionLayer:
                 backlight_pin=self.config.display.blk,
                 rotation=self.config.display.rotation,
             )
-            log.info("Display initialized.")
+            # Verify display works by clearing to black
+            self.display.clear((0, 0, 0))
+            log.info(
+                "Display initialized and verified (%dx%d, rotation=%d).",
+                self.display.width, self.display.height,
+                self.config.display.rotation,
+            )
         except Exception as e:
-            log.error(f"Failed to initialize Display: {e}")
+            log.error(f"Failed to initialize Display: {e}", exc_info=True)
             log.warning("Continuing without Display.")
             self.display = None
 

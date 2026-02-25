@@ -14,12 +14,15 @@ Copyright (c) 2025 Chihkuang Chang / Yoichi Tanibayashi
 License: MIT
 """
 
+import logging
 import threading
 import time
 from typing import Any, Optional, Tuple, Union
 
 import numpy as np
-from PIL import Image, ImageChops
+from PIL import Image
+
+log = logging.getLogger(__name__)
 
 try:
     import pigpio
@@ -41,7 +44,7 @@ except ImportError:
         def off(self) -> None: ...
 
 
-from .renderer import ColorConverter, RegionOptimizer
+from .renderer import ColorConverter, RegionOptimizer  # noqa: E402
 
 # --- ST7789V Commands ---
 CMD_SWRESET = 0x01
@@ -155,14 +158,15 @@ class ST7789V(Actuator):
                     f"Failed to open SPI bus: handle={self.spi_handle}"
                 )
 
-            self._last_window: Optional[Tuple[int, int, int, int]] = None
-
             # Hardware initialization
             self._init_display()
             self.set_rotation(self._rotation)
+            log.info(
+                "ST7789V initialized: %dx%d, rotation=%d",
+                self._width, self._height, self._rotation,
+            )
         else:
             self.spi_handle = -1
-            self._last_window = None
 
     def __enter__(self):
         return self
@@ -242,56 +246,37 @@ class ST7789V(Actuator):
     def _set_window(self, x0: int, y0: int, x1: int, y1: int) -> None:
         """Set the active drawing window. Must hold _spi_lock.
 
-        Caches the window to avoid redundant SPI commands.
+        Always sends CASET + RASET + RAMWR to ensure the display is
+        ready for pixel data. No caching — robustness over micro-optimization.
         """
-        window = (x0, y0, x1, y1)
-        if self._last_window == window:
-            return
-
         self._write_command(CMD_CASET)
         self._write_data([x0 >> 8, x0 & 0xFF, x1 >> 8, x1 & 0xFF])
         self._write_command(CMD_RASET)
         self._write_data([y0 >> 8, y0 & 0xFF, y1 >> 8, y1 & 0xFF])
         self._write_command(CMD_RAMWR)
 
-        self._last_window = window
-
     # --- Core Display Methods ---
 
     def display(self, image: Image.Image) -> None:
-        """Display an image with automatic smart delta rendering.
+        """Display an image on the screen. Thread-safe (acquires SPI lock).
 
-        Resizes the image to fit if needed. Thread-safe (acquires SPI lock).
-        Only transmits the changed region compared to the previous frame.
+        Always converts to RGB mode for safety. Resizes to fit if needed.
+        Uses full-frame rendering for maximum reliability.
 
         Args:
-            image: A PIL Image to display.
+            image: A PIL Image to display (any mode accepted).
         """
+        # Ensure RGB mode — prevents IndexError in color converter
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+
         if image.size != (self._width, self._height):
             image = image.resize((self._width, self._height))
 
         with self._spi_lock:
-            if self._previous_image is None:
-                # First frame — full update
-                self._write_full_frame(image)
-            else:
-                # Delta rendering
-                diff = ImageChops.difference(self._previous_image, image)
-                bbox = diff.getbbox()  # (left, upper, right, lower) or None
-
-                if bbox is None:
-                    return  # No changes — skip SPI entirely
-
-                # Expand bbox by 1 pixel for anti-aliasing safety
-                x0 = max(0, bbox[0] - 1)
-                y0 = max(0, bbox[1] - 1)
-                x1 = min(self._width, bbox[2] + 1)
-                y1 = min(self._height, bbox[3] + 1)
-
-                region = image.crop((x0, y0, x1, y1))
-                self._write_partial_frame(region, x0, y0, x1 - 1, y1 - 1)
-
-            self._previous_image = image.copy()
+            # Always write full frame for robustness
+            # (eliminates delta rendering / window caching failure modes)
+            self._write_full_frame(image)
 
     def _write_full_frame(self, image: Image.Image) -> None:
         """Write entire frame to display. Must hold _spi_lock."""
@@ -387,8 +372,7 @@ class ST7789V(Actuator):
             self._height = self._native_height
 
         self._rotation = rotation
-        self._last_window = None  # Invalidate window cache
-        self._previous_image = None  # Invalidate delta cache
+        log.debug("Rotation set to %d (display: %dx%d)", rotation, self._width, self._height)
 
     # --- Power Management ---
 
@@ -409,6 +393,7 @@ class ST7789V(Actuator):
 
     def close(self) -> None:
         """Release all resources (SPI, GPIO). Thread-safe."""
+        log.info("Closing ST7789V display driver.")
         with self._spi_lock:
             try:
                 if self.pi is not None:

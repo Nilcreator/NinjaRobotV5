@@ -255,13 +255,19 @@ async def setup_network_and_display(app: FastAPI):
     # Display QR
     if public_url and app.state.ninja.hal.display:
         try:
+            print(f"Displaying QR code on {app.state.ninja.hal.display.width}x{app.state.ninja.hal.display.height} display...")
             qr = qrcode.make(public_url)
             qr = qr.convert('RGB')
             qr = qr.resize((app.state.ninja.hal.display.width, app.state.ninja.hal.display.height))
             app.state.ninja.hal.display.display(qr)
+            print("QR code displayed successfully.")
         except Exception as e:
             print(f"Failed to display QR: {e}")
+            import traceback
+            traceback.print_exc()
     else:
+        reason = "no public URL" if not public_url else "no display available"
+        print(f"Skipping QR display ({reason}). Starting idle face...")
         # Idle face if no QR or no display
         if app.state.ninja.faces:
             app.state.ninja.faces.play("idle", duration_s=float('inf'))

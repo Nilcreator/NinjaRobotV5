@@ -1,6 +1,16 @@
 # Development Log
 
 
+## 2026-02-25: Fix Display Integration — Robustness Improvements ✓
+- **Root Cause**: Exhaustive code audit confirmed V2 driver's low-level SPI/color code is identical to old driver. Blank display caused by integration-layer issues: (1) V2's delta rendering and window caching introduced silent failure modes absent from old brute-force driver, (2) `facial_expressions.py` silently swallowed ALL exceptions including display errors, (3) HAL never verified display after init, (4) no RGB mode enforcement.
+- **Fix**:
+  - **`driver.py`**: Switched to full-frame rendering (no delta), removed window caching (RAMWR always sent), added `.convert('RGB')` safety, added logging
+  - **`facial_expressions.py`**: Replaced `except (AttributeError, Exception): break` with `log.error()` + stack trace
+  - **`hal.py`**: Added `display.clear((0,0,0))` verification after init with detailed logging
+  - **`web_server.py`**: Added diagnostic prints around QR/face display fallback paths
+- **Files Modified**: `pi0disp/src/pi0disp/core/driver.py`, `ninja_core/src/ninja_core/facial_expressions.py`, `ninja_core/src/ninja_core/hal.py`, `ninja_core/src/ninja_core/web_server.py`, `pi0disp/tests/test_driver.py`
+- **Validation**: ruff check passed, 54/54 pytest tests passed.
+
 ## 2026-02-25: Fix Display Integration — Rotation Default Mismatch ✓
 - **Root Cause**: Old `pi0disp_bak` driver defaulted to `rotation=90` (landscape 320×240), but the new V2 driver defaulted to `rotation=0` (portrait 240×320). Since `hal.py` didn't pass a rotation parameter, the display initialized in wrong orientation — QR codes and face expressions appeared rotated 90°.
 - **Fix**: Changed default rotation from 0 to 90 in driver, added `rotation` field to `DisplayConfig`, and passed it from HAL to the ST7789V constructor. User can change rotation via `pi0disp init`.

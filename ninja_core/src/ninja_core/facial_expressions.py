@@ -1,7 +1,10 @@
+import logging
 import math
 import threading
 import time
 from typing import Callable, Dict, Optional
+
+log = logging.getLogger(__name__)
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -104,11 +107,9 @@ class AnimatedFaces:
                 # Check for display validity
                 if self.lcd:
                     self.lcd.display(image)
-            except RuntimeError as e: # Catch concurrent access errors if SPI is locked
-                print(f"Display busy: {e}")
-                time.sleep(0.01)
-            except (AttributeError, Exception):
-                # If display fails (likely during shutdown), exit loop cleanly
+            except Exception as e:
+                # Log the error so display failures are visible in console
+                log.error("Display rendering failed: %s", e, exc_info=True)
                 break
             time.sleep(1 / 60)  # ~60 FPS
 

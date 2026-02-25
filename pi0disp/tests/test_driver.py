@@ -52,41 +52,48 @@ class TestDisplay:
         assert mock_pigpio.spi_write.call_count > 0
         lcd.close()
 
-    def test_display_identical_frames_skips(self, mock_pigpio):
-        """Identical consecutive frames should skip SPI writes."""
+    def test_display_identical_frames_always_writes(self, mock_pigpio):
+        """Every frame should be written (full-frame rendering, no delta skip)."""
         lcd = ST7789V(pi=mock_pigpio)
-        image = Image.new("RGB", (240, 320), (255, 0, 0))
-        lcd.display(image)
+        image = Image.new("RGB", (320, 240), (255, 0, 0))
 
-        # Reset call count
+        # Warm-up: first display includes constructor SPI overhead
+        lcd.display(image)
         mock_pigpio.spi_write.reset_mock()
 
-        # Display same image again — delta rendering should skip
+        # Measure baseline for a clean frame
         lcd.display(image)
-        # _set_window and _write_pixels should NOT be called
-        # Only the lock is acquired and released
-        assert mock_pigpio.spi_write.call_count == 0
+        baseline_count = mock_pigpio.spi_write.call_count
+        assert baseline_count > 0  # Full frame always writes
+
+        mock_pigpio.spi_write.reset_mock()
+
+        # Display same image again — should write the same amount
+        lcd.display(image)
+        assert mock_pigpio.spi_write.call_count == baseline_count
         lcd.close()
 
-    def test_display_different_frames_partial(self, mock_pigpio):
-        """Different consecutive frames should write only changed region."""
+    def test_display_different_frames_full(self, mock_pigpio):
+        """Different consecutive frames should also write full frame."""
         lcd = ST7789V(pi=mock_pigpio)
 
-        # First frame — full red
-        img1 = Image.new("RGB", (240, 320), (255, 0, 0))
+        # Warm-up: first display includes constructor SPI overhead
+        img1 = Image.new("RGB", (320, 240), (255, 0, 0))
         lcd.display(img1)
-        full_write_count = mock_pigpio.spi_write.call_count
+        mock_pigpio.spi_write.reset_mock()
+
+        # Measure baseline
+        lcd.display(img1)
+        baseline_count = mock_pigpio.spi_write.call_count
 
         mock_pigpio.spi_write.reset_mock()
 
-        # Second frame — change just one pixel
+        # Display different image — should write same amount (full frame)
         img2 = img1.copy()
-        img2.putpixel((120, 160), (0, 255, 0))
+        img2.putpixel((120, 120), (0, 255, 0))
         lcd.display(img2)
 
-        # Partial update should result in fewer writes
-        partial_write_count = mock_pigpio.spi_write.call_count
-        assert partial_write_count < full_write_count
+        assert mock_pigpio.spi_write.call_count == baseline_count
         lcd.close()
 
     def test_display_resizes_image(self, mock_pigpio):
@@ -165,15 +172,15 @@ class TestRotation:
             lcd.set_rotation(45)
         lcd.close()
 
-    def test_rotation_invalidates_cache(self, mock_pigpio):
-        """Rotation change should invalidate delta cache."""
-        lcd = ST7789V(pi=mock_pigpio)
-        img = Image.new("RGB", (240, 320), (255, 0, 0))
-        lcd.display(img)
-        assert lcd._previous_image is not None
+    def test_rotation_changes_dimensions(self, mock_pigpio):
+        """Rotation change should swap width and height."""
+        lcd = ST7789V(pi=mock_pigpio, rotation=0)
+        assert lcd.width == 240
+        assert lcd.height == 320
 
         lcd.set_rotation(90)
-        assert lcd._previous_image is None
+        assert lcd.width == 320
+        assert lcd.height == 240
         lcd.close()
 
 
