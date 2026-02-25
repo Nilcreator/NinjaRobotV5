@@ -49,8 +49,9 @@ def demo(num_balls, fps, duration):
         lcd.clear()
         lcd.close()
         click.echo("Demo complete.")
-    except ImportError:
-        click.echo("Error: pigpio not available. Run on Raspberry Pi.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
+        click.echo("  Hint: Run 'sudo apt install python3-pigpio && sudo pigpiod' on Raspberry Pi.")
     except KeyboardInterrupt:
         click.echo("\nDemo stopped.")
     except Exception as e:

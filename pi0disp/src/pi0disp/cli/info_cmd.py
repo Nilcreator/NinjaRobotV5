@@ -57,8 +57,8 @@ def info():
             lcd.close()
         else:
             click.echo(f"  Hardware:    {click.style('⚠️  pigpio not connected', fg='yellow')}")
-    except ImportError:
-        click.echo(f"  Hardware:    {click.style('ℹ️  pigpio not available (PC/Mac)', fg='blue')}")
+    except ImportError as e:
+        click.echo(f"  Hardware:    {click.style(f'ℹ️  {e} (install pigpio on RPi)', fg='blue')}")
     except Exception as e:
         click.echo(f"  Hardware:    {click.style(f'❌ {e}', fg='red')}")
 

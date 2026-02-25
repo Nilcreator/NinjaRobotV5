@@ -565,4 +565,4 @@ uv run ruff check src/ tests/ --fix
 
 ## License
 
-MIT License — © 2025 Chihkuang Chang
+MIT License — © 2026 Chihkuang Chang

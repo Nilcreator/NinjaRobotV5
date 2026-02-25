@@ -91,8 +91,8 @@ def _do_image():
         lcd.display(img)
         click.echo(f"Displayed: {path}")
         lcd.close()
-    except ImportError:
-        click.echo("Error: pigpio not available.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
     except Exception as e:
         click.echo(f"Error: {e}")
 
@@ -152,8 +152,8 @@ def _do_text():
             click.echo(f"Displayed: \"{text_content}\"")
 
         lcd.close()
-    except ImportError:
-        click.echo("Error: pigpio not available.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
     except Exception as e:
         click.echo(f"Error: {e}")
 
@@ -192,8 +192,8 @@ def _do_demo():
         lcd.clear()
         lcd.close()
         click.echo("Demo complete.")
-    except ImportError:
-        click.echo("Error: pigpio not available.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
     except KeyboardInterrupt:
         click.echo("\nDemo stopped.")
     except Exception as e:
@@ -228,8 +228,8 @@ def _do_brightness():
         lcd.set_brightness(percent)
         click.echo(f"Brightness set to {max(0, min(100, percent))}%")
         lcd.close()
-    except ImportError:
-        click.echo("Error: pigpio not available.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
     except Exception as e:
         click.echo(f"Error: {e}")
 
@@ -268,8 +268,8 @@ def _do_clear():
         lcd.clear()
         click.echo("Display cleared.")
         lcd.close()
-    except ImportError:
-        click.echo("Error: pigpio not available.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
     except Exception as e:
         click.echo(f"Error: {e}")
 

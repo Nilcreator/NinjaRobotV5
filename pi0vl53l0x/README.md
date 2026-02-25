@@ -386,4 +386,4 @@ uv run --extra dev ruff check src/ tests/
 
 ## License
 
-MIT License — © 2025 Chihkuang Chang
+MIT License — © 2026 Chihkuang Chang

@@ -42,7 +42,8 @@ def image(path, rotation):
 
         # Keep display on, release SPI
         lcd.close()
-    except ImportError:
-        click.echo("Error: pigpio not available. Run on Raspberry Pi.")
+    except ImportError as e:
+        click.echo(f"Error: Missing dependency — {e}")
+        click.echo("  Hint: Run 'sudo apt install python3-pigpio && sudo pigpiod' on Raspberry Pi.")
     except Exception as e:
         click.echo(f"Error: {e}")
