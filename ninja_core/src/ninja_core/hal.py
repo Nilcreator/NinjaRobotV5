@@ -34,7 +34,7 @@ DRIVER_REGISTRY = {
         "class": "MusicBuzzer",
     },
     "display": {
-        "module": "pi0disp.disp.st7789v",
+        "module": "pi0disp.core.driver",
         "class": "ST7789V",
     },
     "distance_sensor": {

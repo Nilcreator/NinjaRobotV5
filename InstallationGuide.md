@@ -702,21 +702,49 @@ Now let's test each component individually.
 
 ### Test 8.1: Display Test
 
+First-time setup (if not already done):
+
+```bash
+uv run pi0disp init
+```
+
+Follow the prompts to configure your display pins and profile.
+
 Test the LCD screen with an image:
 
 ```bash
 uv run pi0disp image assets/images/sample_face.jpg
 ```
 
-You should see an image on the display with changing brightness.
+You should see the image on the display.
+
+Test brightness control:
+
+```bash
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+```
+
+Test text display:
+
+```bash
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "忍者ロボット" --lang ja --scroll
+```
 
 Test animation:
 
 ```bash
-uv run pi0disp ball_anime --num-balls 5
+uv run pi0disp demo --num-balls 3
 ```
 
 Press **Ctrl+C** to stop.
+
+Check configuration and health:
+
+```bash
+uv run pi0disp info --health-check
+```
 
 ### Test 8.2: Servo Movement Test
 
@@ -923,7 +951,9 @@ Then try running your command again.
 **Checks**:
 1. Verify SPI is enabled: `sudo raspi-config` → Interface Options → SPI
 2. Check wiring matches the pin table in Section 2
-3. Reboot: `sudo reboot`
+3. Run the display health check: `uv run pi0disp info --health-check`
+4. Re-run the setup wizard: `uv run pi0disp init`
+5. Reboot: `sudo reboot`
 
 ### Problem: Distance sensor not responding
 
@@ -1508,21 +1538,49 @@ uv run ninja_core config set-key gemini YOUR_API_KEY
 
 ### テスト8.1: ディスプレイテスト
 
-画像で液晶画面をテスト:
+初回セットアップ（まだの場合）：
+
+```bash
+uv run pi0disp init
+```
+
+プロンプトに従ってディスプレイのピンとプロファイルを設定してください。
+
+画像で液晶画面をテスト：
 
 ```bash
 uv run pi0disp image assets/images/sample_face.jpg
 ```
 
-明るさが変化する画像がディスプレイに表示されるはずです。
+画像がディスプレイに表示されるはずです。
 
-アニメーションをテスト:
+明るさ制御をテスト：
 
 ```bash
-uv run pi0disp ball_anime --num-balls 5
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+```
+
+テキスト表示をテスト：
+
+```bash
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "忍者ロボット" --lang ja --scroll
+```
+
+アニメーションをテスト：
+
+```bash
+uv run pi0disp demo --num-balls 3
 ```
 
 **Ctrl+C**を押して停止。
+
+設定とヘルスチェック：
+
+```bash
+uv run pi0disp info --health-check
+```
 
 ### テスト8.2: サーボ動作テスト
 
@@ -2306,21 +2364,49 @@ uv run ninja_core config set-key gemini YOUR_API_KEY
 
 ### 測試 8.1：顯示器測試
 
+首次設定（如果尚未完成）：
+
+```bash
+uv run pi0disp init
+```
+
+按提示配置顯示器的引腳和設定檔。
+
 使用圖片測試 LCD 螢幕：
 
 ```bash
 uv run pi0disp image assets/images/sample_face.jpg
 ```
 
-您應該會在顯示器上看到一張亮度變化的圖片。
+您應該會在顯示器上看到圖片。
+
+測試亮度控制：
+
+```bash
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+```
+
+測試文字顯示：
+
+```bash
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "你好世界" --lang zh-tw --scroll
+```
 
 測試動畫：
 
 ```bash
-uv run pi0disp ball_anime --num-balls 5
+uv run pi0disp demo --num-balls 3
 ```
 
 按 **Ctrl+C** 停止。
+
+檢查設定和健康狀態：
+
+```bash
+uv run pi0disp info --health-check
+```
 
 ### 測試 8.2：伺服馬達動作測試
 

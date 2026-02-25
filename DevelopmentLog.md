@@ -1,6 +1,29 @@
 # Development Log
 
 
+## 2026-02-25: pi0disp V2 — Full Library Rebuild ✓
+- **Action**: Built the new pi0disp library from scratch following `pi0disp/RebuildPlan.md`.
+- **Details**:
+    - **Phase 1 — Scaffold**: Created `pyproject.toml`, `display.json`, package structure with 4 submodules (core/, config/, effects/, cli/).
+    - **Phase 2 — Core Driver**: `driver.py` with thread-safe SPI (`threading.Lock()`), smart delta rendering (`PIL.ImageChops.difference()`), PWM brightness, full Actuator ABC, context manager.
+    - **Phase 3 — Config Manager**: `config_manager.py` with `init_config()` interactive wizard, display profiles (ST7789V 2.8", Waveshare 2.0"), CRUD operations, export/import.
+    - **Phase 4 — Effects**: `text_ticker.py` scrolling text with multilingual font support (EN/JA/ZH-TW).
+    - **Phase 5 — CLI**: 7 commands (init, image, text, demo, info, clear, brightness) + `display-tool` interactive menu + `config` subgroup.
+    - **Renderer**: `renderer.py` with `ColorConverter` (numpy LUT RGB→RGB565) and `RegionOptimizer` (clamp/merge dirty rects).
+    - **Tests**: 54 unit tests (all passing) covering driver, renderer, and config. Thread-safety tests included.
+    - **Integration**: Updated `DRIVER_REGISTRY` in `hal.py` from `pi0disp.disp.st7789v` to `pi0disp.core.driver`.
+    - **Bug Fixed**: IndexError in `RegionOptimizer.merge_regions()` pop order during aggressive merging.
+    - **Lint**: ruff check clean (0 errors).
+- **Related Files**: `pi0disp/` (entire new library), `ninja_core/src/ninja_core/hal.py`.
+
+## 2026-02-25: pi0disp V2 — Documentation Update ✓
+- **Action**: Updated all project documentation to reflect the pi0disp V2 rebuild.
+- **Details**:
+    - `pi0disp/README.md`: Full rewrite (370+ lines). Added comprehensive API reference (ST7789V, ConfigManager, TextTicker), all CLI commands with examples, Raspberry Pi testing guide (8 steps), troubleshooting table, architecture diagram.
+    - `DevelopmentGuide.md`: Rewrote section 3.4 with V2 module paths, full API tables, `execute()` command keys, ConfigManager/TextTicker docs. Updated file tree, dependency graph, V5.2.4 change summary. Added `pi0disp init` to Required Setup.
+    - `InstallationGuide.md`: Updated display test sections in EN/JA/ZH-TW. Replaced `ball_anime` with `demo`. Added `init`, `brightness`, `text`, `info --health-check` test steps. Updated display troubleshooting with `info --health-check` and `init`.
+- **Related Files**: `pi0disp/README.md`, `DevelopmentGuide.md`, `InstallationGuide.md`.
+
 ## 2026-02-16: Comprehensive Documentation Audit & Refinement ✓
 - **Action**: detailed audit of `DevelopmentGuide.md`, `InstallationGuide.md`, and `ProjectUpgradePlan.md` against actual codebase (`pi0servo`, `pi0vl53l0x`).
 - **Details**:

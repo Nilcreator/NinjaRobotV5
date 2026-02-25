@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.3  
-**Last Updated:** 2026-02-15  
+**Version:** 5.2.4  
+**Last Updated:** 2026-02-25  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -19,7 +19,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_utils` | Added `Sensor`, `Actuator` ABCs and `DistanceData` dataclass |
 | `pi0buzzer` | **Non-blocking** threaded sound queue, implements `Actuator` |
 | `pi0vl53l0x` | **REBUILT** — Thread-safe I2C, hardened init, retry with bus recovery, V2 offset fix |
-| `pi0disp` | Added `execute()` command API, implements `Actuator` |
+| `pi0disp` | **REBUILT** — Thread-safe SPI, delta rendering, PWM brightness, ConfigManager, CLI |
 | `pi0servo` | Added `execute()` for batch control, implements `Actuator` |
 | `ninja_core/hal.py` | **Dynamic driver loading** via `importlib` |
 
@@ -77,9 +77,21 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `config/config_manager.py` | JSON-based config with export/import, `ConfigManager` class |
 | `cli/sensor_tool.py` | Interactive CLI: `get`, `performance`, `calibrate`, `test`, `status`, `config` |
 
+### Key Changes (V5.2.4 - pi0disp V2):
+| Component | Change |
+|---|---|
+| `pi0disp` | **REBUILT** — Full rewrite with modular architecture |
+| `core/driver.py` | Thread-safe SPI (`threading.Lock`), smart delta rendering, PWM brightness |
+| `core/renderer.py` | `ColorConverter` (numpy LUT RGB→RGB565), `RegionOptimizer` |
+| `config/config_manager.py` | `display.json` config with setup wizard, CRUD, export/import |
+| `effects/text_ticker.py` | Scrolling marquee with multilingual fonts (EN/JA/ZH-TW) |
+| CLI | 11 commands + `display-tool` interactive menu |
+| `ninja_core/hal.py` | Updated `DRIVER_REGISTRY` to `pi0disp.core.driver.ST7789V` |
+
 ### Required Setup:
 ```bash
 uv run pi0buzzer init 17
+uv run pi0disp init              # First-time display setup
 uv run pi0servo calib 20  # Repeat for each servo
 uv run ninja_core config import
 ```
@@ -187,16 +199,22 @@ NinjaRobotV5/
 │       └── cli/                # CLI commands
 │           └── sensor_tool.py  # Click CLI (8 commands)
 │
-├── pi0disp/                    # ST7789V display library
+├── pi0disp/                    # ST7789V display library (V5.2.4 REBUILT)
 │   ├── pyproject.toml
 │   ├── README.md
+│   ├── tests/                  # Unit tests (pytest, 54 tests)
 │   └── src/pi0disp/
-│       ├── __init__.py
-│       ├── __main__.py         # CLI entry point
-│       ├── disp/st7789v.py     # ST7789V (Actuator ABC)
-│       ├── fonts/              # Bundled Noto fonts
-│       ├── utils/              # Image processing
-│       └── commands/           # Demo commands
+│       ├── __init__.py         # Exports ST7789V, ConfigManager, TextTicker
+│       ├── __main__.py         # CLI entry point (click)
+│       ├── core/               # Core driver modules
+│       │   ├── driver.py       # ST7789V driver (Actuator ABC)
+│       │   └── renderer.py     # ColorConverter (numpy LUT), RegionOptimizer
+│       ├── config/             # Configuration management
+│       │   └── config_manager.py  # JSON config load/save/export/import
+│       ├── effects/            # Visual effects
+│       │   └── text_ticker.py  # Scrolling marquee animation
+│       ├── fonts/              # Bundled Noto fonts (EN/JA/ZH-TW)
+│       └── cli/                # CLI commands (11 commands + display-tool)
 │
 ├── pi0servo/                   # Servo motor control library (V5.2.1 REBUILT)
 │   ├── pyproject.toml
@@ -250,7 +268,7 @@ ninja_core
     ├─→ ninja_ble → bless, bleak (BLE backend)
     ├─→ pi0buzzer → pigpio, ninja_utils
     ├─→ pi0vl53l0x → pigpio, click, ninja_utils
-    ├─→ pi0disp → PIL, numpy, ninja_utils
+    ├─→ pi0disp → pigpio, PIL, numpy, click, ninja_utils
     ├─→ pi0servo → pigpio, ninja_utils
     ├─→ fastapi, uvicorn, pyngrok
     └─→ google-generativeai, googlesearch-python
@@ -854,154 +872,249 @@ uv run pi0vl53l0x config export backup.json
 
 ### 3.4 pi0disp
 
-**Purpose:** High-performance driver for ST7789V 240x240 SPI display
+**Purpose:** Thread-safe SPI driver for ST7789V 240×320 displays with smart delta rendering
 
-**Dependencies:** `pigpio`, `numpy`, `Pillow`, `click`, `ninja_utils`
+**Dependencies:** `pigpio` (optional, RPi only), `numpy`, `Pillow`, `click`, `ninja_utils`
 
 **Location:** `pi0disp/src/pi0disp/`
 
 **Hardware Interface:** SPI0 (SCLK, MOSI) + GPIO (DC, RST, BLK)
 
-#### 3.4.1 `disp/st7789v.py`
+> [!IMPORTANT]
+> **V5.2.4 REBUILD**: The pi0disp library was completely rebuilt with a new architecture:
+> - **Thread-safe SPI** via `threading.Lock` — safe for concurrent `AnimatedFaces` + `web_server` access
+> - **Smart delta rendering** — only transmits changed pixels via `PIL.ImageChops.difference()`
+> - **PWM brightness** — smooth backlight control (0-100%) via `pigpio.set_PWM_dutycycle()`
+> - **ConfigManager** — `display.json` with interactive setup wizard, CRUD, export/import
+> - **CLI overhaul** — 11 commands + interactive `display-tool` menu
 
-**Module:** `pi0disp.disp.st7789v`
+#### 3.4.1 `core/driver.py`
+
+**Module:** `pi0disp.core.driver`
 
 ##### Class: `ST7789V`
 
-Main display driver class.
+Main display driver class. Implements the `Actuator` ABC from `ninja_utils.interfaces`.
 
 **Constructor:**
 ```python
 def __init__(
     self,
-    pi: pigpio.pi,
+    pi=None,
     channel: int = 0,
     dc_pin: int = 14,
     rst_pin: int = 15,
     backlight_pin: int = 16,
+    speed_hz: int = 32_000_000,
     width: int = 240,
-    height: int = 240
+    height: int = 320,
+    rotation: int = 0,
 )
 ```
 
 **Parameters:**
-- `pi` (pigpio.pi): Shared pigpio connection
+- `pi` (pigpio.pi | None): Shared pigpio connection. If None, creates a new one
 - `channel` (int): SPI channel (0 or 1)
 - `dc_pin` (int): Data/Command GPIO pin
 - `rst_pin` (int): Reset GPIO pin
 - `backlight_pin` (int): Backlight GPIO pin
-- `width`, `height` (int): Display dimensions
+- `speed_hz` (int): SPI clock speed (default: 32 MHz)
+- `width`, `height` (int): Display dimensions (default: 240×320)
+- `rotation` (int): Display rotation (0, 90, 180, or 270)
 
-**Methods:**
+**Public API — Display:**
 
-**`display(image: PIL.Image.Image) -> None`**
-- Displays a full-screen image
-- **Parameters:**
-  - `image` (PIL.Image): RGB image (will be resized to 240x240)
-- **Performance:** ~50ms for full update at 40MHz SPI
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `display(image)` | `None` | Display image with smart delta rendering (thread-safe) |
+| `display_region(image, x0, y0, x1, y1)` | `None` | Display a sub-region (thread-safe) |
+| `clear(color=(0,0,0))` | `None` | Fill display with solid color |
+| `set_brightness(percent)` | `None` | Set backlight PWM (0-100%) |
+| `set_rotation(degrees)` | `None` | Set rotation (0, 90, 180, 270) |
 
-**`display_region(image: PIL.Image.Image, x: int, y: int, width: int, height: int) -> None`**
-- Updates a rectangular region (for animations)
-- **Parameters:**
-  - `image` (PIL.Image): Source image
-  - `x`, `y` (int): Top-left corner
-  - `width`, `height` (int): Region size
+**Public API — Power Management:**
 
-**`close() -> None`**
-- Turns off backlight and releases GPIO
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `sleep()` | `None` | Enter low-power sleep mode |
+| `wake()` | `None` | Wake from sleep mode |
+| `health_check()` | `bool` | Verify SPI connection is alive |
+| `close()` | `None` | Release SPI handle, GPIO, and backlight |
+
+**Actuator ABC Interface:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `initialize()` | `None` | Wake display |
+| `execute(command)` | `None` | Dispatch command dict (see below) |
+| `off()` | `None` | Sleep + backlight off |
+
+**`execute()` command keys:**
+- `{"image": PIL.Image}` — Display an image
+- `{"brightness": int}` — Set brightness (0-100)
+- `{"backlight": int}` — Alias for brightness
+- `{"clear": True}` — Clear display
+- `{"rotation": int}` — Set rotation
 
 **Usage:**
 ```python
 import pigpio
 from PIL import Image
-from pi0disp.disp.st7789v import ST7789V
+from pi0disp.core.driver import ST7789V
 
 pi = pigpio.pi()
-display = ST7789V(pi, channel=0, dc_pin=14, rst_pin=15, backlight_pin=16)
+lcd = ST7789V(pi=pi, dc_pin=14, rst_pin=15, backlight_pin=16)
 
-# Display an image
-img = Image.open("face.jpg")
-display.display(img)
+# Display an image (auto-resized, delta rendering)
+img = Image.open("face.png").convert("RGB")
+lcd.display(img)
+
+# Set brightness and rotation
+lcd.set_brightness(80)
+lcd.set_rotation(90)
 
 # Cleanup
-display.close()
+lcd.close()
 pi.stop()
 ```
 
----
-
-#### 3.4.2 `utils/performance_core.py`
-
-**Module:** `pi0disp.utils.performance_core`
-
-Contains optimization classes for high-performance rendering:
-
-##### Class: `MemoryPool`
-- Manages reusable memory buffers to reduce allocations
-
-##### Class: `LookupTableCache`
-- Caches color conversion and gamma correction lookup tables
-
-##### Class: `RegionOptimizer`
-- Merges overlapping dirty regions for efficient updates
-
-##### Class: `PerformanceMonitor`
-- Tracks FPS and frame times
-
-##### Class: `AdaptiveChunking`
-- Dynamically adjusts SPI transfer chunk sizes
-
-##### Class: `ColorConverter`
-- Fast RGB565 conversion
-
-**Usage:** These are primarily internal utility classes used by `ST7789V`.
-
----
-
-#### 3.4.3 `utils/image_processor.py`
-
-**Module:** `pi0disp.utils.image_processor`
-
-##### Class: `ImageProcessor`
-
-Static utility methods for image manipulation.
-
-**Methods:**
-
-**`resize_with_aspect_ratio(image: PIL.Image.Image, target_size: tuple[int, int]) -> PIL.Image.Image`**
-- Resizes image maintaining aspect ratio
-- Centers on black background if needed
-
-**`apply_gamma(image: PIL.Image.Image, gamma: float) -> PIL.Image.Image`**
-- Applies gamma correction
-- **Parameters:**
-  - `gamma` (float): Gamma value (0.5-2.0, default 1.0 = no change)
-
-**Usage:**
+**Context Manager:**
 ```python
-from PIL import Image
-from pi0disp.utils.image_processor import ImageProcessor
+with ST7789V(pi=pi) as lcd:
+    lcd.display(Image.open("face.png").convert("RGB"))
+```
 
-img = Image.open("photo.jpg")
-img = ImageProcessor.resize_with_aspect_ratio(img, (240, 240))
-img = ImageProcessor.apply_gamma(img, 1.5)  # Brighten
+**Backward-Compatible Import:**
+```python
+# Both imports work
+from pi0disp import ST7789V
+from pi0disp.core.driver import ST7789V
 ```
 
 ---
 
-#### 3.4.4 CLI Commands
+#### 3.4.2 `core/renderer.py`
+
+**Module:** `pi0disp.core.renderer`
+
+Contains optimization classes for high-performance rendering:
+
+##### Class: `ColorConverter`
+- Fast RGB → RGB565 conversion using numpy lookup tables (LUT)
+- Method: `rgb_to_rgb565_bytes(rgb_array) -> bytes`
+
+##### Class: `RegionOptimizer`
+- Merges overlapping/nearby dirty regions for efficient SPI transfers
+- Method: `clamp_region(region, width, height) -> tuple`
+- Method: `merge_regions(regions, max_regions=8, merge_threshold=50) -> list`
+
+**Usage:** These are internal utility classes used by `ST7789V` for delta rendering.
+
+---
+
+#### 3.4.3 `config/config_manager.py`
+
+**Module:** `pi0disp.config.config_manager`
+
+##### Class: `ConfigManager`
+
+Manages display configuration persistence in `display.json`.
+
+**Constructor:**
+```python
+def __init__(self, config_file: str = "display.json")
+```
+
+**Key Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `load()` | `dict` | Load config from JSON file |
+| `save()` | `None` | Save current config to disk |
+| `get(key, default)` | `Any` | Get a config value |
+| `set(key, value)` | `None` | Set a value and save |
+| `export_config(path)` | `None` | Export to file |
+| `import_config(path)` | `dict` | Import from file |
+| `init_config(interactive)` | `dict` | Interactive or default setup wizard |
+
+**Available Display Profiles:**
+- `ST7789V 2.8-inch IPS TFT` (240×320)
+- `Waveshare 2.0-inch IPS LCD` (240×320)
+
+---
+
+#### 3.4.4 `effects/text_ticker.py`
+
+**Module:** `pi0disp.effects.text_ticker`
+
+##### Class: `TextTicker`
+
+Scrolling marquee text animation with multilingual font support.
+
+**Constructor:**
+```python
+def __init__(
+    self,
+    lcd,
+    text: str,
+    font_size: int = 32,
+    color: Tuple[int, int, int] = (255, 255, 255),
+    bg_color: Tuple[int, int, int] = (0, 0, 0),
+    speed: float = 2.0,
+    language: str = "en",
+)
+```
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `start()` | `None` | Start scrolling in a background thread |
+| `stop()` | `None` | Stop and join the thread |
+| `is_running()` | `bool` | Check if currently animating |
+
+**Supported Languages:** `en` (English), `ja` (Japanese), `zh-tw` (Traditional Chinese)
+
+---
+
+#### 3.4.5 CLI Commands
 
 **Entry Point:** `uv run pi0disp <command>`
 
 **Commands:**
 
+**`init [--defaults]`**
+- Interactive display setup wizard (pin config, display profile, rotation, brightness)
+- **Example:** `uv run pi0disp init`
+
 **`image <path>`**
-- Displays an image with gamma cycling
+- Display an image file (auto-resized to fit display)
 - **Example:** `uv run pi0disp image assets/images/sample_face.jpg`
 
-**`ball_anime --num-balls N`**
-- Runs a physics-based bouncing ball animation
-- **Example:** `uv run pi0disp ball_anime --num-balls 5`
+**`text "..." [--scroll] [--lang LANG] [--speed N]`**
+- Display static or scrolling text with multilingual fonts
+- **Example:** `uv run pi0disp text "Hello" --scroll --lang ja`
+
+**`demo [--num-balls N] [--duration SEC]`**
+- Bouncing ball physics animation demo
+- **Example:** `uv run pi0disp demo --num-balls 5`
+
+**`info [--health-check]`**
+- Show driver state, config, and optional hardware health check
+- **Example:** `uv run pi0disp info --health-check`
+
+**`clear`**
+- Clear the display (fill black)
+
+**`brightness <0-100>`**
+- Set backlight brightness
+- **Example:** `uv run pi0disp brightness 50`
+
+**`config show | set | export | import`**
+- Configuration management subcommands
+
+**`display-tool`**
+- Interactive menu with 9 options for exercising all display functions
 
 ---
 
@@ -2218,6 +2331,7 @@ uv run pi0vl53l0x get --count 10 --interval 0.5
 
 # Display
 uv run pi0disp image assets/images/sample_face.jpg
+uv run pi0disp demo --num-balls 3
 
 # Servo
 uv run pi0servo servo 17 center
