@@ -1,6 +1,15 @@
 # Development Log
 
 
+## 2026-02-25: Fix Display Integration — GPIO Pin Mismatch ✓
+- **Root Cause**: `ninja_core` `DisplayConfig` defaults were DC=14, RST=15, BLK=16. Actual hardware uses DC=18, RST=19, BLK=20. `pi0disp` standalone worked because it reads its own `display.json` (correct pins). HAL used `config.json` defaults (wrong pins) → backlight and D/C signals went to wrong GPIO → blank display.
+- **Fix**:
+  - **`config.py`**: Changed `DisplayConfig` defaults to `None` (forces explicit configuration). Added `display.json` import to `import_and_update_config()` (same pattern as servo.json/buzzer.json).
+  - **`hal.py`**: `_init_display()` now auto-reads `pi0disp/display.json` as fallback when config pins are None. Logs actual pin values being used.
+  - **`InstallationGuide.md`**: Updated wiring table (configurable pins), config import output (shows display.json), troubleshooting (GPIO mismatch).
+- **Files Modified**: `ninja_core/src/ninja_core/config.py`, `ninja_core/src/ninja_core/hal.py`, `InstallationGuide.md`
+- **Validation**: ruff check passed.
+
 ## 2026-02-25: Fix Display Integration — Robustness Improvements ✓
 - **Root Cause**: Exhaustive code audit confirmed V2 driver's low-level SPI/color code is identical to old driver. Blank display caused by integration-layer issues: (1) V2's delta rendering and window caching introduced silent failure modes absent from old brute-force driver, (2) `facial_expressions.py` silently swallowed ALL exceptions including display errors, (3) HAL never verified display after init, (4) no RGB mode enforcement.
 - **Fix**:

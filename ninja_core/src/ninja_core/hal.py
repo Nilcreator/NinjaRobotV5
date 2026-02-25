@@ -220,28 +220,68 @@ class HardwareAbstractionLayer:
             self.buzzer = None
 
     def _init_display(self) -> None:
-        """Initialize the display."""
-        if not self.config.display or self.config.display.dc is None:
-            log.info("No display pins configured. Skipping.")
+        """Initialize the display.
+
+        Pin configuration is resolved in this priority order:
+        1. config.json display section (set via 'ninja_core config import')
+        2. pi0disp/display.json (auto-read fallback)
+        3. Skip if no pin configuration is available
+        """
+        dc = self.config.display.dc if self.config.display else None
+        rst = self.config.display.rst if self.config.display else None
+        blk = self.config.display.blk if self.config.display else None
+        rotation = self.config.display.rotation if self.config.display else 90
+
+        # Auto-read from pi0disp/display.json if config pins are missing
+        if dc is None or rst is None or blk is None:
+            import json
+            from pathlib import Path
+
+            display_json = Path("pi0disp") / "display.json"
+            if display_json.exists():
+                log.info(
+                    "Display pins not in config.json — "
+                    "reading from %s", display_json,
+                )
+                try:
+                    with open(display_json, "r") as f:
+                        disp_data = json.load(f)
+                    dc = disp_data.get("dc_pin", dc)
+                    rst = disp_data.get("rst_pin", rst)
+                    blk = disp_data.get("backlight_pin", blk)
+                    rotation = disp_data.get("rotation", rotation)
+                except (json.JSONDecodeError, OSError) as e:
+                    log.warning("Failed to read display.json: %s", e)
+            else:
+                log.info(
+                    "No display pins configured and no display.json found. "
+                    "Skipping display. Run 'uv run pi0disp init' first."
+                )
+                return
+
+        if dc is None or rst is None or blk is None:
+            log.info("Display pin configuration incomplete. Skipping.")
             return
 
         try:
-            log.info("Initializing display...")
+            log.info(
+                "Initializing display (DC=%d, RST=%d, BLK=%d, rotation=%d)...",
+                dc, rst, blk, rotation,
+            )
             ST7789V = load_driver_class("display")
             self.display = ST7789V(
                 pi=self.pi,
                 channel=0,
-                dc_pin=self.config.display.dc,
-                rst_pin=self.config.display.rst,
-                backlight_pin=self.config.display.blk,
-                rotation=self.config.display.rotation,
+                dc_pin=dc,
+                rst_pin=rst,
+                backlight_pin=blk,
+                rotation=rotation,
             )
             # Verify display works by clearing to black
             self.display.clear((0, 0, 0))
             log.info(
                 "Display initialized and verified (%dx%d, rotation=%d).",
-                self.display.width, self.display.height,
-                self.config.display.rotation,
+                self.display.width, self.display.height, rotation,
             )
         except Exception as e:
             log.error(f"Failed to initialize Display: {e}", exc_info=True)

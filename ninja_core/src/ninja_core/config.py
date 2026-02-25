@@ -44,11 +44,15 @@ class BuzzerConfig(BaseModel):
 
 
 class DisplayConfig(BaseModel):
-    """Configuration for the ST7789V display."""
+    """Configuration for the ST7789V display.
 
-    dc: Optional[int] = Field(14, description="The DC (Data/Command) pin.")
-    rst: Optional[int] = Field(15, description="The RST (Reset) pin.")
-    blk: Optional[int] = Field(16, description="The BLK (Backlight) pin.")
+    Pin defaults are None to force explicit configuration via
+    'ninja_core config import' (reads pi0disp/display.json).
+    """
+
+    dc: Optional[int] = Field(None, description="The DC (Data/Command) GPIO pin.")
+    rst: Optional[int] = Field(None, description="The RST (Reset) GPIO pin.")
+    blk: Optional[int] = Field(None, description="The BLK (Backlight) GPIO pin.")
     rotation: int = Field(90, description="Display rotation in degrees (0, 90, 180, 270).")
 
 
@@ -192,6 +196,42 @@ def import_and_update_config():
             print("...buzzer import complete.")
     else:
         print(f"Info: Buzzer config '{buzzer_config_path}' not found. Skipping.")
+
+    # --- Import display settings ---
+    display_config_path = Path("pi0disp") / "display.json"
+    if display_config_path.exists():
+        print(f"Found display config at '{display_config_path}'. Importing...")
+        with open(display_config_path, "r") as f:
+            disp_data = json.load(f)
+
+        changed = False
+        if "dc_pin" in disp_data and config.display.dc != disp_data["dc_pin"]:
+            config.display.dc = disp_data["dc_pin"]
+            changed = True
+        if "rst_pin" in disp_data and config.display.rst != disp_data["rst_pin"]:
+            config.display.rst = disp_data["rst_pin"]
+            changed = True
+        if "backlight_pin" in disp_data and config.display.blk != disp_data["backlight_pin"]:
+            config.display.blk = disp_data["backlight_pin"]
+            changed = True
+        if "rotation" in disp_data and config.display.rotation != disp_data["rotation"]:
+            config.display.rotation = disp_data["rotation"]
+            changed = True
+
+        if changed:
+            made_changes = True
+            print(
+                f"...imported display pins: DC={config.display.dc}, "
+                f"RST={config.display.rst}, BLK={config.display.blk}, "
+                f"rotation={config.display.rotation}"
+            )
+        else:
+            print("...display import complete (no changes detected).")
+    else:
+        print(
+            f"Info: Display config '{display_config_path}' not found. Skipping.\n"
+            f"  Tip: Run 'uv run pi0disp init' first to create display.json."
+        )
 
     # --- Save changes if any were made ---
     if made_changes:

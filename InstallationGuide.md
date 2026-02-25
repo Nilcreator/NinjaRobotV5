@@ -105,6 +105,9 @@ Raspberry Pi Zero 2W GPIO Pinout (40-pin header)
 
 #### ST7789V LCD Display (SPI)
 
+> [!IMPORTANT]
+> The GPIO pins for DC, RST, and BLK are **configurable**. The table below shows the default wiring. After connecting, run `uv run pi0disp init` to register your pin assignments.
+
 | Display Pin | Raspberry Pi Pin | Description |
 |-------------|------------------|-------------|
 | VCC         | 3.3V             | Power       |
@@ -112,9 +115,9 @@ Raspberry Pi Zero 2W GPIO Pinout (40-pin header)
 | DIN (MOSI)  | SPI0 MOSI        | SPI Data    |
 | CLK (SCL)   | SPI0 SCLK        | SPI Clock   |
 | CS          | SPI0 CE0         | Chip Select |
-| DC          | GPIO 14          | Data/Command|
-| RST         | GPIO 15          | Reset       |
-| BLK         | GPIO 16          | Backlight   |
+| DC          | GPIO (configurable, e.g. 14 or 18) | Data/Command |
+| RST         | GPIO (configurable, e.g. 15 or 19) | Reset       |
+| BLK         | GPIO (configurable, e.g. 16 or 20) | Backlight   |
 
 #### VL53L0X Distance Sensor (I2C)
 
@@ -138,7 +141,7 @@ Before proceeding, verify:
 - [ ] All servo signal wires are connected to the correct GPIO pins (20-27)
 - [ ] Servo power comes from an external 5V supply (NOT the Pi)
 - [ ] Common ground is shared between Pi and external servo power supply
-- [ ] Display is connected via SPI (SCLK, MOSI, CE0) and GPIO 14, 15, 16
+- [ ] Display is connected via SPI (SCLK, MOSI, CE0) and your chosen GPIO pins for DC, RST, BLK
 - [ ] Distance sensor is connected via I2C (SCL, SDA)
 - [ ] Buzzer is connected to GPIO 17
 - [ ] No loose wires or short circuits
@@ -675,6 +678,9 @@ Follow the on-screen instructions:
 
 After calibrating all servos, import the configurations:
 
+> [!IMPORTANT]
+> Make sure you have already run `uv run pi0disp init` (Step 8.1) before this step. The config import reads display pins from `pi0disp/display.json`.
+
 ```bash
 uv run ninja_core config import
 ```
@@ -683,6 +689,8 @@ You should see:
 ```
 Found servo config at 'servo.json'. Importing...
 Found buzzer config at 'buzzer.json'. Importing...
+Found display config at 'pi0disp/display.json'. Importing...
+...imported display pins: DC=18, RST=19, BLK=20, rotation=90
 Configuration updated and saved to config.json!
 ```
 
@@ -952,7 +960,7 @@ Then try running your command again.
 1. Verify SPI is enabled: `sudo raspi-config` → Interface Options → SPI
 2. Check wiring matches the pin table in Section 2
 3. Run the display health check: `uv run pi0disp info --health-check`
-4. Re-run the setup wizard: `uv run pi0disp init`
+4. **Verify GPIO pin configuration**: Run `uv run pi0disp init` to register your display pins, then `uv run ninja_core config import` to sync them to `config.json`. A common cause of blank displays is mismatched GPIO pins between `display.json` and `config.json`.
 5. Reboot: `sudo reboot`
 
 ### Problem: Distance sensor not responding
