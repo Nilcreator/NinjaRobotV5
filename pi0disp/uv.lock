@@ -555,6 +555,7 @@ dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pigpio" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pillow", version = "12.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
@@ -568,9 +569,6 @@ dev = [
 ]
 ninjarobot = [
     { name = "ninja-utils" },
-]
-pi = [
-    { name = "pigpio" },
 ]
 
 [package.dev-dependencies]
@@ -586,13 +584,13 @@ requires-dist = [
     { name = "click" },
     { name = "ninja-utils", marker = "extra == 'ninjarobot'" },
     { name = "numpy" },
-    { name = "pigpio", marker = "extra == 'pi'" },
+    { name = "pigpio" },
     { name = "pillow" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["pi", "ninjarobot", "dev"]
+provides-extras = ["ninjarobot", "dev"]
 
 [package.metadata.requires-dev]
 dev = [

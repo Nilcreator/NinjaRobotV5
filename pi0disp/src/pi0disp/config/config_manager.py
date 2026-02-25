@@ -44,7 +44,7 @@ DEFAULT_CONFIG = {
     "backlight_pin": DEFAULT_PINS["backlight_pin"],
     "width": 240,
     "height": 320,
-    "rotation": 0,
+    "rotation": 90,
     "brightness": 100,
     "spi_speed_mhz": 32,
 }
@@ -162,7 +162,7 @@ class ConfigManager:
           2. Set DC pin (default: 14)
           3. Set RST pin (default: 15)
           4. Set BLK pin (default: 16)
-          5. Set rotation (default: 0)
+          5. Set rotation (default: 90)
           6. Set brightness (default: 100)
 
         When interactive=False, creates display.json with all defaults.
@@ -208,7 +208,7 @@ class ConfigManager:
         print("--- Display Settings ---")
         print()
         rotation = _prompt_choice(
-            "  Rotation (0/90/180/270)", 0, [0, 90, 180, 270]
+            "  Rotation (0/90/180/270)", 90, [0, 90, 180, 270]
         )
         brightness = _prompt_int("  Brightness (0-100%)", 100, 0, 100)
 

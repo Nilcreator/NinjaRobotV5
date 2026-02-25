@@ -49,6 +49,7 @@ class DisplayConfig(BaseModel):
     dc: Optional[int] = Field(14, description="The DC (Data/Command) pin.")
     rst: Optional[int] = Field(15, description="The RST (Reset) pin.")
     blk: Optional[int] = Field(16, description="The BLK (Backlight) pin.")
+    rotation: int = Field(90, description="Display rotation in degrees (0, 90, 180, 270).")
 
 
 class SensorConfig(BaseModel):

@@ -12,16 +12,16 @@ class TestST7789VConstruction:
     """Tests for driver construction."""
 
     def test_default_construction(self, mock_pigpio):
-        """Driver should initialize with default parameters."""
+        """Driver should initialize with default parameters (rotation=90, landscape)."""
         lcd = ST7789V(pi=mock_pigpio)
-        assert lcd.width == 240
-        assert lcd.height == 320
-        assert lcd._rotation == 0
+        assert lcd.width == 320  # Swapped by default rotation=90
+        assert lcd.height == 240
+        assert lcd._rotation == 90
         lcd.close()
 
     def test_custom_dimensions(self, mock_pigpio):
-        """Driver should accept custom width/height."""
-        lcd = ST7789V(pi=mock_pigpio, width=240, height=320)
+        """Driver should accept custom width/height with explicit rotation=0."""
+        lcd = ST7789V(pi=mock_pigpio, width=240, height=320, rotation=0)
         assert lcd.width == 240
         assert lcd.height == 320
         lcd.close()

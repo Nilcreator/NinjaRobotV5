@@ -1,6 +1,12 @@
 # Development Log
 
 
+## 2026-02-25: Fix Display Integration — Rotation Default Mismatch ✓
+- **Root Cause**: Old `pi0disp_bak` driver defaulted to `rotation=90` (landscape 320×240), but the new V2 driver defaulted to `rotation=0` (portrait 240×320). Since `hal.py` didn't pass a rotation parameter, the display initialized in wrong orientation — QR codes and face expressions appeared rotated 90°.
+- **Fix**: Changed default rotation from 0 to 90 in driver, added `rotation` field to `DisplayConfig`, and passed it from HAL to the ST7789V constructor. User can change rotation via `pi0disp init`.
+- **Files Modified**: `pi0disp/src/pi0disp/core/driver.py`, `pi0disp/src/pi0disp/config/config_manager.py`, `ninja_core/src/ninja_core/config.py`, `ninja_core/src/ninja_core/hal.py`, `pi0disp/tests/test_driver.py`
+- **Validation**: ruff check passed, 54/54 pytest tests passed.
+
 ## 2026-02-25: pi0disp V2 — Full Library Rebuild ✓
 - **Action**: Built the new pi0disp library from scratch following `pi0disp/RebuildPlan.md`.
 - **Details**:

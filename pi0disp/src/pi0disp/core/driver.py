@@ -97,7 +97,7 @@ class ST7789V(Actuator):
         speed_hz: int = 32_000_000,
         width: int = 240,
         height: int = 320,
-        rotation: int = 0,
+        rotation: int = 90,
     ) -> None:
         """Initialize the display driver.
 

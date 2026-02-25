@@ -234,6 +234,7 @@ class HardwareAbstractionLayer:
                 dc_pin=self.config.display.dc,
                 rst_pin=self.config.display.rst,
                 backlight_pin=self.config.display.blk,
+                rotation=self.config.display.rotation,
             )
             log.info("Display initialized.")
         except Exception as e:
