@@ -1,6 +1,12 @@
 # Development Log
 
 
+## 2026-02-25: InstallationGuide.md — Reorganize Calibration Sequence ✓
+- **Action**: Reorganized sections 7 and 8 in all three languages (English, Japanese, Chinese) so all component setup/calibration happens **before** `ninja_core config import`.
+- **New Flow**: 7.1 Display Setup → 7.2 Buzzer Setup → 7.3 Distance Sensor Test → 7.4 Servo Calibration → 7.5 Gemini API Key → **7.6 Import All Configs** → 8 System Integration Testing
+- **Rationale**: `ninja_core config import` reads from `servo.json`, `buzzer.json`, and `pi0disp/display.json`. These files must exist and be verified before import.
+- **Files Modified**: `InstallationGuide.md` (English, Japanese, Chinese sections)
+
 ## 2026-02-25: Fix Display Integration — GPIO Pin Mismatch ✓
 - **Root Cause**: `ninja_core` `DisplayConfig` defaults were DC=14, RST=15, BLK=16. Actual hardware uses DC=18, RST=19, BLK=20. `pi0disp` standalone worked because it reads its own `display.json` (correct pins). HAL used `config.json` defaults (wrong pins) → backlight and D/C signals went to wrong GPIO → blank display.
 - **Fix**:

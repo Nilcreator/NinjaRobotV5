@@ -607,12 +607,50 @@ You should see a list of available commands like `chat`, `server`, `config`, etc
 
 ---
 
-## 7. Hardware Calibration
+## 7. Hardware Calibration & Testing
 
-Before running the robot, you need to calibrate the servos and configure the hardware.
+Before running the robot, you need to initialize, calibrate, and test each hardware component individually. This ensures that every component's configuration file (`display.json`, `buzzer.json`, `servo.json`) is created and verified **before** importing them all into the main `config.json`.
 
-### Step 7.1: Configure Buzzer
-Tell the system which GPIO pin the buzzer is connected to:
+> [!IMPORTANT]
+> Follow the steps in order. Each step creates or updates a configuration file that will be imported in Step 7.6.
+
+### Step 7.1: Display Setup
+
+Initialize the display by running the interactive setup wizard:
+
+```bash
+uv run pi0disp init
+```
+
+Follow the prompts to select your display profile and configure GPIO pins (DC, RST, BLK). This creates `pi0disp/display.json`.
+
+Test the display with an image:
+
+```bash
+uv run pi0disp image assets/images/sample_face.jpg
+```
+
+You should see the image on the display. Test additional features:
+
+```bash
+# Text rendering
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "忍者ロボット" --lang ja --scroll
+
+# Brightness control
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+
+# Animation demo (Ctrl+C to stop)
+uv run pi0disp demo --num-balls 3
+
+# Health check
+uv run pi0disp info --health-check
+```
+
+### Step 7.2: Buzzer Setup
+
+Tell the system which GPIO pin the buzzer is connected to. This creates `buzzer.json`:
 
 ```bash
 uv run pi0buzzer init 17
@@ -622,19 +660,20 @@ Test the buzzer:
 
 ```bash
 uv run pi0buzzer beep
+uv run pi0buzzer playmusic
 ```
 
-You should hear a short beep.
+You should hear a short beep, then a melody.
 
-### Step 7.2: Test Distance Sensor
+### Step 7.3: Distance Sensor Test
 
-Run the built-in self-test to verify the sensor is connected and working:
+Run the built-in self-test to verify the VL53L0X sensor is connected:
 
 ```bash
 uv run pi0vl53l0x test
 ```
 
-Then take a few live readings:
+Take a few live readings:
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
@@ -648,17 +687,17 @@ Check the sensor status (firmware, offset, health):
 uv run pi0vl53l0x status
 ```
 
-Optionally, calibrate the sensor by placing an object at a known distance (e.g., 100 mm) and running:
+Optionally, calibrate by placing an object at a known distance (e.g., 100 mm):
 
 ```bash
 uv run pi0vl53l0x calibrate --distance 100 --count 10
 ```
 
-### Step 7.3: Calibrate Servos
+### Step 7.4: Servo Calibration
 
-Each servo needs to be calibrated to define its minimum, center, and maximum positions.
+Each servo needs to be calibrated to define its minimum, center, and maximum positions. This creates `servo.json`.
 
-For each servo (example for GPIO 17):
+For each servo (example for GPIO 20):
 
 ```bash
 uv run pi0servo calib 20
@@ -674,12 +713,28 @@ Follow the on-screen instructions:
 
 **Repeat this for all 8 servos** (GPIO pins: 20 through 27)
 
-### Step 7.4: Import Hardware Configuration
+Test a servo after calibration:
 
-After calibrating all servos, import the configurations:
+```bash
+uv run pi0servo move 20 0
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
+```
+
+### Step 7.5: Set Gemini API Key
+
+Configure the AI agent with your API key (replace `YOUR_API_KEY` with the actual key from Step 5.1):
+
+```bash
+uv run ninja_core config set-key gemini YOUR_API_KEY
+```
+
+### Step 7.6: Import All Hardware Configurations
+
+Now that all components are initialized and tested, import their configurations into the main `config.json`:
 
 > [!IMPORTANT]
-> Make sure you have already run `uv run pi0disp init` (Step 8.1) before this step. The config import reads display pins from `pi0disp/display.json`.
+> This step reads from `servo.json`, `buzzer.json`, and `pi0disp/display.json`. Make sure Steps 7.1–7.4 are completed first.
 
 ```bash
 uv run ninja_core config import
@@ -688,114 +743,24 @@ uv run ninja_core config import
 You should see:
 ```
 Found servo config at 'servo.json'. Importing...
+...imported calibration for 8 servos.
 Found buzzer config at 'buzzer.json'. Importing...
+...buzzer import complete.
 Found display config at 'pi0disp/display.json'. Importing...
 ...imported display pins: DC=18, RST=19, BLK=20, rotation=90
 Configuration updated and saved to config.json!
 ```
 
-### Step 7.5: Set Gemini API Key
-
-Configure the AI agent with your API key (replace `YOUR_API_KEY` with the actual key):
-
-```bash
-uv run ninja_core config set-key gemini YOUR_API_KEY
-```
+> [!TIP]
+> If you change any hardware wiring or recalibrate a component later, run `uv run ninja_core config import` again to sync the changes.
 
 ---
 
-## 8. Function Testing
+## 8. System Integration Testing
 
-Now let's test each component individually.
+With all components individually verified and configurations imported, test the full system.
 
-### Test 8.1: Display Test
-
-First-time setup (if not already done):
-
-```bash
-uv run pi0disp init
-```
-
-Follow the prompts to configure your display pins and profile.
-
-Test the LCD screen with an image:
-
-```bash
-uv run pi0disp image assets/images/sample_face.jpg
-```
-
-You should see the image on the display.
-
-Test brightness control:
-
-```bash
-uv run pi0disp brightness 50
-uv run pi0disp brightness 100
-```
-
-Test text display:
-
-```bash
-uv run pi0disp text "Hello NinjaRobot"
-uv run pi0disp text "忍者ロボット" --lang ja --scroll
-```
-
-Test animation:
-
-```bash
-uv run pi0disp demo --num-balls 3
-```
-
-Press **Ctrl+C** to stop.
-
-Check configuration and health:
-
-```bash
-uv run pi0disp info --health-check
-```
-
-### Test 8.2: Servo Movement Test
-
-Move a servo to its center position:
-
-```bash
-uv run pi0servo move 20 0
-```
-
-The servo on GPIO 20 should move to 0 degrees.
-
-Try other positions:
-
-```bash
-uv run pi0servo move 20 45
-uv run pi0servo move 20 -- -45
-uv run pi0servo cmd "20:X"
-```
-
-### Test 8.3: Sound Test
-
-Play a melody:
-
-```bash
-uv run pi0buzzer playmusic
-```
-
-### Test 8.4: Distance Sensor Performance
-
-Measure sensor speed:
-
-```bash
-uv run pi0vl53l0x performance --count 100
-```
-
-Check sensor status and current configuration:
-
-```bash
-uv run pi0vl53l0x status
-uv run pi0vl53l0x config show
-```
-
-### Test 8.5: AI Agent Test (Text Chat)
+### Test 8.1: AI Agent Test (Text Chat)
 
 Test the AI chat in terminal mode:
 
@@ -1447,35 +1412,73 @@ ninja_core --help
 
 ---
 
-## 7. ハードウェアの校正
+## 7. ハードウェアの校正とテスト
 
-ロボットを実行する前に、サーボを校正してハードウェアを設定する必要があります。
+ロボットを実行する前に、各ハードウェアコンポーネントを個別に初期化、校正、テストする必要があります。これにより、すべてのコンポーネントの設定ファイル（`display.json`、`buzzer.json`、`servo.json`）が作成・検証された状態で、メインの `config.json` にインポートされます。
 
-### ステップ7.1: ブザーの設定
+> [!IMPORTANT]
+> 手順に沿って順番に進めてください。各ステップで設定ファイルが作成され、ステップ7.6でまとめてインポートされます。
 
-ブザーが接続されているGPIOピンをシステムに伝えます:
+### ステップ7.1: ディスプレイのセットアップ
+
+対話型セットアップウィザードでディスプレイを初期化します：
+
+```bash
+uv run pi0disp init
+```
+
+プロンプトに従ってディスプレイプロファイルと GPIO ピン（DC、RST、BLK）を設定します。これにより `pi0disp/display.json` が作成されます。
+
+画像でディスプレイをテスト：
+
+```bash
+uv run pi0disp image assets/images/sample_face.jpg
+```
+
+画像がディスプレイに表示されるはずです。追加機能もテストしましょう：
+
+```bash
+# テキスト表示
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "忍者ロボット" --lang ja --scroll
+
+# 明るさ制御
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+
+# アニメーションデモ（Ctrl+C で停止）
+uv run pi0disp demo --num-balls 3
+
+# ヘルスチェック
+uv run pi0disp info --health-check
+```
+
+### ステップ7.2: ブザーのセットアップ
+
+ブザーが接続されている GPIO ピンをシステムに伝えます。これにより `buzzer.json` が作成されます：
 
 ```bash
 uv run pi0buzzer init 17
 ```
 
-ブザーをテスト:
+ブザーをテスト：
 
 ```bash
 uv run pi0buzzer beep
+uv run pi0buzzer playmusic
 ```
 
-短いビープ音が聞こえるはずです。
+短いビープ音、次にメロディが聞こえるはずです。
 
-### ステップ7.2: 距離センサーのテスト
+### ステップ7.3: 距離センサーのテスト
 
-内蔵セルフテストを実行して、センサーが正しく接続され動作していることを確認します：
+内蔵セルフテストを実行して、VL53L0X センサーが正しく接続されていることを確認します：
 
 ```bash
 uv run pi0vl53l0x test
 ```
 
-次に、実際の測定を行います：
+実際の測定を行います：
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
@@ -1495,17 +1498,17 @@ uv run pi0vl53l0x status
 uv run pi0vl53l0x calibrate --distance 100 --count 10
 ```
 
-### ステップ7.3: サーボの校正
+### ステップ7.4: サーボの校正
 
-各サーボは、最小、中央、最大位置を定義するために校正する必要があります。
+各サーボは、最小、中心、最大位置を定義するために校正する必要があります。これにより `servo.json` が作成されます。
 
-各サーボについて（GPIO 17の例）:
+各サーボについて（GPIO 20 の例）：
 
 ```bash
 uv run pi0servo calib 20
 ```
 
-画面の指示に従ってください:
+画面の指示に従ってください：
 1. `v`を押して**Min**（最小）位置を選択
 2. **上/下**矢印キーで大きな調整、**w/s**で微調整
 3. サーボが最小位置にあるときに**Enter**を押して保存
@@ -1513,138 +1516,69 @@ uv run pi0servo calib 20
 5. `x`を押して**Max**（最大）位置を選択、調整して**Enter**を押す
 6. `q`を押して終了
 
-**これを8つすべてのサーボで繰り返してください**（GPIOピン: 20から27）
+**これを8つすべてのサーボで繰り返してください**（GPIO ピン: 20 から 27）
 
-### ステップ7.4: ハードウェア設定のインポート
-
-すべてのサーボを校正した後、設定をインポート:
+校正後にサーボをテスト：
 
 ```bash
-uv run ninja_core config import
+uv run pi0servo move 20 0
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
 ```
 
-次のように表示されるはずです:
-```
-Found servo config at 'servo.json'. Importing...
-Found buzzer config at 'buzzer.json'. Importing...
-Configuration updated and saved to config.json!
-```
+### ステップ7.5: Gemini API キーの設定
 
-### ステップ7.5: Gemini APIキーの設定
-
-APIキーでAIエージェントを設定（`YOUR_API_KEY`を実際のキーに置き換えてください）:
+API キーで AI エージェントを設定（`YOUR_API_KEY` を実際のキーに置き換えてください）：
 
 ```bash
 uv run ninja_core config set-key gemini YOUR_API_KEY
 ```
 
+### ステップ7.6: すべてのハードウェア設定をインポート
+
+すべてのコンポーネントの初期化とテストが完了したら、設定をメインの `config.json` にインポートします：
+
+> [!IMPORTANT]
+> このステップでは `servo.json`、`buzzer.json`、`pi0disp/display.json` を読み込みます。ステップ 7.1〜7.4 が完了していることを確認してください。
+
+```bash
+uv run ninja_core config import
+```
+
+次のように表示されるはずです：
+```
+Found servo config at 'servo.json'. Importing...
+...imported calibration for 8 servos.
+Found buzzer config at 'buzzer.json'. Importing...
+...buzzer import complete.
+Found display config at 'pi0disp/display.json'. Importing...
+...imported display pins: DC=18, RST=19, BLK=20, rotation=90
+Configuration updated and saved to config.json!
+```
+
+> [!TIP]
+> ハードウェアの配線変更やコンポーネントの再校正を行った場合は、`uv run ninja_core config import` を再度実行して変更を同期してください。
+
 ---
 
-## 8. 機能テスト
+## 8. システム統合テスト
 
-それでは、各コンポーネントを個別にテストしましょう。
+すべてのコンポーネントが個別に確認され、設定がインポートされたら、フルシステムをテストします。
 
-### テスト8.1: ディスプレイテスト
+### テスト8.1: AI エージェントテスト（テキストチャット）
 
-初回セットアップ（まだの場合）：
-
-```bash
-uv run pi0disp init
-```
-
-プロンプトに従ってディスプレイのピンとプロファイルを設定してください。
-
-画像で液晶画面をテスト：
-
-```bash
-uv run pi0disp image assets/images/sample_face.jpg
-```
-
-画像がディスプレイに表示されるはずです。
-
-明るさ制御をテスト：
-
-```bash
-uv run pi0disp brightness 50
-uv run pi0disp brightness 100
-```
-
-テキスト表示をテスト：
-
-```bash
-uv run pi0disp text "Hello NinjaRobot"
-uv run pi0disp text "忍者ロボット" --lang ja --scroll
-```
-
-アニメーションをテスト：
-
-```bash
-uv run pi0disp demo --num-balls 3
-```
-
-**Ctrl+C**を押して停止。
-
-設定とヘルスチェック：
-
-```bash
-uv run pi0disp info --health-check
-```
-
-### テスト8.2: サーボ動作テスト
-
-サーボを中央位置に移動:
-
-```bash
-uv run pi0servo move 20 0
-```
-
-GPIO 20のサーボが0度（中心）に移動します。
-
-他の位置も試してみましょう：
-
-```bash
-uv run pi0servo move 20 45
-uv run pi0servo move 20 -- -45
-uv run pi0servo cmd "20:X"
-```
-
-### テスト8.3: サウンドテスト
-
-メロディを再生:
-
-```bash
-uv run pi0buzzer playmusic
-```
-
-### テスト8.4: 距離センサーのパフォーマンス
-
-センサーの速度を測定:
-
-```bash
-uv run pi0vl53l0x performance --count 100
-```
-
-センサーのステータスと現在の設定を確認:
-
-```bash
-uv run pi0vl53l0x status
-uv run pi0vl53l0x config show
-```
-
-### テスト8.5: AIエージェントテスト（テキストチャット）
-
-ターミナルモードでAIチャットをテスト:
+ターミナルモードで AI チャットをテスト：
 
 ```bash
 uv run ninja_core chat
 ```
 
-これらのコマンドを試してください:
+これらのコマンドを試してください：
 - `Hello`（ロボットが挨拶するはずです）
 - `Show me a happy face`（嬉しい表情と音を表示）
 - `こんにちは`（日本語で応答）
 - `你好`（中国語で応答）
-- `quit`と入力するか**Ctrl+C**を押して終了
+- `quit` と入力するか **Ctrl+C** を押して終了
 
 > [!NOTE]
 > ロボットは距離を継続的に監視し、近づきすぎると（<50mm）反応します。
@@ -2273,13 +2207,50 @@ ninja_core --help
 
 ---
 
-## 7. 硬體校準
+## 7. 硬體校準與測試
 
-在執行機器人之前，您需要校準伺服馬達並設定硬體。
+在執行機器人之前，您需要分別初始化、校準並測試每個硬體元件。這樣可以確保所有元件的設定檔（`display.json`、`buzzer.json`、`servo.json`）在匯入到主要的 `config.json` 之前，已經被建立並驗證。
 
-### 步驟 7.1：設定蜂鳴器
+> [!IMPORTANT]
+> 請按照順序進行各步驟。每個步驟都會建立設定檔，這些檔案將在步驟 7.6 中統一匯入。
 
-告訴系統蜂鳴器連接到哪個 GPIO 腳位：
+### 步驟 7.1：顯示器設定
+
+執行互動式設定精靈來初始化顯示器：
+
+```bash
+uv run pi0disp init
+```
+
+按提示選擇顯示器設定檔並配置 GPIO 腳位（DC、RST、BLK）。這會建立 `pi0disp/display.json`。
+
+使用圖片測試顯示器：
+
+```bash
+uv run pi0disp image assets/images/sample_face.jpg
+```
+
+您應該會在顯示器上看到圖片。測試其他功能：
+
+```bash
+# 文字顯示
+uv run pi0disp text "Hello NinjaRobot"
+uv run pi0disp text "你好世界" --lang zh-tw --scroll
+
+# 亮度控制
+uv run pi0disp brightness 50
+uv run pi0disp brightness 100
+
+# 動畫演示（按 Ctrl+C 停止）
+uv run pi0disp demo --num-balls 3
+
+# 健康檢查
+uv run pi0disp info --health-check
+```
+
+### 步驟 7.2：蜂鳴器設定
+
+告訴系統蜂鳴器連接到哪個 GPIO 腳位。這會建立 `buzzer.json`：
 
 ```bash
 uv run pi0buzzer init 17
@@ -2289,19 +2260,20 @@ uv run pi0buzzer init 17
 
 ```bash
 uv run pi0buzzer beep
+uv run pi0buzzer playmusic
 ```
 
-您應該會聽到一聲短促的嗶聲。
+您應該會聽到一聲短促的嗶聲，然後是一段旋律。
 
-### 步驟 7.2：測試距離感測器
+### 步驟 7.3：距離感測器測試
 
-執行內建自我測試以確認感測器已正確連接且正常運作：
+執行內建自我測試以確認 VL53L0X 感測器已正確連接：
 
 ```bash
 uv run pi0vl53l0x test
 ```
 
-然後進行實際測量：
+進行實際測量：
 
 ```bash
 uv run pi0vl53l0x get --count 5 --interval 1.0
@@ -2321,9 +2293,9 @@ uv run pi0vl53l0x status
 uv run pi0vl53l0x calibrate --distance 100 --count 10
 ```
 
-### 步驟 7.3：校準伺服馬達
+### 步驟 7.4：伺服馬達校準
 
-每個伺服馬達需要校準以定義其最小、中心和最大位置。
+每個伺服馬達需要校準以定義其最小、中心和最大位置。這會建立 `servo.json`。
 
 對於每個伺服馬達（以 GPIO 20 為例）：
 
@@ -2341,9 +2313,28 @@ uv run pi0servo calib 20
 
 **對所有 8 個伺服馬達重複此操作**（GPIO 腳位：20 到 27）
 
-### 步驟 7.4：匯入硬體設定
+校準後測試伺服馬達：
 
-校準所有伺服馬達後，匯入設定：
+```bash
+uv run pi0servo move 20 0
+uv run pi0servo move 20 45
+uv run pi0servo move 20 -- -45
+```
+
+### 步驟 7.5：設定 Gemini API 金鑰
+
+使用您的 API 金鑰設定 AI 代理（將 `YOUR_API_KEY` 替換為步驟 5.1 中取得的實際金鑰）：
+
+```bash
+uv run ninja_core config set-key gemini YOUR_API_KEY
+```
+
+### 步驟 7.6：匯入所有硬體設定
+
+所有元件初始化和測試完成後，將設定匯入到主要的 `config.json`：
+
+> [!IMPORTANT]
+> 此步驟會讀取 `servo.json`、`buzzer.json` 和 `pi0disp/display.json`。請確認步驟 7.1 至 7.4 已完成。
 
 ```bash
 uv run ninja_core config import
@@ -2352,113 +2343,24 @@ uv run ninja_core config import
 您應該會看到：
 ```
 Found servo config at 'servo.json'. Importing...
+...imported calibration for 8 servos.
 Found buzzer config at 'buzzer.json'. Importing...
+...buzzer import complete.
+Found display config at 'pi0disp/display.json'. Importing...
+...imported display pins: DC=18, RST=19, BLK=20, rotation=90
 Configuration updated and saved to config.json!
 ```
 
-### 步驟 7.5：設定 Gemini API 金鑰
-
-使用您的 API 金鑰設定 AI 代理（將 `YOUR_API_KEY` 替換為實際金鑰）：
-
-```bash
-uv run ninja_core config set-key gemini YOUR_API_KEY
-```
+> [!TIP]
+> 如果之後更改了硬體接線或重新校準了元件，請再次執行 `uv run ninja_core config import` 以同步變更。
 
 ---
 
-## 8. 功能測試
+## 8. 系統整合測試
 
-現在讓我們逐一測試每個元件。
+所有元件已個別驗證且設定已匯入，現在測試整個系統。
 
-### 測試 8.1：顯示器測試
-
-首次設定（如果尚未完成）：
-
-```bash
-uv run pi0disp init
-```
-
-按提示配置顯示器的引腳和設定檔。
-
-使用圖片測試 LCD 螢幕：
-
-```bash
-uv run pi0disp image assets/images/sample_face.jpg
-```
-
-您應該會在顯示器上看到圖片。
-
-測試亮度控制：
-
-```bash
-uv run pi0disp brightness 50
-uv run pi0disp brightness 100
-```
-
-測試文字顯示：
-
-```bash
-uv run pi0disp text "Hello NinjaRobot"
-uv run pi0disp text "你好世界" --lang zh-tw --scroll
-```
-
-測試動畫：
-
-```bash
-uv run pi0disp demo --num-balls 3
-```
-
-按 **Ctrl+C** 停止。
-
-檢查設定和健康狀態：
-
-```bash
-uv run pi0disp info --health-check
-```
-
-### 測試 8.2：伺服馬達動作測試
-
-將伺服馬達移動到中心位置：
-
-```bash
-```bash
-uv run pi0servo move 20 0
-```
-
-GPIO 20 上的伺服馬達應該移動到 0 度。
-
-嘗試其他位置：
-
-```bash
-uv run pi0servo move 20 45
-uv run pi0servo move 20 -- -45
-uv run pi0servo cmd "20:X"
-```
-
-### 測試 8.3：聲音測試
-
-播放旋律：
-
-```bash
-uv run pi0buzzer playmusic
-```
-
-### 測試 8.4：距離感測器性能
-
-測量感測器速度：
-
-```bash
-uv run pi0vl53l0x performance --count 100
-```
-
-檢查感測器狀態和目前設定：
-
-```bash
-uv run pi0vl53l0x status
-uv run pi0vl53l0x config show
-```
-
-### 測試 8.5：AI 代理測試（文字聊天）
+### 測試 8.1：AI 代理測試（文字聊天）
 
 在終端機模式下測試 AI 聊天：
 
