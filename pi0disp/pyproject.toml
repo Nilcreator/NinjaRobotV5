@@ -9,15 +9,13 @@ dependencies = [
     "click",
     "numpy",
     "pillow",
+    "pigpio",
 ]
 requires-python = ">=3.9"
 readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.optional-dependencies]
-pi = [
-    "pigpio",
-]
 ninjarobot = [
     "ninja_utils",
 ]

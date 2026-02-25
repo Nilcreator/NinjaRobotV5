@@ -78,6 +78,18 @@ uv sync
 uv pip install -e ./pi0disp
 ```
 
+> [!IMPORTANT]
+> **pigpiod daemon required**: `pigpio` (the Python library) is installed automatically,
+> but the **system daemon** must be running before using pi0disp:
+> ```bash
+> sudo pigpiod          # Start the daemon
+> pigs t                # Verify it's running (should print a timestamp)
+> ```
+> To start pigpiod automatically on boot:
+> ```bash
+> sudo systemctl enable pigpiod
+> ```
+
 ### First-Time Setup
 
 Run the interactive configuration wizard to set your GPIO pin assignments:
