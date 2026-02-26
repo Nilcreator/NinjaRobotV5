@@ -16,16 +16,36 @@ Key Features:
     - Context manager for standalone usage
 """
 
+from __future__ import annotations
+
+import logging
 import queue
 import threading
 import time
 from typing import Any, Optional
 
-import pigpio
+try:
+    import pigpio
+except ImportError:
+    pigpio = None  # Not available on PC/Mac
 
-from ninja_utils import Actuator, get_logger
+try:
+    from ninja_utils import Actuator, get_logger
+    log = get_logger(__name__)
+except ImportError:
+    # Fallback for standalone usage (without ninja_utils)
+    from abc import ABC, abstractmethod
 
-log = get_logger(__name__)
+    class Actuator(ABC):
+        """Minimal Actuator interface for standalone mode."""
+        @abstractmethod
+        def initialize(self) -> None: ...
+        @abstractmethod
+        def execute(self, command: dict[str, Any]) -> None: ...
+        @abstractmethod
+        def off(self) -> None: ...
+
+    log = logging.getLogger(__name__)
 
 # Valid frequency range for PWM buzzer
 MIN_FREQUENCY = 20

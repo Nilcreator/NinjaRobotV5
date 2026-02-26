@@ -82,6 +82,15 @@ wheels = [
 ]
 
 [[package]]
+name = "ninja-utils"
+version = "0.1.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/05/d48106b2262a2ac1fd3887e5e8e9f258a61deb7dd6134a30ac34278b68af/ninja_utils-0.1.4.tar.gz", hash = "sha256:fd08b4fb768035038df24fb889acc68563b04d87f928885dd82a7989cbe168d4", size = 2035, upload-time = "2025-05-06T02:02:58.276Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/0b/a8d5bc90ad9f81ffe5ea9f36313d8b6a3a657e59720b60134beb7457c736/ninja_utils-0.1.4-py3-none-any.whl", hash = "sha256:c645508f7802b971c2040036c835def5f84b687407629f84c0c114a30a4b5fd9", size = 2785, upload-time = "2025-05-06T02:02:56.887Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -106,15 +115,19 @@ dev = [
     { name = "pytest", version = "9.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "ruff" },
 ]
+ninjarobot = [
+    { name = "ninja-utils" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "click" },
+    { name = "ninja-utils", marker = "extra == 'ninjarobot'" },
     { name = "pigpio" },
-    { name = "pytest", marker = "extra == 'dev'" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "ruff", marker = "extra == 'dev'" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["ninjarobot", "dev"]
 
 [[package]]
 name = "pigpio"

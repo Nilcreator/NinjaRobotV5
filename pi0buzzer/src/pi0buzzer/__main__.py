@@ -149,7 +149,7 @@ def init(ctx, pin):
 
 
 @cli.command()
-@click.argument("frequency", type=float, default=440.0)
+@click.argument("frequency", type=int, default=440)
 @click.argument("duration", type=float, default=0.5)
 @click.pass_context
 def beep(ctx, frequency, duration):
@@ -161,7 +161,7 @@ def beep(ctx, frequency, duration):
     try:
         buzzer = _create_buzzer(pi, ctx.obj.get("config_file"))
         click.echo(f"Playing {frequency} Hz for {duration}s...")
-        buzzer.play_sound(int(frequency), duration)
+        buzzer.play_sound(frequency, duration)
         time.sleep(duration + 0.1)
         buzzer.off()
     finally:

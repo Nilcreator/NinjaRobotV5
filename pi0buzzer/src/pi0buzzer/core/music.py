@@ -6,9 +6,15 @@ an interactive keyboard piano mode. All operations are non-blocking
 (sounds are queued to the parent Buzzer's worker thread).
 """
 
+from __future__ import annotations
+
+import logging
 from typing import Optional
 
-import pigpio
+try:
+    import pigpio
+except ImportError:
+    pigpio = None  # Not available on PC/Mac
 
 from pi0buzzer.core.driver import Buzzer
 from pi0buzzer.notes import (
@@ -19,9 +25,11 @@ from pi0buzzer.notes import (
     get_emotion_names,
 )
 
-from ninja_utils import get_logger
-
-log = get_logger(__name__)
+try:
+    from ninja_utils import get_logger
+    log = get_logger(__name__)
+except ImportError:
+    log = logging.getLogger(__name__)
 
 
 class MusicBuzzer(Buzzer):

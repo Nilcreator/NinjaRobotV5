@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-02-26: pi0buzzer Standalone Mode Fix & Minor Audit Findings ✓
+- **Action**: Fixed critical `ModuleNotFoundError: No module named 'ninja_utils'` when running pi0buzzer standalone (outside NinjaRobotV5 workspace). Applied conditional `try/except` imports to `core/driver.py`, `core/music.py`, and `config/config_manager.py` — matching the pattern established by `pi0disp` and `pi0servo`.
+- **Details**:
+  - **Actuator fallback**: When `ninja_utils` is absent, a minimal local `Actuator(ABC)` is defined inline.
+  - **Logger fallback**: Falls back to standard `logging.getLogger(__name__)` when `ninja_utils.get_logger` is unavailable.
+  - **pigpio fallback**: `pigpio = None` when not installed (for PC/Mac dev).
+  - **`from __future__ import annotations`**: Added to `core/driver.py` and `core/music.py` so `pigpio.pi` type hints are lazily evaluated (prevents `AttributeError` when `pigpio = None`).
+  - **F4**: `beep` CLI argument changed from `float` to `int` for frequency.
+  - **F5**: `export_config()` now calls `save()` before `shutil.copy2()` to ensure in-memory changes are included.
+- **Validation**: `ruff check` clean, 61/61 pytest tests pass.
+- **Files Modified**: `core/driver.py`, `core/music.py`, `config/config_manager.py`, `__main__.py`, `RebuildPlan.md`.
+
 ## 2026-02-26: pi0buzzer Library Full Rewrite & ninja_core Integration ✓
 - **Action**: Completely rebuilt the `pi0buzzer` library (Phase 8 of ProjectUpgradePlan). Replaced old blocking driver with a robust, architecture-aligned library featuring `Buzzer`, `MusicBuzzer`, `BuzzerConfigManager`, and an interactive TUI CLI (`buzzer-tool`).
 - **Key Features**:

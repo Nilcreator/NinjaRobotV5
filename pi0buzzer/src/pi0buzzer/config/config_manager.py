@@ -8,13 +8,16 @@ Default config file: ``buzzer.json`` in the current working directory.
 """
 
 import json
+import logging
 import os
 import shutil
 from typing import Any, Optional
 
-from ninja_utils import get_logger
-
-log = get_logger(__name__)
+try:
+    from ninja_utils import get_logger
+    log = get_logger(__name__)
+except ImportError:
+    log = logging.getLogger(__name__)
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "pin": 17,
@@ -163,10 +166,14 @@ class BuzzerConfigManager:
     def export_config(self, path: str) -> None:
         """Export configuration to a file.
 
+        Saves current in-memory config to disk first, then copies to destination.
+
         Args:
             path: Destination file path.
         """
         try:
+            # Save current in-memory state to disk before copying
+            self.save()
             parent = os.path.dirname(path)
             if parent:
                 os.makedirs(parent, exist_ok=True)
