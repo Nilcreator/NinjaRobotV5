@@ -174,13 +174,22 @@ NinjaRobotV5/
 │       │   └── Help/           # Documentation
 │       └── locales/            # en.json, ja.json, zh-tw.json, zh-cn.json
 │
-├── pi0buzzer/                  # Buzzer control library
+├── pi0buzzer/                  # Buzzer control library (V1.0.0 REBUILT)
 │   ├── pyproject.toml
 │   ├── README.md
+│   ├── tests/                  # Unit tests (pytest, 61 tests)
 │   └── src/pi0buzzer/
-│       ├── __init__.py
-│       ├── __main__.py         # CLI entry point
-│       └── driver.py           # Buzzer, MusicBuzzer (Actuator ABC)
+│       ├── __init__.py         # Exports Buzzer, MusicBuzzer
+│       ├── __main__.py         # CLI entry point (click group)
+│       ├── driver.py           # Backward-compat shim (re-exports from core/)
+│       ├── notes.py            # Single source: NOTES, EMOTION_SOUNDS, KEYBOARD_MAP
+│       ├── core/               # Core driver modules
+│       │   ├── driver.py       # Buzzer (Actuator ABC, non-blocking worker)
+│       │   └── music.py        # MusicBuzzer (songs, emotions, piano)
+│       ├── config/             # Configuration management
+│       │   └── config_manager.py  # BuzzerConfigManager (JSON)
+│       └── cli/                # CLI commands + interactive tool
+│           └── buzzer_tool.py  # Interactive TUI (9-option menu)
 │
 ├── pi0vl53l0x/                 # VL53L0X distance sensor library (V5.2.3 REBUILT)
 │   ├── pyproject.toml
@@ -266,7 +275,7 @@ NinjaRobotV5/
 ninja_core
     ├─→ ninja_utils (interfaces, logging)
     ├─→ ninja_ble → bless, bleak (BLE backend)
-    ├─→ pi0buzzer → pigpio, ninja_utils
+    ├─→ pi0buzzer → pigpio, click, ninja_utils (optional)
     ├─→ pi0vl53l0x → pigpio, click, ninja_utils
     ├─→ pi0disp → pigpio, PIL, numpy, click, ninja_utils
     ├─→ pi0servo → pigpio, ninja_utils
@@ -488,115 +497,179 @@ def __init__(self, service_name: str = "ninjarobot", description: str = "NinjaRo
 
 ### 3.2 pi0buzzer
 
-**Purpose:** Control a passive buzzer for sound and music generation
+**Purpose:** Non-blocking passive buzzer driver with musical note support, sound queue, and interactive TUI
 
-**Dependencies:** `pigpio`, `click`
+**Dependencies:** `pigpio`, `click`, `ninja_utils` (optional — library works standalone without it)
 
 **Location:** `pi0buzzer/src/pi0buzzer/`
 
-**Hardware Interface:** GPIO PWM
+**Hardware Interface:** GPIO PWM (software PWM via pigpio)
 
-#### 3.2.1 `driver.py`
+#### 3.2.1 `notes.py` — Note Frequency Constants
 
-**Module:** `pi0buzzer.driver`
+**Module:** `pi0buzzer.notes`
 
-##### Class: `Buzzer`
+Single source of truth for all musical note data. Used by both `pi0buzzer` and `ninja_core/robot_sound.py`.
 
-Base class for buzzer control.
+**Exports:**
+- `NOTES` (dict[str, int]): Named note frequencies C3–B7 (e.g. `{"A4": 440, "C5": 523}`)
+- `KEYBOARD_MAP` (dict[str, str]): Keyboard key → note name mapping for interactive piano
+- `EMOTION_SOUNDS` (dict[str, list]): 14 emotion sound sequences (happy, sad, exciting, etc.)
+- `DEMO_SONG` (list): Twinkle Twinkle Little Star melody
+- `get_emotion_names() -> list[str]`: Sorted list of available emotion names
+
+---
+
+#### 3.2.2 `core/driver.py` — Buzzer Class
+
+**Module:** `pi0buzzer.core.driver`
+
+##### Class: `Buzzer(Actuator)`
+
+Non-blocking passive buzzer driver implementing the `Actuator` interface. Sounds are played in a dedicated background worker thread.
 
 **Constructor:**
 ```python
-def __init__(self, pi: pigpio.pi, pin: int)
+def __init__(self, pin: int, pi: Optional[pigpio.pi] = None, volume: int = 128)
 ```
 
 **Parameters:**
-- `pi` (pigpio.pi): Shared pigpio connection
-- `pin` (int): GPIO pin number
+- `pin` (int): GPIO pin number (BCM)
+- `pi` (pigpio.pi, optional): Shared pigpio connection. If `None`, creates one internally.
+- `volume` (int): PWM duty cycle 0–255 (default 128 = 50%)
 
-**Methods:**
+**Actuator Interface Methods:**
 
-**`play_sound(frequency: int, duration: float) -> None`**
-- Plays a tone at the specified frequency for the given duration
-- **Parameters:**
-  - `frequency` (int): Tone frequency in Hz (50-10000)
-  - `duration` (float): Duration in seconds
-- **Blocking:** Yes (sleeps for duration)
+| Method | Description | Blocking |
+|---|---|---|
+| `initialize()` | Starts background worker, sets pin mode. Idempotent. | No |
+| `execute(command: dict)` | Queues `{"frequency": Hz, "duration": sec}` for playback | No |
+| `off()` | Drains queue, stops worker, silences buzzer | No |
 
-**`off() -> None`**
-- Stops the buzzer immediately
+**Additional Methods / Properties:**
+
+| Method / Property | Description |
+|---|---|
+| `play_sound(frequency, duration)` | Legacy compatibility — delegates to `execute()` |
+| `queue_pause(duration)` | Queues a silent pause between notes |
+| `volume` (property) | Get/set PWM duty cycle (0–255, clamped) |
+| `is_initialized` (property) | Whether the buzzer is initialized |
+| `__enter__` / `__exit__` | Context manager support |
+
+**Key Design:**
+- **Frequency validation:** Clamped to 20–20,000 Hz
+- **Re-initialization guard:** `initialize()` is idempotent (no duplicate workers)
+- **Queue-based pauses:** `"__pause__"` sentinel handled in worker thread
+- **Queue drain:** `off()` clears pending sounds before stopping
 
 **Usage:**
 ```python
 import pigpio
-from pi0buzzer.driver import Buzzer
+from pi0buzzer.core.driver import Buzzer
 
 pi = pigpio.pi()
-buzzer = Buzzer(pi, pin=17)
+buzzer = Buzzer(pin=17, pi=pi)
+buzzer.initialize()
 
-buzzer.play_sound(440, 0.5)  # A4 note for 0.5 seconds
+buzzer.play_sound(440, 0.5)  # A4 note, 0.5s — returns immediately
 buzzer.off()
 pi.stop()
 ```
 
+**Context Manager Usage:**
+```python
+with Buzzer(pin=17) as buzzer:
+    buzzer.play_sound(440, 0.5)
+```
+
 ---
 
-##### Class: `MusicBuzzer`
+#### 3.2.3 `core/music.py` — MusicBuzzer Class
 
-Extends `Buzzer` with melody playback capabilities.
+**Module:** `pi0buzzer.core.music`
+
+##### Class: `MusicBuzzer(Buzzer)`
+
+Extends `Buzzer` with named note playback, songs, emotions, and interactive keyboard piano.
 
 **Constructor:**
 ```python
-def __init__(self, pi: pigpio.pi, pin: int)
+def __init__(self, pin: int, pi: Optional[pigpio.pi] = None, volume: int = 128)
 ```
 
-**Inherits:** `Buzzer`
+**Inherits:** All `Buzzer` methods
 
 **Methods:**
 
-**`play_song(song: list[tuple[int, float]]) -> None`**
-- Plays a sequence of notes
-- **Parameters:**
-  - `song` (list): List of (frequency, duration) tuples
-- **Blocking:** Yes
+| Method | Parameters | Description |
+|---|---|---|
+| `play_note(note_name, duration)` | `"C4"`, `0.3` | Play named note (case-insensitive). Non-blocking. |
+| `play_song(song)` | `[("C4", 0.3), ("pause", 0.1), ...]` | Queue note sequence. Non-blocking. |
+| `play_emotion(name)` | `"happy"`, `"sad"`, etc. | Play predefined emotion sound. Non-blocking. |
+| `play_demo()` | — | Play built-in Twinkle Twinkle Little Star |
+| `play_music()` | — | Interactive keyboard piano (stdin-based) |
 
 **Usage:**
 ```python
-from pi0buzzer.driver import MusicBuzzer
+from pi0buzzer.core.music import MusicBuzzer
 
-buzzer = MusicBuzzer(pi, pin=17)
-
-# Define a melody
-melody = [
-    (262, 0.25),  # C4
-    (294, 0.25),  # D4
-    (330, 0.25),  # E4
-    (262, 0.5),   # C4 (longer)
-]
-
-buzzer.play_song(melody)
+with MusicBuzzer(pin=17) as buzzer:
+    buzzer.play_emotion("happy")
+    buzzer.play_song([
+        ("C4", 0.3), ("E4", 0.3), ("G4", 0.3), ("C5", 0.6),
+    ])
 ```
 
-**Pre-defined Songs:** See `pi0buzzer/__main__.py` for built-in melodies
+**Backward Compatibility:** `from pi0buzzer.driver import MusicBuzzer` still works via the compatibility shim. This is the import path used by `ninja_core/hal.py`.
 
 ---
 
-#### 3.2.2 CLI Commands
+#### 3.2.4 `config/config_manager.py` — BuzzerConfigManager
+
+**Module:** `pi0buzzer.config.config_manager`
+
+##### Class: `BuzzerConfigManager`
+
+Manages buzzer configuration stored as JSON. Matches the pattern used by `pi0disp` and `pi0servo`.
+
+**Constructor:**
+```python
+def __init__(self, config_path: Optional[str] = None)
+```
+- Defaults to `buzzer.json` in the current working directory.
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `load()` | Load config from JSON (falls back to defaults on missing/corrupt file) |
+| `save()` | Save current config to JSON |
+| `get_pin() / set_pin(pin)` | Get/set GPIO pin (validates 0–27) |
+| `get_volume() / set_volume(vol)` | Get/set volume (validates 0–255) |
+| `export_config(path)` | Export config to another file |
+| `import_config(path)` | Import config from another file |
+| `init_config(pin)` | Set pin and save (used by CLI `init` command) |
+
+---
+
+#### 3.2.5 CLI Commands
 
 **Entry Point:** `uv run pi0buzzer <command>`
 
 **Commands:**
 
-**`init <pin>`**
-- Creates `buzzer.json` with the specified GPIO pin
-- **Example:** `uv run pi0buzzer init 17`
+| Command | Description | Example |
+|---|---|---|
+| `init <pin>` | Initialize config with GPIO pin, saves `buzzer.json`, plays test beep | `uv run pi0buzzer init 17` |
+| `beep [freq] [dur]` | Play a single tone (default: 440 Hz, 0.5s) | `uv run pi0buzzer beep 880 0.3` |
+| `play <emotion>` | Play a predefined emotion sound | `uv run pi0buzzer play happy` |
+| `info [--health-check]` | Show config and optionally verify hardware | `uv run pi0buzzer info --health-check` |
+| `config show` | Display current configuration as JSON | `uv run pi0buzzer config show` |
+| `config export <path>` | Export config to file | `uv run pi0buzzer config export backup.json` |
+| `config import <path>` | Import config from file | `uv run pi0buzzer config import backup.json` |
+| `buzzer-tool` | Launch interactive TUI menu (9 options) | `uv run pi0buzzer buzzer-tool` |
 
-**`beep`**
-- Plays a short test beep
-- **Example:** `uv run pi0buzzer beep`
-
-**`playmusic`**
-- Plays a pre-defined melody
-- **Example:** `uv run pi0buzzer playmusic`
+**Available Emotions:** angry, confusing, cry, embarrassing, exciting, happy, idle, laughing, sad, scary, shy, sleepy, speaking, surprising
 
 ---
 
@@ -2240,10 +2313,10 @@ asyncio.create_task(ble_service.start())
 - **Managed by:** `pi0servo` calibration tool
 - **Imported into:** `config.json` via `config import-all`
 
-**`buzzer.json`** (Buzzer Pin)
-- **Location:** Project root or `pi0buzzer/`
-- **Format:** `{"pin": <int>}`
-- **Managed by:** `pi0buzzer init`
+**`buzzer.json`** (Buzzer Configuration)
+- **Location:** Project root (generated by `pi0buzzer init`)
+- **Format:** `{"pin": <int>, "volume": <int 0-255>}`
+- **Managed by:** `pi0buzzer init`, `pi0buzzer config`, `pi0buzzer buzzer-tool`
 - **Imported into:** `config.json` via `config import-all`
 
 ### 4.2 Configuration Workflow

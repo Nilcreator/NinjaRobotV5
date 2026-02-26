@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-02-26: DevelopmentGuide.md & InstallationGuide.md — pi0buzzer Section Updates ✓
+- **Action**: Reviewed and updated all pi0buzzer-related content in `DevelopmentGuide.md` and `InstallationGuide.md` to reflect the rebuilt V1.0.0 library.
+- **DevelopmentGuide.md changes**:
+  - Replaced 3-file file tree with full 16-file modular structure (core/, config/, cli/, tests/, notes.py).
+  - Updated dependency graph: `ninja_utils` now marked optional.
+  - Rewrote section 3.2 from 2 subsections to 5: notes.py, Buzzer class, MusicBuzzer class, BuzzerConfigManager, CLI commands.
+  - Fixed constructor signature: old `(pi, pin)` → new `(pin, pi, volume)`.
+  - Corrected behavior: old "Blocking: Yes" → new "Non-blocking" for all methods.
+  - Added new CLI commands: `play`, `info`, `config show/export/import`, `buzzer-tool`.
+  - Updated `buzzer.json` format to include `volume` field.
+- **InstallationGuide.md changes**:
+  - Replaced `uv run pi0buzzer playmusic` with `uv run pi0buzzer play happy` in all 3 language sections (EN, JP, ZH).
+- **Files Modified**: `DevelopmentGuide.md`, `InstallationGuide.md`.
+
 ## 2026-02-26: pi0buzzer Standalone Mode Fix & Minor Audit Findings ✓
 - **Action**: Fixed critical `ModuleNotFoundError: No module named 'ninja_utils'` when running pi0buzzer standalone (outside NinjaRobotV5 workspace). Applied conditional `try/except` imports to `core/driver.py`, `core/music.py`, and `config/config_manager.py` — matching the pattern established by `pi0disp` and `pi0servo`.
 - **Details**:

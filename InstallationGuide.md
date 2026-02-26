@@ -660,10 +660,10 @@ Test the buzzer:
 
 ```bash
 uv run pi0buzzer beep
-uv run pi0buzzer playmusic
+uv run pi0buzzer play happy
 ```
 
-You should hear a short beep, then a melody.
+You should hear a short beep, then a happy emotion sound.
 
 ### Step 7.3: Distance Sensor Test
 
@@ -1465,10 +1465,10 @@ uv run pi0buzzer init 17
 
 ```bash
 uv run pi0buzzer beep
-uv run pi0buzzer playmusic
+uv run pi0buzzer play happy
 ```
 
-短いビープ音、次にメロディが聞こえるはずです。
+短いビープ音、次にハッピー音が聞こえるはずです。
 
 ### ステップ7.3: 距離センサーのテスト
 
@@ -2260,10 +2260,10 @@ uv run pi0buzzer init 17
 
 ```bash
 uv run pi0buzzer beep
-uv run pi0buzzer playmusic
+uv run pi0buzzer play happy
 ```
 
-您應該會聽到一聲短促的嗶聲，然後是一段旋律。
+您應該會聽到一聲短促的嗶聲，然後是一段快樂的情緒音效。
 
 ### 步驟 7.3：距離感測器測試
 
