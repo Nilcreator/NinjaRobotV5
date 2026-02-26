@@ -290,51 +290,51 @@ Individual scripting commands + `buzzer-tool` entry point.
 ## 5. Phased Implementation
 
 ### Phase 1: Scaffold
-- [ ] Create directory structure (`core/`, `config/`, `cli/`, `tests/`)
-- [ ] Create `pyproject.toml` (v1.0.0, deps: pigpio, click; dev: ruff, pytest)
-- [ ] Create `LICENSE` (MIT)
-- [ ] Create all `__init__.py` files
-- [ ] **Lint**: `uv run ruff check pi0buzzer/`
+- [x] Create directory structure (`core/`, `config/`, `cli/`, `tests/`)
+- [x] Create `pyproject.toml` (v1.0.0, deps: pigpio, click; dev: ruff, pytest)
+- [x] Create `LICENSE` (MIT)
+- [x] Create all `__init__.py` files
+- [x] **Lint**: `uv run ruff check pi0buzzer/`
 
 ### Phase 2: Core Driver (`core/driver.py`)
-- [ ] Implement `Buzzer(Actuator)` with queue-based worker
-- [ ] Add volume control, frequency validation, re-init guard
-- [ ] Add queue-based pause support (`__pause__` sentinel)
-- [ ] Add context manager (`__enter__`/`__exit__`)
-- [ ] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/core/driver.py`
+- [x] Implement `Buzzer(Actuator)` with queue-based worker
+- [x] Add volume control, frequency validation, re-init guard
+- [x] Add queue-based pause support (`__pause__` sentinel)
+- [x] Add context manager (`__enter__`/`__exit__`)
+- [x] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/core/driver.py`
 
 ### Phase 3: Notes & Music Engine (`notes.py` + `core/music.py`)
-- [ ] Create `notes.py` with `NOTES`, `KEYBOARD_MAP`, `EMOTION_SOUNDS`
-- [ ] Implement `MusicBuzzer(Buzzer)` with `play_song()`, `play_emotion()`, `play_music()`
-- [ ] Create `driver.py` compatibility shim (root-level re-export)
-- [ ] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/`
+- [x] Create `notes.py` with `NOTES`, `KEYBOARD_MAP`, `EMOTION_SOUNDS`
+- [x] Implement `MusicBuzzer(Buzzer)` with `play_song()`, `play_emotion()`, `play_music()`
+- [x] Create `driver.py` compatibility shim (root-level re-export)
+- [x] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/`
 
 ### Phase 4: Config Manager (`config/config_manager.py`)
-- [ ] Implement `BuzzerConfigManager` (load, save, validate, export, import)
-- [ ] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/config/`
+- [x] Implement `BuzzerConfigManager` (load, save, validate, export, import)
+- [x] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/config/`
 
 ### Phase 5: CLI & Buzzer Tool
-- [ ] Implement `__main__.py` CLI commands (init, beep, play, info, config)
-- [ ] Implement `cli/buzzer_tool.py` interactive TUI (9-option menu)
-- [ ] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/__main__.py pi0buzzer/src/pi0buzzer/cli/`
+- [x] Implement `__main__.py` CLI commands (init, beep, play, info, config)
+- [x] Implement `cli/buzzer_tool.py` interactive TUI (9-option menu)
+- [x] **Lint**: `uv run ruff check pi0buzzer/src/pi0buzzer/__main__.py pi0buzzer/src/pi0buzzer/cli/`
 
 ### Phase 6: Unit Tests
-- [ ] Create `tests/conftest.py` (mock pigpio fixtures)
-- [ ] Create `tests/test_driver.py` (Buzzer class tests)
-- [ ] Create `tests/test_music.py` (MusicBuzzer tests)
-- [ ] Create `tests/test_config.py` (ConfigManager tests)
-- [ ] **Test**: `uv run pytest pi0buzzer/tests/ -v`
-- [ ] **Lint**: `uv run ruff check pi0buzzer/tests/`
+- [x] Create `tests/conftest.py` (mock pigpio fixtures)
+- [x] Create `tests/test_driver.py` (Buzzer class tests)
+- [x] Create `tests/test_music.py` (MusicBuzzer tests)
+- [x] Create `tests/test_config.py` (ConfigManager tests)
+- [x] **Test**: `uv run pytest pi0buzzer/tests/ -v`
+- [x] **Lint**: `uv run ruff check pi0buzzer/tests/`
 
 ### Phase 7: ninja_core Integration
-- [ ] Refactor `ninja_core/robot_sound.py` → import `NOTES` and `EMOTION_SOUNDS` from `pi0buzzer.notes`
-- [ ] Verify `hal.py` loads new library via compatibility shim
-- [ ] **Lint**: `uv run ruff check ninja_core/src/ninja_core/robot_sound.py`
+- [x] Refactor `ninja_core/robot_sound.py` → import `NOTES` and `EMOTION_SOUNDS` from `pi0buzzer.notes`
+- [x] Verify `hal.py` loads new library via compatibility shim
+- [x] **Lint**: `uv run ruff check ninja_core/src/ninja_core/robot_sound.py`
 
 ### Phase 8: Documentation
-- [ ] Write `README.md` (architecture, CLI, standalone/integration usage)
-- [ ] Update `DevelopmentLog.md`
-- [ ] Update `ProjectUpgradePlan.md` milestone status
+- [x] Write `README.md` (architecture, CLI, standalone/integration usage)
+- [x] Update `DevelopmentLog.md`
+- [x] Update `ProjectUpgradePlan.md` milestone status
 
 ---
 

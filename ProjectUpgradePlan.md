@@ -1089,9 +1089,9 @@ cd pi0buzzer && uv run pytest tests/ -v
 | Phase 3 | pi0vl53l0x analysis | 2-3 days | **✅ Complete** |
 | Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **✅ Complete** |
 | Phase 5 | pi0disp analysis & plan refinement | 2-3 days | **✅ Complete** |
-| Phase 6 | pi0disp rebuild (full rewrite) | 1-2 weeks | Ready for Implementation |
-| Phase 7 | pi0buzzer analysis | 1-2 days | **✅ Complete** |
-| Phase 8 | pi0buzzer rebuild (full rewrite) | 3-5 days | Ready for Implementation |
+| Phase 6 | pi0disp rebuild | 1-2 weeks | **Pending** |
+| Phase 7 | pi0buzzer analysis & plan refinement | 1-2 days | **✅ Complete** |
+| Phase 8 | pi0buzzer rebuild (full rewrite) | 1 week | **✅ Complete** |
 | Phase 9 | Integration testing | 1 week | Pending |
 
 ---
@@ -1123,6 +1123,7 @@ The RebuildPlan.md contains:
 | [pi0servo/RebuildPlan.md](pi0servo/RebuildPlan.md) | Modular step-by-step pi0servo implementation guide |
 | [pi0vl53l0x/RebuildPlan.md](pi0vl53l0x/RebuildPlan.md) | Complete pi0vl53l0x rebuild plan (analysis, root cause, architecture, phases) |
 | [pi0disp/RebuildPlan.md](pi0disp/RebuildPlan.md) | Complete pi0disp rebuild plan (vulnerability analysis, smart delta rendering, multi-display support) |
+| [pi0buzzer/RebuildPlan.md](pi0buzzer/RebuildPlan.md) | Complete pi0buzzer rebuild plan (music engine, core driver, tests, 8-phase implementation) |
 
 ---
 

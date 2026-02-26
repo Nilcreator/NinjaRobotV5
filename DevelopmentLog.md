@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-02-26: pi0buzzer Library Full Rewrite & ninja_core Integration ✓
+- **Action**: Completely rebuilt the `pi0buzzer` library (Phase 8 of ProjectUpgradePlan). Replaced old blocking driver with a robust, architecture-aligned library featuring `Buzzer`, `MusicBuzzer`, `BuzzerConfigManager`, and an interactive TUI CLI (`buzzer-tool`).
+- **Key Features**:
+  - **Non-blocking Playback**: Background worker thread supports single tones, songs, and pauses safely alongside asyncio (`__pause__` support in queue).
+  - **Shared Notes module**: `pi0buzzer.notes` unifies note frequencies, keyboard mappings, and `EMOTION_SOUNDS`.
+  - **Config Management**: JSON configuration with validation, fallback defaults, and import/export capabilities.
+  - **Interactive CLI**: Menu-driven `buzzer-tool` matching the `servo-tool` and `display-tool` paradigms, enabling hardware testing, config management, health-checks, and a live keyboard piano mode.
+  - **100% Test Pass Rate**: 61/61 unit tests passing utilizing mocked pigpio.
+- **Integration**: Refactored `ninja_core/src/ninja_core/robot_sound.py` to import `NOTES` and `EMOTION_SOUNDS` directly from `pi0buzzer.notes` (single source of truth), preserving the `RobotSoundPlayer` interface for backward compatibility.
+- **Files Modified**: `pi0buzzer/` (full directory replacement), `ninja_core/src/ninja_core/robot_sound.py`, `ProjectUpgradePlan.md`, `pi0buzzer/RebuildPlan.md`.
+- **Validation**: `uv run ruff check` passed clean on all files. 61 pytest checks succeeded. `buzzer.json` configuration tested locally via the CLI tools.
+
 
 ## 2026-02-25: InstallationGuide.md — Reorganize Calibration Sequence ✓
 - **Action**: Reorganized sections 7 and 8 in all three languages (English, Japanese, Chinese) so all component setup/calibration happens **before** `ninja_core config import`.
