@@ -937,31 +937,69 @@ cd pi0disp && uv run pytest tests/ -v
 
 ---
 
-## 7. pi0buzzer Library Upgrade (Planned)
+## 7. pi0buzzer Library Rebuild (Full Rewrite)
 
-### 7.1 Current Structure
+> **Status**: Analysis complete. Detailed plan approved — Ready for Implementation.  
+> **Reference**: [pi0buzzer/RebuildPlan.md](pi0buzzer/RebuildPlan.md)  
+> **Backup**: Original library preserved at `pi0buzzer_bak/`
+
+### 7.1 Previous Structure
+
+```
+pi0buzzer_bak/src/pi0buzzer/
+├── __init__.py
+├── __main__.py          # CLI: init, beep, playmusic (90 lines)
+└── driver.py            # Buzzer + MusicBuzzer (200 lines)
+```
+
+### 7.2 Audit Findings (12+ Issues)
+
+| # | Severity | Issue | Impact |
+|---|----------|-------|--------|
+| C1 | 🔴 Critical | `play_music()` undefined | CLI `playmusic` crashes with `AttributeError` |
+| C2 | 🔴 Critical | Blocking `time.sleep()` in `play_song()` | Freezes calling thread |
+| C3 | 🔴 Critical | No queue-based pause support | Timing unpredictable |
+| M1 | 🟡 Major | Duplicated note dictionaries | `driver.py` vs `robot_sound.py` — no single source of truth |
+| M2 | 🟡 Major | No ConfigManager | Raw JSON, no validation |
+| M3 | 🟡 Major | No unit tests | Zero coverage |
+| M4 | 🟡 Major | No async interface | Incompatible with asyncio architecture |
+| M5 | 🟡 Major | Hardcoded 50% duty cycle | No volume control |
+| M6 | 🟡 Major | No `info`/`status` CLI | No hardware inspection |
+| M7 | 🟡 Major | No interactive `buzzer-tool` | Missing TUI (unlike pi0disp, pi0vl53l0x) |
+| m1 | 🟢 Minor | No frequency validation | Accepts any value |
+| m2 | 🟢 Minor | No re-init guard | Double `initialize()` starts two workers |
+
+### 7.3 New Architecture
 
 ```
 pi0buzzer/src/pi0buzzer/
-├── __init__.py
-├── __main__.py
-└── driver.py           # Main buzzer driver
+├── __init__.py              # Public exports
+├── __main__.py              # CLI entry point (click group)
+├── driver.py                # Compatibility shim (re-exports)
+├── notes.py                 # Single source: NOTES, KEYBOARD_MAP, EMOTION_SOUNDS
+├── core/
+│   ├── driver.py            # Buzzer (Actuator ABC, queue worker, volume)
+│   └── music.py             # MusicBuzzer (songs, emotions, play_music)
+├── config/
+│   └── config_manager.py    # BuzzerConfigManager (load/save/validate)
+└── cli/
+    └── buzzer_tool.py       # Interactive TUI (9-option menu)
 ```
 
-### 7.2 Identified Issues (Preliminary)
+### 7.4 Phased Implementation (8 Phases)
 
-| Issue | Severity | Description |
-|-------|----------|-------------|
-| Sound queue | Low | Non-blocking sound playback |
-| Melody support | Low | Pre-defined melodies |
+| Phase | Component | Key Deliverable |
+|---|---|---|
+| 1 | Scaffold | Directory structure, `pyproject.toml` |
+| 2 | Core Driver | `Buzzer` with all critical fixes |
+| 3 | Music Engine | `MusicBuzzer` + shared `notes.py` |
+| 4 | Config Manager | JSON config management |
+| 5 | CLI + Buzzer Tool | Commands + interactive TUI |
+| 6 | Unit Tests | Tests with mocked pigpio |
+| 7 | ninja_core Integration | `robot_sound.py` imports from `pi0buzzer.notes` |
+| 8 | Documentation | README, DevelopmentLog |
 
-### 7.3 Planned Improvements
-
-- [ ] Unified API protocol matching pi0servo pattern
-- [ ] Non-blocking sound playback
-- [ ] CLI tool for standalone testing
-
-> **Status:** Detailed analysis pending after pi0servo completion
+> **Full details**: See [pi0buzzer/RebuildPlan.md](pi0buzzer/RebuildPlan.md)
 
 ---
 
@@ -1052,8 +1090,8 @@ cd pi0buzzer && uv run pytest tests/ -v
 | Phase 4 | pi0vl53l0x rebuild (full rewrite) | 1-2 weeks | **✅ Complete** |
 | Phase 5 | pi0disp analysis & plan refinement | 2-3 days | **✅ Complete** |
 | Phase 6 | pi0disp rebuild (full rewrite) | 1-2 weeks | Ready for Implementation |
-| Phase 7 | pi0buzzer analysis | 1-2 days | Pending |
-| Phase 8 | pi0buzzer upgrade | 3-5 days | Pending |
+| Phase 7 | pi0buzzer analysis | 1-2 days | **✅ Complete** |
+| Phase 8 | pi0buzzer rebuild (full rewrite) | 3-5 days | Ready for Implementation |
 | Phase 9 | Integration testing | 1 week | Pending |
 
 ---
