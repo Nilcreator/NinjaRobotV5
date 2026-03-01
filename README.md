@@ -7,7 +7,7 @@
 **The Next-Generation AI-Powered Educational Robot Platform**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Platform: Raspberry Pi](https://img.shields.io/badge/platform-Raspberry%20Pi%20Zero%202W-red.svg)](https://www.raspberrypi.com/)
 [![AI: Google Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4.svg)](https://ai.google.dev/)
 
@@ -32,7 +32,7 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 | Component | Specification |
 |-----------|---------------|
 | **Brain** | Raspberry Pi Zero 2W (Quad-core ARM Cortex-A53, 512MB RAM) |
-| **Display** | 1.3" ST7789V TFT LCD (240×240 pixels) |
+| **Display** | 2.0" ST7789V IPS LCD (240×320 pixels) |
 | **Distance Sensor** | VL53L0X Time-of-Flight (up to 2m range) |
 | **Sound** | Passive Buzzer (GPIO 17) |
 | **Movement** | 8× Servo Motors (GPIO 20-27) |
@@ -104,8 +104,8 @@ Then open `http://ninjarobot.local:8000` in your browser!
 
 ## 📊 Current Status
 
-**Version:** 5.2.3  
-**Status:** Phase 5 Complete ✅ + pi0servo V2 + pi0vl53l0x V2
+**Version:** 5.3.0  
+**Status:** Phase 5 Complete ✅ + All Hardware Libraries Rebuilt
 
 All core features have been implemented and verified:
 - ✅ Modular Hardware Abstraction Layer
@@ -113,7 +113,10 @@ All core features have been implemented and verified:
 - ✅ Agentic AI with Action Planning
 - ✅ Safe Code Execution Engine
 - ✅ React Web Application
-- ✅ pi0vl53l0x V2 (thread-safe I2C, hardened init, CLI)
+- ✅ pi0servo V1.0 (velocity-based motion, per-servo speed, easing curves)
+- ✅ pi0vl53l0x V2.0 (thread-safe I2C, hardened init, CLI)
+- ✅ pi0disp V2.0 (thread-safe SPI, delta rendering, PWM brightness)
+- ✅ pi0buzzer V1.0 (non-blocking queue, emotion sounds, interactive TUI)
 
 ## 📄 License
 
@@ -138,7 +141,7 @@ This project is licensed under the **MIT License**.
 | コンポーネント | 仕様 |
 |---------------|------|
 | **頭脳** | Raspberry Pi Zero 2W（クアッドコアARM Cortex-A53、512MB RAM） |
-| **ディスプレイ** | 1.3インチ ST7789V TFT LCD（240×240ピクセル） |
+| **ディスプレイ** | 2.0インチ ST7789V IPS LCD（240×320ピクセル） |
 | **距離センサー** | VL53L0X ToF（最大2m測定可能） |
 | **音声** | パッシブブザー（GPIO 17） |
 | **動作** | 8×サーボモーター（GPIO 20-27） |
@@ -210,8 +213,8 @@ uv run ninja_core server
 
 ## 📊 現在のステータス
 
-**バージョン:** 5.2.3  
-**ステータス:** フェーズ5完了 ✅ + pi0servo V2 + pi0vl53l0x V2
+**バージョン:** 5.3.0  
+**ステータス:** フェーズ5完了 ✅ + 全ハードウェアライブラリ再構築済み
 
 すべてのコア機能が実装・検証されました：
 - ✅ モジュール式ハードウェア抽象化レイヤー
@@ -219,13 +222,16 @@ uv run ninja_core server
 - ✅ アクションプランニング付きエージェント型AI
 - ✅ 安全なコード実行エンジン
 - ✅ React Webアプリケーション
-- ✅ pi0vl53l0x V2（スレッドセーフI2C、堅牢な初期化、CLI）
+- ✅ pi0servo V1.0（速度ベース制御、サーボ別速度、イージングカーブ）
+- ✅ pi0vl53l0x V2.0（スレッドセーフI2C、堅牢な初期化、CLI）
+- ✅ pi0disp V2.0（スレッドセーフSPI、デルタレンダリング、PWM輝度制御）
+- ✅ pi0buzzer V1.0（ノンブロッキングキュー、感情サウンド、インタラクティブTUI）
 
 ## 📄 ライセンス
 
 このプロジェクトは**MITライセンス**の下でライセンスされています。
 
-**Copyright © 2025 Chihkuang Chang**
+**Copyright © 2026 Chihkuang Chang**
 
 ---
 
@@ -244,7 +250,7 @@ uv run ninja_core server
 | 元件 | 規格 |
 |------|------|
 | **大腦** | Raspberry Pi Zero 2W（四核心 ARM Cortex-A53，512MB RAM） |
-| **顯示器** | 1.3吋 ST7789V TFT LCD（240×240像素） |
+| **顯示器** | 2.0吋 ST7789V IPS LCD（240×320像素） |
 | **距離感測器** | VL53L0X ToF（最遠2公尺） |
 | **音效** | 被動蜂鳴器（GPIO 17） |
 | **動作** | 8×伺服馬達（GPIO 20-27） |
@@ -316,8 +322,8 @@ uv run ninja_core server
 
 ## 📊 目前狀態
 
-**版本：** 5.2.3  
-**狀態：** 第五階段完成 ✅ + pi0servo V2 + pi0vl53l0x V2
+**版本：** 5.3.0  
+**狀態：** 第五階段完成 ✅ + 全硬體函式庫重建完成
 
 所有核心功能已實作並驗證：
 - ✅ 模組化硬體抽象層
@@ -325,13 +331,16 @@ uv run ninja_core server
 - ✅ 具動作規劃的代理式AI
 - ✅ 安全程式碼執行引擎
 - ✅ React網頁應用程式
-- ✅ pi0vl53l0x V2（線程安全I2C、強化初始化、CLI）
+- ✅ pi0servo V1.0（速度控制、獨立伺服速度、緩動曲線）
+- ✅ pi0vl53l0x V2.0（線程安全I2C、強化初始化、CLI）
+- ✅ pi0disp V2.0（線程安全SPI、差異渲染、PWM亮度控制）
+- ✅ pi0buzzer V1.0（非阻塞佇列、情緒音效、互動式TUI）
 
 ## 📄 授權
 
 本專案採用**MIT授權**。
 
-**Copyright © 2025 Chihkuang Chang**
+**Copyright © 2026 Chihkuang Chang**
 
 ---
 

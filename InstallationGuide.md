@@ -31,7 +31,7 @@ This guide will walk you through every step needed to build and run your NinjaRo
 - **Power Supply** (5V 2.5A USB-C or Micro-USB)
 - **8x Servo Motors** (SG90 or similar, 5V)
 - **External 5V Power Supply** for servos (recommended: 5V 3A or higher)
-- **ST7789V LCD Display** (240x240 pixels, SPI interface)
+- **ST7789V LCD Display** (240x320 pixels, SPI interface)
 - **VL53L0X Distance Sensor** (Time-of-Flight, I2C interface)
 - **Passive Buzzer** (3-5V)
 - **Jumper Wires** (Male-to-Female and Male-to-Male)
@@ -1044,7 +1044,7 @@ If you encounter issues not covered here:
 - **電源アダプター**（5V 2.5A USB-CまたはMicro-USB）
 - **8個のサーボモーター**（SG90または類似品、5V）
 - **サーボ用の外部5V電源**（推奨：5V 3A以上）
-- **ST7789V液晶ディスプレイ**（240x240ピクセル、SPI接続）
+- **ST7789V液晶ディスプレイ**（240x320ピクセル、SPI接続）
 - **VL53L0X距離センサー**（ToF：光の飛行時間で測る方式、I2C接続）
 - **パッシブブザー**（3-5V）
 - **ジャンパーワイヤー**（オス-メスとオス-オス）
@@ -1847,7 +1847,7 @@ uv pip install -e . --force-reinstall
 - **電源供應器**（5V 2.5A USB-C 或 Micro-USB）
 - **8 個伺服馬達**（SG90 或類似型號，5V）
 - **伺服馬達外部 5V 電源**（建議：5V 3A 或更高）
-- **ST7789V LCD 顯示器**（240x240 像素，SPI 介面）
+- **ST7789V LCD 顯示器**（240x320 像素，SPI 介面）
 - **VL53L0X 距離感測器**（飛行時間感測器，I2C 介面）
 - **被動蜂鳴器**（3-5V）
 - **杜邦線**（公對母和公對公）

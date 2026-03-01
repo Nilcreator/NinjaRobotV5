@@ -276,9 +276,9 @@ ninja_core
     ├─→ ninja_utils (interfaces, logging)
     ├─→ ninja_ble → bless, bleak (BLE backend)
     ├─→ pi0buzzer → pigpio, click, ninja_utils (optional)
-    ├─→ pi0vl53l0x → pigpio, click, ninja_utils
-    ├─→ pi0disp → pigpio, PIL, numpy, click, ninja_utils
-    ├─→ pi0servo → pigpio, ninja_utils
+    ├─→ pi0vl53l0x → click, blessed, ninja_utils, pigpio (optional)
+    ├─→ pi0disp → pigpio, numpy, pillow, click, ninja_utils (optional)
+    ├─→ pi0servo → pigpio, click, blessed, ninja_utils (optional)
     ├─→ fastapi, uvicorn, pyngrok
     └─→ google-generativeai, googlesearch-python
 ```
@@ -308,8 +308,8 @@ ninja_core
 
 ```bash
 # Clone repository
-git clone https://github.com/Nilcreator/NinjaRobotV4.git
-cd NinjaRobotV4
+git clone https://github.com/Nilcreator/NinjaRobotV5.git
+cd NinjaRobotV5
 
 # Install all packages in editable mode
 uv pip install -e .
@@ -440,8 +440,6 @@ try:
 finally:
     kb.cleanup()
 ```
-
-**Thread Safety:** Not thread-safe (use from main thread only)
 
 **Thread Safety:** Not thread-safe (use from main thread only)
 
@@ -947,7 +945,7 @@ uv run pi0vl53l0x config export backup.json
 
 **Purpose:** Thread-safe SPI driver for ST7789V 240×320 displays with smart delta rendering
 
-**Dependencies:** `pigpio` (optional, RPi only), `numpy`, `Pillow`, `click`, `ninja_utils`
+**Dependencies:** `pigpio`, `numpy`, `Pillow`, `click`, `ninja_utils` (optional — library works standalone)
 
 **Location:** `pi0disp/src/pi0disp/`
 
