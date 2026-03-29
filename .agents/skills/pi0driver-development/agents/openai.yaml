@@ -1,0 +1,22 @@
+interface:
+  display_name: "NinjaRobot Pi0 Driver Development"
+  short_description: "Audit, plan, validate, and document pi0* driver work"
+  default_prompt: "Use $pi0driver-development to safely audit and implement a change in a NinjaRobotV5 pi0* library."
+policy:
+  allow_implicit_invocation: true
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "openaiDeveloperDocs"
+      description: "OpenAI Docs MCP server"
+      transport: "streamable_http"
+      url: "https://developers.openai.com/mcp"
+    - type: "mcp"
+      value: "context7"
+      description: "Context7 MCP server"
+    - type: "mcp"
+      value: "serena"
+      description: "Serena MCP server"
+    - type: "mcp"
+      value: "github"
+      description: "GitHub MCP server"
