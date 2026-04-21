@@ -5,6 +5,8 @@ import json
 import sys
 import types
 
+import pytest
+
 from ninja_ble.chunking import ChunkReassembler
 
 
@@ -223,3 +225,35 @@ def test_ble_service_falls_back_to_compact_advertisement_profile(monkeypatch):
     assert created_servers[0].stopped is True
     assert created_servers[1].name == "NinjaRobot"
     assert advertisement_profiles == ["name_only", "service_only"]
+
+
+def test_compact_advertisement_properties_are_read_only(monkeypatch):
+    pytest.importorskip("dbus_next")
+
+    bless_stub = types.SimpleNamespace(
+        BlessServer=object,
+        BlessGATTCharacteristic=object,
+        GATTCharacteristicProperties=types.SimpleNamespace(
+            write=1,
+            write_without_response=2,
+            read=4,
+            notify=8,
+        ),
+        GATTAttributePermissions=types.SimpleNamespace(
+            writeable=1,
+            readable=2,
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "bless", bless_stub)
+    sys.modules.pop("ninja_ble.service", None)
+    service_module = importlib.import_module("ninja_ble.service")
+
+    name_advertisement = (
+        service_module.NinjaBLEService._build_bluez_advertisement_class("name_only")
+    )
+    service_advertisement = (
+        service_module.NinjaBLEService._build_bluez_advertisement_class("service_only")
+    )
+
+    assert name_advertisement.LocalName.access.value == "read"
+    assert service_advertisement.ServiceUUIDs.access.value == "read"

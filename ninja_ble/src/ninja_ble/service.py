@@ -327,6 +327,7 @@ class NinjaBLEService:
     @staticmethod
     def _build_bluez_advertisement_class(advertisement_profile: str):
         """Build a minimal LEAdvertisement1 class compatible with BlueZ legacy ads."""
+        from dbus_next import PropertyAccess
         from dbus_next.service import ServiceInterface, dbus_property, method
 
         include_service_uuid = advertisement_profile == "service_only"
@@ -346,14 +347,14 @@ class NinjaBLEService:
             def Release(self):  # noqa: N802
                 log.debug("%s: Released", self.path)
 
-            @dbus_property()
+            @dbus_property(access=PropertyAccess.READ)
             def Type(self) -> "s":  # type: ignore # noqa: F821 N802
                 return self._type
 
         if include_service_uuid:
 
             class NinjaServiceAdvertisement(BaseNinjaAdvertisement):
-                @dbus_property()
+                @dbus_property(access=PropertyAccess.READ)
                 def ServiceUUIDs(self) -> "as":  # type: ignore # noqa: F821 F722 N802
                     return self._service_uuids
 
@@ -362,7 +363,7 @@ class NinjaBLEService:
         if include_local_name:
 
             class NinjaNameAdvertisement(BaseNinjaAdvertisement):
-                @dbus_property()
+                @dbus_property(access=PropertyAccess.READ)
                 def LocalName(self) -> "s":  # type: ignore # noqa: F821 N802
                     return self._local_name
 
