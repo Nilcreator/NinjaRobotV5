@@ -13,6 +13,8 @@ Available API (V5.2.1 - ±90° standardized):
     robot.distance.read()      - Read distance in mm
 """
 
+from __future__ import annotations
+
 import logging
 import time
 from pathlib import Path
@@ -21,6 +23,22 @@ from .robot_sound import RobotSoundPlayer
 from .facial_expressions import AnimatedFaces
 
 log = logging.getLogger(__name__)
+
+SERVO_ANGLE_MIN = -90
+SERVO_ANGLE_MAX = 90
+SERVO_CENTER_ANGLE = 0
+
+
+def _clamp_servo_angle(value, context: str) -> float:
+    clamped_value = max(SERVO_ANGLE_MIN, min(SERVO_ANGLE_MAX, value))
+    if clamped_value != value:
+        log.warning(
+            "%s requested out-of-range servo angle %s; clamped to %s",
+            context,
+            value,
+            clamped_value,
+        )
+    return clamped_value
 
 
 class DistanceWrapper:
@@ -117,7 +135,7 @@ class ServoWrapper:
     def __init__(self, multi_servo, index):
         self._multi_servo = multi_servo
         self._index = index
-        self._angle = 0  # Default to center (0°)
+        self._angle = SERVO_CENTER_ANGLE  # Default to center (0°)
 
     @property
     def angle(self):
@@ -130,8 +148,7 @@ class ServoWrapper:
 
         No conversion needed - uses ±90° range directly.
         """
-        # Clamp to valid ±90° range
-        value = max(-90, min(90, value))
+        value = _clamp_servo_angle(value, f"servo[{self._index}].angle")
         self._angle = value
 
         if self._multi_servo and hasattr(self._multi_servo, 'servo'):
@@ -147,8 +164,7 @@ class ServoWrapper:
             angle: Target angle (±90°).
             duration: Movement time in seconds (default 0.5).
         """
-        # Clamp to valid ±90° range
-        angle = max(-90, min(90, angle))
+        angle = _clamp_servo_angle(angle, f"servo[{self._index}].move")
         self._angle = angle
 
         if self._multi_servo:
@@ -250,9 +266,9 @@ class ServoArrayWrapper:
 
         # No conversion needed - pass angles directly
         clamped_angles = []
-        for a in angles:
-            if a is not None:
-                clamped_angles.append(max(-90, min(90, a)))
+        for index, angle in enumerate(angles):
+            if angle is not None:
+                clamped_angles.append(_clamp_servo_angle(angle, f"servos.move_all[{index}]"))
             else:
                 clamped_angles.append(None)
 
@@ -280,11 +296,12 @@ class RobotWrapper:
         robot.distance.read()      - Read distance in mm
     """
 
-    def __init__(self, hal):
+    def __init__(self, hal, cooperative_sleep=None):
         self._hal = hal
         self.buzzer = BuzzerWrapper(hal)
         self.display = DisplayWrapper(hal)
         self.distance = DistanceWrapper(hal.distance_sensor)
+        self._sleep = cooperative_sleep or time.sleep
         
         # Servos: wrap MultiServo to provide list-like access
         # robot.servo[n].angle = x
@@ -309,8 +326,22 @@ class RobotWrapper:
                 # AnimatedFaces uses play() method
                 self._faces.play(name, duration_s=duration)
                 # Block for duration to ensure animation completes before next command
-                time.sleep(duration)
+                self._sleep(duration)
             except Exception as e:
                 log.error(f"Failed to show expression '{name}': {e}")
         else:
             log.warning("AnimatedFaces not available.")
+
+    def request_stop(self):
+        """Best-effort stop hook for cooperative executor cancellation."""
+        if self._faces:
+            self._faces.stop()
+
+        if self._hal:
+            for component_name in ("buzzer", "servos", "display"):
+                component = getattr(self._hal, component_name, None)
+                if component and hasattr(component, "off"):
+                    try:
+                        component.off()
+                    except Exception as exc:
+                        log.warning("Failed to stop %s during request_stop: %s", component_name, exc)

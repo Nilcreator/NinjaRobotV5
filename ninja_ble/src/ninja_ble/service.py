@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
-import logging
 import json
+import logging
 from typing import Any
 
 from bless import (
@@ -11,7 +13,16 @@ from bless import (
 )
 
 from ninja_core.dispatcher import CommandDispatcher
-from .chunking import ChunkReassembler, PACKET_HEADER, PACKET_DATA, PACKET_EOF
+from .chunking import (
+    CHUNK_SIZE,
+    PACKET_HEADER,
+    PACKET_DATA,
+    PACKET_EOF,
+    ChunkReassembler,
+    create_data_packets,
+    create_eof_packet,
+    create_header_packet,
+)
 
 log = logging.getLogger(__name__)
 
@@ -36,16 +47,38 @@ class NinjaBLEService:
 
         # Chunk reassembler for large payloads
         self._reassembler = ChunkReassembler(on_ack=self._send_ack_sync)
+        self._notify_lock = asyncio.Lock()
+        self._next_outbound_transfer_id = 1
 
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
 
-    def _send_ack_sync(self, seq: int, status: str, msg: str | None = None):
+    def _send_ack_sync(
+        self,
+        transfer_id: int,
+        phase: str,
+        seq: int,
+        status: str,
+        msg: str | None = None,
+    ):
         """Synchronous wrapper to send ACK (schedules async task)."""
-        ack_msg = {"type": "ack", "seq": seq, "status": status}
+        ack_msg = {
+            "type": "ack",
+            "transfer_id": transfer_id,
+            "phase": phase,
+            "seq": seq,
+            "status": status,
+        }
         if msg:
             ack_msg["msg"] = msg
         asyncio.create_task(self.on_broadcast(ack_msg))
+
+    def _allocate_outbound_transfer_id(self) -> int:
+        transfer_id = self._next_outbound_transfer_id
+        self._next_outbound_transfer_id += 1
+        if self._next_outbound_transfer_id > 0xFFFFFFFF:
+            self._next_outbound_transfer_id = 1
+        return transfer_id
 
     def _on_read(self, characteristic: BlessGATTCharacteristic, **kwargs) -> bytearray:
         """Handle read requests. Returns current characteristic value."""
@@ -187,16 +220,38 @@ class NinjaBLEService:
             return
 
         try:
-            # Encode response
-            json_str = json.dumps(message)
-            payload = bytearray(json_str.encode("utf-8"))
-
-            # Update characteristic value (triggers notify)
-            char = self._server.get_characteristic(CHAR_RESPONSE_UUID)
-            if char:
-                char.value = payload
-                self._server.update_value(SERVICE_UUID, CHAR_RESPONSE_UUID)
-                log.debug(f"BLE Notify: {message}")
+            payload = json.dumps(message, separators=(",", ":")).encode("utf-8")
+            await self._notify_payload(payload)
+            log.debug(f"BLE Notify: {message}")
 
         except Exception as e:
             log.error(f"BLE Broadcast Error: {e}")
+
+    async def _notify_payload(self, payload: bytes):
+        async with self._notify_lock:
+            if len(payload) <= CHUNK_SIZE:
+                await self._notify_packet(payload)
+                return
+
+            transfer_id = self._allocate_outbound_transfer_id()
+            data_packets = create_data_packets(payload, transfer_id, CHUNK_SIZE)
+            packets = [
+                create_header_packet(payload, transfer_id, CHUNK_SIZE),
+                *data_packets,
+                create_eof_packet(transfer_id, len(data_packets)),
+            ]
+
+            for packet in packets:
+                await self._notify_packet(packet)
+                await asyncio.sleep(0)
+
+    async def _notify_packet(self, payload: bytes):
+        if not self._server:
+            return
+
+        char = self._server.get_characteristic(CHAR_RESPONSE_UUID)
+        if not char:
+            return
+
+        char.value = bytearray(payload)
+        self._server.update_value(SERVICE_UUID, CHAR_RESPONSE_UUID)

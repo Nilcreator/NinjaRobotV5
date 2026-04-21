@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.4  
-**Last Updated:** 2026-02-25  
+**Version:** 5.2.5  
+**Last Updated:** 2026-04-21  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -87,6 +87,14 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `effects/text_ticker.py` | Scrolling marquee with multilingual fonts (EN/JA/ZH-TW) |
 | CLI | 11 commands + `display-tool` interactive menu |
 | `ninja_core/hal.py` | Updated `DRIVER_REGISTRY` to `pi0disp.core.driver.ST7789V` |
+
+### Key Changes (V5.2.5 - Blockly Runtime Reliability):
+| Component | Change |
+|---|---|
+| `ninja_core/dispatcher.py` | Preserves the active execution request when duplicate `execute` commands are rejected |
+| `ninja_core/dispatcher.py` | Broadcasts full execution log lines without transport-era truncation |
+| `ninja_ble` | BLE transport v2 remains the required path for large Blockly payloads and large runtime feedback |
+| Runtime contract | `execute`, `stop`, `execution_status`, `execution_log`, `chat`, and `error` stay correlated by `request_id` |
 
 ### Required Setup:
 ```bash
@@ -1499,7 +1507,7 @@ set_api_key("gemini", "AIzaSy...")
 
 **Module:** `ninja_core.dispatcher`
 
-**Purpose:** The central nervous system for routing commands from multiple sources (Web, BLE) to appropriate handlers (HAL, Agent).
+**Purpose:** The central nervous system for routing versioned commands from multiple sources (Web, BLE) to the HAL, agent, and Blockly execution runtime while preserving a single active execution lifecycle.
 
 ##### Class: `CommandDispatcher` (Singleton)
 
@@ -1525,8 +1533,14 @@ set_api_key("gemini", "AIzaSy...")
 **Supported Command Types:**
 1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
 2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
-3. **`execute`** -> Code execution (Phase 4 SafeExecutor). Currently logs code and returns pending status.
-4. **`ping`** -> Returns pong.
+3. **`execute`** -> Runs Blockly-generated Python through `SafeExecutor`, broadcasts `execute_received`, then `execution_status: started`, and keeps all follow-up events on the same `request_id`.
+4. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()` and broadcasts `execution_status: stop_requested` for the active request.
+
+**Execution Lifecycle Guarantees:**
+- Every execution request carries a `request_id`.
+- Only one execution may be active at a time.
+- If a second `execute` arrives while code is already running, the dispatcher emits an `execute_rejected` error for the new request **without** clearing the original active request.
+- Completion, failure, stop, chat explanation, and execution-log events all stay correlated to the active request.
 
 **Usage:**
 ```python
@@ -2228,12 +2242,13 @@ def __init__(self, hal: HardwareAbstractionLayer)
 |---|---|
 | **Service Name** | `NinjaRobot` |
 | **Service UUID** | `00000001-710e-4a5b-8d75-3e5b444bc3cf` |
+| **Transport Contract** | `blockly-v1` events over raw JSON for small payloads and BLE transport v2 chunking for large payloads |
 
 **Characteristics:**
 | Name | UUID | Properties | Description |
 |---|---|---|---|
-| Command | `00000002-710e-4a5b-8d75-3e5b444bc3cf` | Write, WriteWithoutResponse | Receives JSON commands |
-| Response | `00000003-710e-4a5b-8d75-3e5b444bc3cf` | Read, Notify | Sends JSON responses (AI, status) |
+| Command | `00000002-710e-4a5b-8d75-3e5b444bc3cf` | Write, WriteWithoutResponse | Receives JSON commands or transport-v2 chunk packets |
+| Response | `00000003-710e-4a5b-8d75-3e5b444bc3cf` | Read, Notify | Sends JSON responses and chunked runtime feedback |
 
 #### 3.7.3 JSON Protocol
 
@@ -2252,6 +2267,38 @@ def __init__(self, hal: HardwareAbstractionLayer)
 {"type": "hal", "command": "execute", "payload": {"servos": {"angles": [0,0,0,0,0,0,0,0]}}}
 {"type": "hal", "command": "execute", "payload": {"buzzer": {"frequency": 440, "duration": 0.5}}}
 ```
+
+**Execute Command (Blockly IDE):**
+```json
+{
+  "type": "execute",
+  "request_id": "execute-123",
+  "manifest": {
+    "protocol_version": "blockly-v1",
+    "generator_version": "web-blockly-v1",
+    "workspace_format": "blockly-json"
+  },
+  "workspace_state": {"blocks": []},
+  "code": "from ninja_core import robot\nrobot.expression('happy')\n"
+}
+```
+
+**Stop Command:**
+```json
+{"type": "stop", "request_id": "stop-123", "reason": "user_stop"}
+```
+
+**ACK Envelope (Transport v2):**
+```json
+{"type": "ack", "transfer_id": 7, "phase": "data", "seq": 3, "status": "ok"}
+```
+
+**Runtime Event Types:**
+- `execute_received`
+- `execution_status`
+- `execution_log`
+- `chat`
+- `error`
 
 #### 3.7.4 Key Classes
 

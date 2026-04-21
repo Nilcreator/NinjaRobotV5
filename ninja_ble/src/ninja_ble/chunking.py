@@ -1,10 +1,12 @@
 """BLE Chunking Protocol for large payload transfers.
 
 Protocol:
-    HEADER (0x01): [0x01][total_chunks:2B][crc32:4B][payload_len:4B]
-    DATA   (0x02): [0x02][seq:2B][chunk_data:N bytes]
-    EOF    (0x03): [0x03][chunks_received:2B]
+    HEADER (0x01): [0x01][transfer_id:4B][total_chunks:2B][crc32:4B][payload_len:4B]
+    DATA   (0x02): [0x02][transfer_id:4B][seq:2B][chunk_data:N bytes]
+    EOF    (0x03): [0x03][transfer_id:4B][chunks_received:2B]
 """
+
+from __future__ import annotations
 
 import binascii
 import logging
@@ -19,6 +21,10 @@ log = logging.getLogger(__name__)
 PACKET_HEADER = 0x01
 PACKET_DATA = 0x02
 PACKET_EOF = 0x03
+CHUNK_SIZE = 500
+HEADER_PACKET_LENGTH = 15
+DATA_PACKET_PREFIX_LENGTH = 7
+EOF_PACKET_LENGTH = 7
 
 # Timeout in seconds
 TRANSFER_TIMEOUT = 30.0
@@ -43,11 +49,14 @@ class ChunkReassembler:
             # payload contains the full, verified data
     """
 
-    def __init__(self, on_ack: Callable[[int, str, str | None], None] | None = None):
+    def __init__(
+        self,
+        on_ack: Callable[[int, str, int, str, str | None], None] | None = None,
+    ):
         """Initialize the reassembler.
 
         Args:
-            on_ack: Callback function(seq, status, msg) for sending ACKs.
+            on_ack: Callback function(transfer_id, phase, seq, status, msg).
         """
         self._on_ack = on_ack
         self._reset()
@@ -55,6 +64,7 @@ class ChunkReassembler:
     def _reset(self):
         """Reset state to IDLE."""
         self._state = ReassemblerState.IDLE
+        self._transfer_id = 0
         self._expected_chunks = 0
         self._expected_crc = 0
         self._expected_length = 0
@@ -80,7 +90,7 @@ class ChunkReassembler:
         if self._state == ReassemblerState.RECEIVING:
             if time.time() - self._last_activity > TRANSFER_TIMEOUT:
                 log.warning("Transfer timeout, resetting")
-                self._send_ack(-1, "error", "Transfer timeout")
+                self._send_ack(self._transfer_id, "data", -1, "error", "Transfer timeout")
                 self._reset()
 
         packet_type = data[0]
@@ -96,46 +106,68 @@ class ChunkReassembler:
             return False, None
 
     def _handle_header(self, data: bytes) -> tuple[bool, bytes | None]:
-        """Handle HEADER packet: [0x01][total_chunks:2B][crc32:4B][payload_len:4B]."""
-        if len(data) < 11:
+        """Handle HEADER packet with transfer metadata."""
+        if len(data) < HEADER_PACKET_LENGTH:
             log.error(f"HEADER packet too short: {len(data)} bytes")
-            self._send_ack(-1, "error", "Invalid HEADER length")
+            self._send_ack(0, "header", -1, "error", "Invalid HEADER length")
             return False, None
 
         # Parse header
-        total_chunks = struct.unpack_from("<H", data, 1)[0]
-        expected_crc = struct.unpack_from("<I", data, 3)[0]
-        payload_len = struct.unpack_from("<I", data, 7)[0]
+        transfer_id = struct.unpack_from("<I", data, 1)[0]
+        total_chunks = struct.unpack_from("<H", data, 5)[0]
+        expected_crc = struct.unpack_from("<I", data, 7)[0]
+        payload_len = struct.unpack_from("<I", data, 11)[0]
 
         log.info(
-            f"HEADER: chunks={total_chunks}, crc=0x{expected_crc:08X}, len={payload_len}"
+            "HEADER: transfer_id=%s, chunks=%s, crc=0x%08X, len=%s",
+            transfer_id,
+            total_chunks,
+            expected_crc,
+            payload_len,
         )
 
         # Reset and initialize
         self._reset()
         self._state = ReassemblerState.RECEIVING
+        self._transfer_id = transfer_id
         self._expected_chunks = total_chunks
         self._expected_crc = expected_crc
         self._expected_length = payload_len
         self._last_activity = time.time()
 
-        self._send_ack(0, "ok")
+        self._send_ack(transfer_id, "header", 0, "ok")
         return False, None
 
     def _handle_data(self, data: bytes) -> tuple[bool, bytes | None]:
-        """Handle DATA packet: [0x02][seq:2B][chunk_data:N bytes]."""
+        """Handle DATA packet: [0x02][transfer_id:4B][seq:2B][chunk_data:N bytes]."""
         if self._state != ReassemblerState.RECEIVING:
             log.warning("DATA received but not in RECEIVING state")
-            self._send_ack(-1, "error", "Unexpected DATA packet")
+            self._send_ack(self._transfer_id, "data", -1, "error", "Unexpected DATA packet")
             return False, None
 
-        if len(data) < 3:
+        if len(data) < DATA_PACKET_PREFIX_LENGTH:
             log.error(f"DATA packet too short: {len(data)} bytes")
-            self._send_ack(-1, "error", "Invalid DATA length")
+            self._send_ack(self._transfer_id, "data", -1, "error", "Invalid DATA length")
             return False, None
 
-        seq = struct.unpack_from("<H", data, 1)[0]
-        chunk_data = data[3:]
+        transfer_id = struct.unpack_from("<I", data, 1)[0]
+        seq = struct.unpack_from("<H", data, 5)[0]
+        chunk_data = data[DATA_PACKET_PREFIX_LENGTH:]
+
+        if transfer_id != self._transfer_id:
+            log.warning(
+                "DATA transfer mismatch: got %s, expected %s",
+                transfer_id,
+                self._transfer_id,
+            )
+            self._send_ack(
+                transfer_id,
+                "data",
+                seq,
+                "error",
+                "Unexpected transfer ID",
+            )
+            return False, None
 
         log.debug(f"DATA: seq={seq}, len={len(chunk_data)}")
 
@@ -143,23 +175,46 @@ class ChunkReassembler:
         self._chunks[seq] = bytes(chunk_data)
         self._last_activity = time.time()
 
-        self._send_ack(seq, "ok")
+        self._send_ack(transfer_id, "data", seq, "ok")
         return False, None
 
     def _handle_eof(self, data: bytes) -> tuple[bool, bytes | None]:
-        """Handle EOF packet: [0x03][chunks_received:2B]."""
+        """Handle EOF packet: [0x03][transfer_id:4B][chunks_received:2B]."""
         if self._state != ReassemblerState.RECEIVING:
             log.warning("EOF received but not in RECEIVING state")
-            self._send_ack(-1, "error", "Unexpected EOF packet")
+            self._send_ack(self._transfer_id, "eof", -1, "error", "Unexpected EOF packet")
+            return False, None
+
+        if len(data) < EOF_PACKET_LENGTH:
+            log.error(f"EOF packet too short: {len(data)} bytes")
+            self._send_ack(self._transfer_id, "eof", -1, "error", "Invalid EOF length")
+            return False, None
+
+        transfer_id = struct.unpack_from("<I", data, 1)[0]
+        declared_chunks = struct.unpack_from("<H", data, 5)[0]
+        if transfer_id != self._transfer_id:
+            self._send_ack(
+                transfer_id,
+                "eof",
+                -1,
+                "error",
+                "Unexpected transfer ID",
+            )
             return False, None
 
         # Check we have all chunks
         received_count = len(self._chunks)
-        if received_count != self._expected_chunks:
+        if declared_chunks != self._expected_chunks or received_count != self._expected_chunks:
             log.error(
                 f"Missing chunks: got {received_count}, expected {self._expected_chunks}"
             )
-            self._send_ack(-1, "error", f"Missing chunks: {received_count}/{self._expected_chunks}")
+            self._send_ack(
+                transfer_id,
+                "eof",
+                -1,
+                "error",
+                f"Missing chunks: {received_count}/{self._expected_chunks}",
+            )
             self._state = ReassemblerState.ERROR
             return False, None
 
@@ -171,7 +226,7 @@ class ChunkReassembler:
             log.error(
                 f"Length mismatch: got {len(payload)}, expected {self._expected_length}"
             )
-            self._send_ack(-1, "error", "Length mismatch")
+            self._send_ack(transfer_id, "eof", -1, "error", "Length mismatch")
             self._state = ReassemblerState.ERROR
             return False, None
 
@@ -181,12 +236,12 @@ class ChunkReassembler:
             log.error(
                 f"CRC mismatch: got 0x{actual_crc:08X}, expected 0x{self._expected_crc:08X}"
             )
-            self._send_ack(-1, "error", "CRC mismatch")
+            self._send_ack(transfer_id, "eof", -1, "error", "CRC mismatch")
             self._state = ReassemblerState.ERROR
             return False, None
 
         log.info(f"Reassembly complete: {len(payload)} bytes, CRC OK")
-        self._send_ack(-1, "complete")
+        self._send_ack(transfer_id, "eof", -1, "complete")
         self._state = ReassemblerState.COMPLETE
 
         # Reset for next transfer
@@ -194,37 +249,56 @@ class ChunkReassembler:
         self._reset()
         return True, result
 
-    def _send_ack(self, seq: int, status: str, msg: str | None = None):
+    def _send_ack(
+        self,
+        transfer_id: int,
+        phase: str,
+        seq: int,
+        status: str,
+        msg: str | None = None,
+    ):
         """Send ACK via callback if registered."""
         if self._on_ack:
             try:
-                self._on_ack(seq, status, msg)
+                self._on_ack(transfer_id, phase, seq, status, msg)
             except Exception as e:
                 log.error(f"ACK callback error: {e}")
 
 
-def create_header_packet(payload: bytes) -> bytes:
+def create_header_packet(payload: bytes, transfer_id: int, chunk_size: int = CHUNK_SIZE) -> bytes:
     """Create a HEADER packet for the given payload.
 
     Args:
         payload: The complete payload to be chunked.
+        transfer_id: Numeric transfer identifier.
+        chunk_size: Max chunk size in bytes.
 
     Returns:
         HEADER packet bytes.
     """
     crc = binascii.crc32(payload) & 0xFFFFFFFF
-    # Assume 512 byte chunks (adjust as needed)
-    chunk_size = 500
     total_chunks = (len(payload) + chunk_size - 1) // chunk_size
 
-    return struct.pack("<BHII", PACKET_HEADER, total_chunks, crc, len(payload))
+    return struct.pack(
+        "<BIHII",
+        PACKET_HEADER,
+        transfer_id,
+        total_chunks,
+        crc,
+        len(payload),
+    )
 
 
-def create_data_packets(payload: bytes, chunk_size: int = 500) -> list[bytes]:
+def create_data_packets(
+    payload: bytes,
+    transfer_id: int,
+    chunk_size: int = CHUNK_SIZE,
+) -> list[bytes]:
     """Create DATA packets for the given payload.
 
     Args:
         payload: The complete payload.
+        transfer_id: Numeric transfer identifier.
         chunk_size: Max chunk size in bytes.
 
     Returns:
@@ -234,18 +308,19 @@ def create_data_packets(payload: bytes, chunk_size: int = 500) -> list[bytes]:
     for i in range(0, len(payload), chunk_size):
         chunk = payload[i : i + chunk_size]
         seq = i // chunk_size
-        packet = struct.pack("<BH", PACKET_DATA, seq) + chunk
+        packet = struct.pack("<BIH", PACKET_DATA, transfer_id, seq) + chunk
         packets.append(packet)
     return packets
 
 
-def create_eof_packet(chunks_received: int) -> bytes:
+def create_eof_packet(transfer_id: int, chunks_received: int) -> bytes:
     """Create an EOF packet.
 
     Args:
+        transfer_id: Numeric transfer identifier.
         chunks_received: Number of chunks received.
 
     Returns:
         EOF packet bytes.
     """
-    return struct.pack("<BH", PACKET_EOF, chunks_received)
+    return struct.pack("<BIH", PACKET_EOF, transfer_id, chunks_received)

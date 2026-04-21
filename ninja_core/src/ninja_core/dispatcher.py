@@ -1,9 +1,23 @@
+from __future__ import annotations
+
 import asyncio
 import logging
-from typing import Any, Optional, Callable, List
+from typing import TYPE_CHECKING, Any, Optional, Callable, List
 
-from .hal import HardwareAbstractionLayer
+from .contracts import (
+    PROTOCOL_VERSION,
+    build_chat_event,
+    build_error_event,
+    build_execution_log_event,
+    build_execution_manifest,
+    build_execution_status_event,
+    build_execute_received_event,
+    ensure_request_id,
+)
 from .safe_executor import SafeExecutor
+
+if TYPE_CHECKING:
+    from .hal import HardwareAbstractionLayer
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +48,11 @@ class CommandDispatcher:
             on_print=self._on_executor_print
         )
         self._listeners: List[Callable[[dict], Any]] = []
-        self._loop = asyncio.get_running_loop()  # Capture main loop
+        self._active_request_id: str | None = None
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = None
         self._initialized = True
         log.info("CommandDispatcher initialized.")
 
@@ -67,16 +85,12 @@ class CommandDispatcher:
 
     def _on_executor_print(self, msg: str):
         """Callback for SafeExecutor to broadcast logs."""
-        # Truncate long logs to prevent BLE packet fragmentation issues
-        safe_msg = msg[:120] + "..." if len(msg) > 120 else msg
+        event = build_execution_log_event(self._active_request_id, msg)
         
         # This is called from the executor thread, so we must schedule it on the main loop.
         if self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(self.broadcast({
-                    "type": "execution_log", 
-                    "content": safe_msg
-                }))
+                lambda: asyncio.create_task(self.broadcast(event))
             )
         else:
              log.warning("Main event loop not available, cannot broadcast log.")
@@ -94,6 +108,7 @@ class CommandDispatcher:
         """
         # Log full command for debugging
         cmd_type = command.get("type")
+        request_id = ensure_request_id(command)
         log.info(f"[{source.upper()}] Command type='{cmd_type}' payload={command}")
 
         try:
@@ -105,21 +120,52 @@ class CommandDispatcher:
                 return await self._handle_execute_command(command)
             elif cmd_type == "stop": # Shortcut for stopping execution
                  self.safe_executor.stop()
-                 return {"status": "ok", "message": "Stop signal sent"}
+                 if self._active_request_id:
+                     await self.broadcast(
+                         build_execution_status_event(
+                             self._active_request_id,
+                             "stop_requested",
+                             "Stop requested by user",
+                         )
+                     )
+                 return {
+                     "status": "ok",
+                     "message": "Stop signal sent",
+                     "request_id": request_id,
+                     "protocol_version": PROTOCOL_VERSION,
+                 }
             else:
                 log.warning(f"Unknown command type: {cmd_type}")
-                return {"status": "error", "message": f"Unknown type: {cmd_type}"}
+                return {
+                    "status": "error",
+                    "message": f"Unknown type: {cmd_type}",
+                    "request_id": request_id,
+                    "protocol_version": PROTOCOL_VERSION,
+                }
 
         except Exception as e:
             log.error(f"Error processing command: {e}", exc_info=True)
-            return {"status": "error", "message": str(e)}
+            return {
+                "status": "error",
+                "message": str(e),
+                "request_id": request_id,
+                "protocol_version": PROTOCOL_VERSION,
+            }
 
     async def _handle_chat_command(self, cmd_data: dict) -> dict:
         """Process chat commands via NinjaAgent."""
         user_text = cmd_data.get("text", "")
+        request_id = ensure_request_id(cmd_data, "chat")
 
         # Broadcast user message first
-        await self.broadcast({"type": "chat", "sender": "user", "text": user_text})
+        await self.broadcast(
+            build_chat_event(
+                user_text,
+                sender="user",
+                request_id=request_id,
+                category="chat_input",
+            )
+        )
 
         # If no agent, just echo
         if not self.agent:
@@ -132,19 +178,39 @@ class CommandDispatcher:
             response_text = result.get("response", "I couldn't process that.")
 
             # Broadcast AI response
-            await self.broadcast({
-                "type": "chat",
-                "sender": "ninja",
-                "text": response_text,
-            })
+            await self.broadcast(
+                build_chat_event(
+                    response_text,
+                    sender="ninja",
+                    request_id=request_id,
+                    category="chat_response",
+                )
+            )
 
-            return {"status": "ok", "response": response_text}
+            return {
+                "status": "ok",
+                "response": response_text,
+                "request_id": request_id,
+                "protocol_version": PROTOCOL_VERSION,
+            }
 
         except Exception as e:
             log.error(f"Agent error: {e}")
             error_msg = f"Error: {e}"
-            await self.broadcast({"type": "chat", "sender": "ninja", "text": error_msg})
-            return {"status": "error", "message": str(e)}
+            await self.broadcast(
+                build_chat_event(
+                    error_msg,
+                    sender="ninja",
+                    request_id=request_id,
+                    category="chat_error",
+                )
+            )
+            return {
+                "status": "error",
+                "message": str(e),
+                "request_id": request_id,
+                "protocol_version": PROTOCOL_VERSION,
+            }
 
     async def _handle_hal_command(self, cmd_data: dict) -> dict:
         """Handle hardware control commands."""
@@ -168,7 +234,7 @@ class CommandDispatcher:
 
         return {"status": "error", "message": f"Unknown HAL action: {action}"}
 
-    def _on_execution_complete(self, result: dict):
+    def _on_execution_complete(self, request_id: str, result: dict):
         """Callback when SafeExecutor finishes/fails."""
 
         
@@ -176,91 +242,177 @@ class CommandDispatcher:
         # We need to run incomplete broadcast on loop
         if self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(self._process_execution_result(result))
+                lambda: asyncio.create_task(self._process_execution_result(request_id, result))
             )
             
-    async def _process_execution_result(self, result: dict):
+    async def _process_execution_result(self, request_id: str, result: dict):
         """Async processor for execution results (running on main loop)."""
         status = result.get("status")
-        await self.broadcast({
-            "type": "execution_status",
-            "status": status,
-            "message": result.get("message", "")
-        })
+        await self.broadcast(
+            build_execution_status_event(
+                request_id,
+                status,
+                result.get("message", ""),
+            )
+        )
         
         # If error, ask NinjaAgent to explain
         if status == "error":
             error_msg = result.get("message", "Unknown error")
             code = result.get("code", "")
+            traceback_text = result.get("traceback")
+
+            if traceback_text:
+                log.error("Execution %s failed with traceback:\n%s", request_id, traceback_text)
+
+            await self.broadcast(
+                build_error_event(
+                    "execution_failed",
+                    error_msg,
+                    request_id=request_id,
+                )
+            )
             
             # Broadcast the error as a chat message first (immediate feedback)
-            await self.broadcast({
-                "type": "chat", 
-                "sender": "ninja", 
-                "text": f"⚠️ Error executing code: {error_msg}"
-            })
+            await self.broadcast(
+                build_chat_event(
+                    f"⚠️ Error executing code: {error_msg}",
+                    sender="ninja",
+                    request_id=request_id,
+                    category="execution_error",
+                )
+            )
             
             # Use MAIN agent for analysis
             if self.agent:
                  analysis = await self.agent.analyze_error(code, error_msg)
-                 await self.broadcast({
-                    "type": "chat", 
-                    "sender": "ninja", 
-                    "text": f"💡 Diagnosis: {analysis}"
-                 })
+                 await self.broadcast(
+                    build_chat_event(
+                        f"💡 Diagnosis: {analysis}",
+                        sender="ninja",
+                        request_id=request_id,
+                        category="analysis",
+                    )
+                 )
+
+        if self._active_request_id == request_id:
+            self._active_request_id = None
 
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
         """Handle code execution commands (Direct Execution + AI Explanation)."""
         action = cmd_data.get("action", "run")
+        request_id = ensure_request_id(cmd_data, "execute")
+        manifest = build_execution_manifest(cmd_data.get("manifest"))
 
         if action == "stop":
             self.safe_executor.stop()
-            return {"status": "ok", "message": "Stop signal sent"}
+            if self._active_request_id:
+                await self.broadcast(
+                    build_execution_status_event(
+                        self._active_request_id,
+                        "stop_requested",
+                        "Stop requested by user",
+                    )
+                )
+            return {
+                "status": "ok",
+                "message": "Stop signal sent",
+                "request_id": request_id,
+                "protocol_version": PROTOCOL_VERSION,
+            }
 
         code = cmd_data.get("code", "")
+        workspace_state = cmd_data.get("workspace_state")
 
         # Log the received command
         log.info(f"[EXECUTE] Code received ({len(code)} chars)")
 
         if not code:
-            return {"status": "error", "message": "No code provided"}
+            return {
+                "status": "error",
+                "message": "No code provided",
+                "request_id": request_id,
+                "protocol_version": PROTOCOL_VERSION,
+            }
+
+        previous_request_id = self._active_request_id
+        self._active_request_id = request_id
+        result = self.safe_executor.execute(
+            code,
+            on_complete=lambda execution_result: self._on_execution_complete(
+                request_id,
+                execution_result,
+            ),
+        )
+
+        if result.get("status") == "error":
+            self._active_request_id = previous_request_id
+            await self.broadcast(
+                build_error_event(
+                    "execute_rejected",
+                    result.get("message", "Code execution rejected"),
+                    request_id=request_id,
+                )
+            )
+            return {
+                **result,
+                "request_id": request_id,
+                "protocol_version": manifest["protocol_version"],
+                "manifest": manifest,
+            }
 
         # 1. Broadcast "received" (Instant feedback)
-        await self.broadcast({
-            "type": "execute_received",
-            "code_length": len(code),
-            "full_code": code,
-        })
+        await self.broadcast(
+            build_execute_received_event(
+                request_id,
+                code,
+                workspace_state,
+            )
+        )
+        await self.broadcast(
+            build_execution_status_event(
+                request_id,
+                "started",
+                "Code execution started",
+            )
+        )
 
         # 2. Trigger Parallel AI Explanation (Non-blocking)
         if self.agent:
             # Fire and forget explanation task
-            asyncio.create_task(self._explain_code_async(code))
+            asyncio.create_task(self._explain_code_async(request_id, code))
         else:
-             await self.broadcast({
-                "type": "chat",
-                "sender": "ninja",
-                "text": "🚀 Executing code..."
-            })
+             await self.broadcast(
+                build_chat_event(
+                    "🚀 Executing code...",
+                    sender="ninja",
+                    request_id=request_id,
+                    category="execution_status",
+                )
+            )
 
-        # 3. Execute Immediately (Bypass Optimization)
-        result = self.safe_executor.execute(code, on_complete=self._on_execution_complete)
+        return {
+            **result,
+            "request_id": request_id,
+            "protocol_version": manifest["protocol_version"],
+            "manifest": manifest,
+        }
 
-        return result
-
-    async def _explain_code_async(self, code: str):
+    async def _explain_code_async(self, request_id: str, code: str):
         """Helper to run code explanation in background."""
         try:
             log.info("Starting background code explanation...")
             explanation = await self.agent.explain_code(code)
             log.info(f"Explanation ready: {explanation[:30]}...")
             
-            await self.broadcast({
-                "type": "chat",
-                "sender": "ninja",
-                "text": f"🤖 Logic: {explanation}"
-            })
+            await self.broadcast(
+                build_chat_event(
+                    f"🤖 Logic: {explanation}",
+                    sender="ninja",
+                    request_id=request_id,
+                    category="explanation",
+                )
+            )
             log.info("Explanation broadcast sent.")
         except Exception as e:
             log.error(f"Explanation failed: {e}", exc_info=True)
-

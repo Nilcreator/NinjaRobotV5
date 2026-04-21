@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import time
+from typing import TYPE_CHECKING
 
 from pi0buzzer.notes import EMOTION_SOUNDS, NOTES
 
-from .hal import HardwareAbstractionLayer
+if TYPE_CHECKING:
+    from .hal import HardwareAbstractionLayer
 
 
 class RobotSoundPlayer:
@@ -55,4 +59,3 @@ class RobotSoundPlayer:
                 time.sleep(0.01)
             else:
                 print(f"Warning: Note '{note_name}' not found.")
-

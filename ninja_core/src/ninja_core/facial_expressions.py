@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 import logging
 import math
 import threading
 import time
-from typing import Callable, Dict, Optional
-
-log = logging.getLogger(__name__)
+from typing import TYPE_CHECKING, Callable, Dict, Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
-from ninja_core.hal import HardwareAbstractionLayer
+log = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from ninja_core.hal import HardwareAbstractionLayer
 
 
 class AnimatedFaces:
@@ -18,7 +21,7 @@ class AnimatedFaces:
     """
 
     def __init__(self, hal: Optional[HardwareAbstractionLayer]):
-        if hal:
+        if hal and getattr(hal, "display", None):
             self.lcd = hal.display
             self.width, self.height = self.lcd.width, self.lcd.height
         else:

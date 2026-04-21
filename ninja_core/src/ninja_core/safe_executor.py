@@ -1,13 +1,24 @@
 import logging
+import math
 import threading
 import time
-import math
 import traceback
+import types
 from typing import Dict, Any, Optional, Callable
 
 from .api_wrappers import RobotWrapper
 
 log = logging.getLogger(__name__)
+
+
+class SafeTimeProxy:
+    """Expose the standard time module with a cooperative sleep override."""
+
+    def __init__(self, sleep_impl: Callable[[float], None]):
+        self.sleep = sleep_impl
+
+    def __getattr__(self, name):
+        return getattr(time, name)
 
 class SafeExecutor:
     """
@@ -16,13 +27,17 @@ class SafeExecutor:
     
     def __init__(self, hal: Any, on_print: Optional[Callable[[str], None]] = None):
         self.hal = hal
-        self.robot_wrapper = RobotWrapper(hal)
         self.on_print = on_print
         self._lock = threading.Lock()
         self._current_thread: Optional[threading.Thread] = None
         self._stop_flag = False
         self._execution_log = []
         self._last_result = None
+        self._safe_time = SafeTimeProxy(self.sleep)
+        self.robot_wrapper = RobotWrapper(
+            hal,
+            cooperative_sleep=self.sleep,
+        )
         
     def _safe_print(self, *args, sep=' ', end='\n'):
         msg = sep.join(map(str, args)) + end
@@ -40,12 +55,14 @@ class SafeExecutor:
         # Determine base module name
         base_name = name.split(".")[0]
         
+        if base_name == "time":
+            return self._safe_time
+
         if base_name == "ninja_core":
-             # Mock ninja_core module to allow 'from ninja_core import robot'
-             import types
-             mock_module = types.ModuleType("ninja_core")
-             mock_module.robot = self.robot_wrapper
-             return mock_module
+            # Mock ninja_core module to allow 'from ninja_core import robot'
+            mock_module = types.ModuleType("ninja_core")
+            mock_module.robot = self.robot_wrapper
+            return mock_module
 
         if base_name in allowed_modules:
             return __import__(name, globals, locals, fromlist, level)
@@ -70,15 +87,25 @@ class SafeExecutor:
         return {
             '__builtins__': safe_builtins,
             'robot': self.robot_wrapper,
-            'time': time,
+            'time': self._safe_time,
             'math': math,
             'print': self._safe_print,
-            'check_stop': self.check_stop 
+            'check_stop': self.check_stop,
+            'sleep': self.sleep,
         }
 
     def check_stop(self):
         if self._stop_flag:
             raise KeyboardInterrupt()
+
+    def sleep(self, duration: float, interval: float = 0.05):
+        end_time = time.monotonic() + max(0.0, float(duration))
+        while True:
+            self.check_stop()
+            remaining = end_time - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(interval, remaining))
 
     def execute(self, code: str, on_complete: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
         """Starts execution in a thread. returns status immediately."""
@@ -114,13 +141,22 @@ class SafeExecutor:
                 except SystemExit:
                      self._last_result["status"] = "stopped"
                      result.update(self._last_result)
-                
-                # Trigger callback if provided
-                if on_complete:
-                    try:
-                        on_complete(result)
-                    except Exception as ex:
-                        log.error(f"Error in on_complete callback: {ex}")
+                finally:
+                    if result.get("status") in {"error", "stopped"}:
+                        try:
+                            self.robot_wrapper.request_stop()
+                        except Exception as exc:
+                            log.warning("Runtime cleanup failed after %s: %s", result.get("status"), exc)
+
+                    with self._lock:
+                        self._current_thread = None
+                        self._stop_flag = False
+
+                    if on_complete:
+                        try:
+                            on_complete(result)
+                        except Exception as ex:
+                            log.error(f"Error in on_complete callback: {ex}")
 
             self._current_thread = threading.Thread(target=target, daemon=True)
             self._current_thread.start()
@@ -129,6 +165,10 @@ class SafeExecutor:
 
     def stop(self):
         self._stop_flag = True
+        try:
+            self.robot_wrapper.request_stop()
+        except Exception as exc:
+            log.warning("Robot stop hook failed: %s", exc)
         log.info("Stop signal sent to SafeExecutor")
 
     def get_log(self) -> str:

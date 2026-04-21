@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-04-21: Blockly Runtime Reliability Refinement ✓
+- **Action**: Closed the remaining Phase 5 classroom-reliability gaps identified during the secondary Blockly/BLE audit.
+- **Details**:
+  - **Request lifecycle fix**: `dispatcher.py` now preserves the active execution `request_id` when a second `execute` request is rejected, so stop/log/status/error broadcasts remain correlated to the original run.
+  - **Runtime feedback fidelity**: Removed the 120-character execution-log truncation now that outbound BLE chunking handles large runtime feedback safely.
+  - **Tests**: Added dispatcher coverage for rejected duplicate runs and full-length execution-log broadcasts.
+  - **Documentation**: Updated `DevelopmentGuide.md` to document the versioned Blockly `execute`/`stop` contract, BLE transport-v2 ACK envelopes, and the event stream consumed by the IDE.
+- **Validation**: `uv run --with ruff ruff check NinjaRobotV5/ninja_core/src NinjaRobotV5/tests` and targeted `pytest NinjaRobotV5/tests/test_dispatcher.py` passed.
+- **Files Modified**: `ninja_core/src/ninja_core/dispatcher.py`, `tests/test_dispatcher.py`, `DevelopmentGuide.md`.
+
 ## 2026-02-26: Cross-Documentation Content Audit & Corrections ✓
 - **Action**: Performed a full, line-by-line audit of `README.md`, `DevelopmentGuide.md`, and `InstallationGuide.md` to ensure all information perfectly matches the newly rebuilt V5 hardware libraries (`pi0servo`, `pi0disp`, `pi0vl53l0x`, and `pi0buzzer`).
 - **Issues Found & Fixed**:
