@@ -96,6 +96,9 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/dispatcher.py` | Broadcasts structured Blockly syntax errors without reporting a false execution start |
 | `ninja_core/safe_executor.py` | Compiles user code before starting the execution thread and keeps syntax failures from triggering hardware stop cleanup |
 | `ninja_core/contracts.py` | Allows error events to carry structured `details` such as line, offset, and source text |
+| `pi0vl53l0x/core/sensor.py` | Serializes whole VL53L0X ranging transactions so background monitoring and Blockly `robot.distance.read()` cannot interleave register writes |
+| `ninja_core/perception.py` | Keeps distance monitoring alive after transient I2C failures and attempts sensor reinitialization after repeated failures |
+| `ninja_core/api_wrappers.py` | Returns the documented 9999mm fallback for invalid sensor reads so Blockly obstacle checks do not treat sensor failure as a near obstacle |
 | `ninja_ble` | BLE transport v2 remains the required path for large Blockly payloads and large runtime feedback |
 | Runtime contract | `execute`, `stop`, `execution_status`, `execution_log`, `chat`, and `error` stay correlated by `request_id` |
 
@@ -694,7 +697,7 @@ def __init__(self, config_path: Optional[str] = None)
 
 > [!IMPORTANT]
 > **V5.2.3 REBUILD**: The pi0vl53l0x library was completely rebuilt with a new architecture:
-> - **Thread-safe I2C** via `threading.Lock` — safe for multi-threaded `DistanceMonitor` use
+> - **Thread-safe I2C** via `threading.Lock` plus a whole-measurement transaction lock — safe for concurrent `DistanceMonitor` and Blockly `robot.distance.read()` use
 > - **Hardened initialization** — firmware boot polling (up to 1.0s) prevents "returns 0 after reboot"
 > - **Automatic retry** with exponential backoff (10→20→50ms) and bus recovery
 > - **V2 offset bug fix** — `get_data()` now stores true raw value before offset correction
@@ -737,7 +740,7 @@ def __init__(
 | `write_block(register, data)` | `None` | Write block of bytes |
 | `close()` | `None` | Close I2C handle (safe to call multiple times) |
 
-**Thread Safety:** All operations are serialized via `threading.Lock`. Concurrent access from `DistanceMonitor` and main thread is safe.
+**Thread Safety:** Individual I2C operations are serialized via `threading.Lock`. Full ranging transactions are serialized by `VL53L0X._measurement_lock`, so a background monitor read and a Blockly/user-code read cannot interleave the sensor's register sequence.
 
 **Retry Strategy:** Exponential backoff (10ms → 20ms → 50ms). On exhaustion, attempts bus recovery by closing and reopening the I2C handle.
 
@@ -1914,6 +1917,8 @@ def __init__(self, hal: HardwareAbstractionLayer)
 - Starts background thread polling at specified interval
 - **Parameters:**
   - `interval` (float): Polling interval in seconds
+- Transient I2C failures mark the cached distance as unavailable but do not permanently stop the monitor.
+- After repeated failures, the monitor attempts `sensor.reinitialize()` while using the driver's measurement transaction lock.
 
 **`get_continuous_distance() -> int`**
 - Returns latest distance from background thread (non-blocking)

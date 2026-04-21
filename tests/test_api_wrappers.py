@@ -1,6 +1,25 @@
 import logging
 
-from ninja_core.api_wrappers import RobotWrapper, ServoWrapper
+from ninja_core.api_wrappers import DistanceWrapper, RobotWrapper, ServoWrapper
+
+
+def test_distance_wrapper_returns_sensor_distance():
+    class FakeSensor:
+        def get_data(self):
+            return {"distance_mm": 123, "is_valid": True}
+
+    assert DistanceWrapper(FakeSensor()).read() == 123
+
+
+def test_distance_wrapper_returns_fallback_for_invalid_sensor_data(caplog):
+    class FakeSensor:
+        def get_data(self):
+            return {"distance_mm": -1, "is_valid": False}
+
+    with caplog.at_level(logging.WARNING):
+        assert DistanceWrapper(FakeSensor()).read() == 9999
+
+    assert "Distance read unavailable or invalid" in caplog.text
 
 
 def test_servo_wrapper_clamps_out_of_range_angles_and_logs(caplog):

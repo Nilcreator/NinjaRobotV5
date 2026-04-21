@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-04-22: VL53L0X Blockly Concurrency & Recovery Fix ✓
+- **Action**: Fixed VL53L0X failures observed when Blockly code repeatedly called `robot.distance.read()` while the server's background distance monitor was also active.
+- **Root Cause**: `I2CBus` serialized individual byte operations, but `VL53L0X.get_range()` and `get_data()` perform multi-step single-shot ranging transactions. The background monitor and Blockly user code could interleave register writes, causing I2C retries, bus recovery, invalid `-1` readings, and a permanently stopped monitor thread.
+- **Details**:
+  - **Measurement lock**: Added a `threading.RLock` around whole VL53L0X ranging transactions and runtime reinitialization/close.
+  - **Monitor recovery**: `DistanceMonitor` now keeps running after transient I2C failures, marks cached distance unavailable, and attempts `sensor.reinitialize()` after repeated failures.
+  - **Blockly safety fallback**: `robot.distance.read()` now returns the documented `9999` fallback for invalid or unavailable sensor data instead of returning `-1`, preventing failed reads from triggering near-obstacle branches.
+  - **CLI lint cleanup**: Fixed unused imports in the VL53L0X CLI entrypoint so the expanded package lint gate is clean.
+- **Validation**: `uv run --with ruff ruff check ninja_core/src pi0vl53l0x/src tests pi0vl53l0x/tests`, `PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src uv run --with pytest --with pillow python -m pytest tests`, and `PYTHONPATH=pi0vl53l0x/src uv run --with pytest python -m pytest pi0vl53l0x/tests` passed.
+- **Files Modified**: `pi0vl53l0x/src/pi0vl53l0x/core/sensor.py`, `pi0vl53l0x/src/pi0vl53l0x/__main__.py`, `pi0vl53l0x/src/pi0vl53l0x/cli/sensor_tool.py`, `ninja_core/src/ninja_core/perception.py`, `ninja_core/src/ninja_core/api_wrappers.py`, `pi0vl53l0x/tests/test_sensor.py`, `tests/test_api_wrappers.py`, `tests/test_perception.py`, `DevelopmentGuide.md`.
+
 ## 2026-04-21: Blockly Syntax Error Runtime Refinement ✓
 - **Action**: Hardened Pi-side Blockly execution handling after a generated indentation error caused hardware cleanup even though user code never started.
 - **Details**:

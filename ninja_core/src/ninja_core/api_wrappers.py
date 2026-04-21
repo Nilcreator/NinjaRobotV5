@@ -55,7 +55,11 @@ class DistanceWrapper:
         """
         if self._sensor:
             data = self._sensor.get_data()
-            return data.get("distance_mm", 9999)
+            distance = data.get("distance_mm")
+            if data.get("is_valid") is False or distance is None or distance < 0:
+                log.warning("Distance read unavailable or invalid; returning 9999mm fallback")
+                return 9999
+            return distance
         return 9999
 
 

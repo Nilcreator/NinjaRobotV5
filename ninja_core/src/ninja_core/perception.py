@@ -1,6 +1,9 @@
+import logging
 import threading
 import time
 from .hal import HardwareAbstractionLayer
+
+log = logging.getLogger(__name__)
 
 
 class DistanceMonitor:
@@ -22,6 +25,7 @@ class DistanceMonitor:
         self._stop_event = threading.Event()
         self._current_distance = -1
         self._lock = threading.Lock()
+        self._consecutive_errors = 0
         
         # Velocity Tracking
         from collections import deque
@@ -133,6 +137,7 @@ class DistanceMonitor:
                 now = time.time()
                 
                 with self._lock:
+                    self._consecutive_errors = 0
                     self._current_distance = distance
                     self._history.append((now, distance))
                     
@@ -150,14 +155,28 @@ class DistanceMonitor:
                     else:
                         self._current_velocity = 0.0
 
-            except OSError:
-                 # I2C or IO error (happens during shutdown)
-                 pass
             except Exception as e:
-                print(f"Error in distance monitoring loop: {e}")
-                # In case of sensor error, stop the loop
+                if isinstance(e, OSError) and self._stop_event.is_set():
+                    break
+
+                self._consecutive_errors += 1
+                log.warning(
+                    "Distance monitor read failed (%d consecutive): %s",
+                    self._consecutive_errors,
+                    e,
+                )
                 with self._lock:
                     self._current_distance = -1
                     self._current_velocity = 0.0
-                break
+
+                if self._consecutive_errors >= 3 and hasattr(self.sensor, "reinitialize"):
+                    try:
+                        log.warning("Attempting VL53L0X reinitialization after repeated read failures")
+                        self.sensor.reinitialize()
+                        self._consecutive_errors = 0
+                    except Exception as recovery_error:
+                        log.error("VL53L0X reinitialization failed: %s", recovery_error)
+
+                time.sleep(min(1.0, max(interval, 0.1 * self._consecutive_errors)))
+                continue
             time.sleep(interval)

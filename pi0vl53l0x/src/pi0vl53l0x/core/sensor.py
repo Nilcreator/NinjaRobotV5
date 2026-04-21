@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import statistics
+import threading
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -37,9 +38,10 @@ class VL53L0X:
     Time-of-Flight laser ranging sensor via I2C communication.
 
     Thread Safety:
-        All I2C operations are serialized via I2CBus's threading.Lock.
-        However, reinitialize() is NOT thread-safe — the caller MUST
-        stop any ContinuousReader or DistanceMonitor before calling it.
+        Individual I2C operations are serialized by I2CBus. Whole ranging
+        transactions are also serialized here so callers such as
+        DistanceMonitor and Blockly user code cannot interleave the
+        VL53L0X register sequence.
 
     Exception Contract:
         get_range() raises:
@@ -77,6 +79,7 @@ class VL53L0X:
         self.offset_mm = 0
         self._stop_variable = 0
         self._measurement_timing_budget_us = 0
+        self._measurement_lock = threading.RLock()
 
         logger.debug(
             "VL53L0X init: bus=%d, address=0x%02X",
@@ -737,45 +740,46 @@ class VL53L0X:
         Used by: ninja_core/perception.py DistanceMonitor._monitor_loop()
         Note: DistanceMonitor catches Exception broadly, so these are safe.
         """
-        if not self._initialized:
-            raise RuntimeError("Sensor not initialized — call initialize()")
+        with self._measurement_lock:
+            if not self._initialized:
+                raise RuntimeError("Sensor not initialized — call initialize()")
 
-        # Restore stop_variable sequence
-        self.i2c.write_byte(0x80, 0x01)
-        self.i2c.write_byte(0xFF, 0x01)
-        self.i2c.write_byte(0x00, 0x00)
-        self.i2c.write_byte(0x91, self._stop_variable)
-        self.i2c.write_byte(0x00, 0x01)
-        self.i2c.write_byte(0xFF, 0x00)
-        self.i2c.write_byte(0x80, 0x00)
+            # Restore stop_variable sequence
+            self.i2c.write_byte(0x80, 0x01)
+            self.i2c.write_byte(0xFF, 0x01)
+            self.i2c.write_byte(0x00, 0x00)
+            self.i2c.write_byte(0x91, self._stop_variable)
+            self.i2c.write_byte(0x00, 0x01)
+            self.i2c.write_byte(0xFF, 0x00)
+            self.i2c.write_byte(0x80, 0x00)
 
-        # Start single-shot measurement
-        self.i2c.write_byte(R.SYSRANGE_START, 0x01)
+            # Start single-shot measurement
+            self.i2c.write_byte(R.SYSRANGE_START, 0x01)
 
-        # Calculate timeout based on timing budget
-        budget_s = self._measurement_timing_budget_us / 1_000_000.0
-        timeout_s = max(1.0, budget_s + 0.1)
+            # Calculate timeout based on timing budget
+            budget_s = self._measurement_timing_budget_us / 1_000_000.0
+            timeout_s = max(1.0, budget_s + 0.1)
 
-        # Wait for measurement ready (interrupt status)
-        start = time.time()
-        while True:
-            status = self.i2c.read_byte(R.RESULT_INTERRUPT_STATUS)
-            if (status & R.INTERRUPT_STATUS_MASK) != 0x00:
-                break
-            if time.time() - start > timeout_s:
-                raise TimeoutError(
-                    f"Measurement did not complete within {timeout_s:.1f}s"
-                )
+            # Wait for measurement ready (interrupt status)
+            start = time.time()
+            while True:
+                status = self.i2c.read_byte(R.RESULT_INTERRUPT_STATUS)
+                if (status & R.INTERRUPT_STATUS_MASK) != 0x00:
+                    break
+                if time.time() - start > timeout_s:
+                    raise TimeoutError(
+                        f"Measurement did not complete within {timeout_s:.1f}s"
+                    )
 
-        # Read result: range status register + 0x0A offset
-        raw_mm = self.i2c.read_word_big_endian(
-            R.RESULT_RANGE_STATUS + 0x0A
-        )
+            # Read result: range status register + 0x0A offset
+            raw_mm = self.i2c.read_word_big_endian(
+                R.RESULT_RANGE_STATUS + 0x0A
+            )
 
-        # Clear interrupt
-        self.i2c.write_byte(R.SYSTEM_INTERRUPT_CLEAR, 0x01)
+            # Clear interrupt
+            self.i2c.write_byte(R.SYSTEM_INTERRUPT_CLEAR, 0x01)
 
-        return raw_mm - self.offset_mm
+            return raw_mm - self.offset_mm
 
     def get_data(self) -> dict[str, Any]:
         """Get sensor data in standardized format (Sensor interface).
@@ -816,41 +820,42 @@ class VL53L0X:
         Returns:
             Raw distance in mm from sensor (no offset applied).
         """
-        if not self._initialized:
-            raise RuntimeError("Sensor not initialized — call initialize()")
+        with self._measurement_lock:
+            if not self._initialized:
+                raise RuntimeError("Sensor not initialized — call initialize()")
 
-        # Restore stop_variable sequence
-        self.i2c.write_byte(0x80, 0x01)
-        self.i2c.write_byte(0xFF, 0x01)
-        self.i2c.write_byte(0x00, 0x00)
-        self.i2c.write_byte(0x91, self._stop_variable)
-        self.i2c.write_byte(0x00, 0x01)
-        self.i2c.write_byte(0xFF, 0x00)
-        self.i2c.write_byte(0x80, 0x00)
+            # Restore stop_variable sequence
+            self.i2c.write_byte(0x80, 0x01)
+            self.i2c.write_byte(0xFF, 0x01)
+            self.i2c.write_byte(0x00, 0x00)
+            self.i2c.write_byte(0x91, self._stop_variable)
+            self.i2c.write_byte(0x00, 0x01)
+            self.i2c.write_byte(0xFF, 0x00)
+            self.i2c.write_byte(0x80, 0x00)
 
-        # Start single-shot measurement
-        self.i2c.write_byte(R.SYSRANGE_START, 0x01)
+            # Start single-shot measurement
+            self.i2c.write_byte(R.SYSRANGE_START, 0x01)
 
-        budget_s = self._measurement_timing_budget_us / 1_000_000.0
-        timeout_s = max(1.0, budget_s + 0.1)
+            budget_s = self._measurement_timing_budget_us / 1_000_000.0
+            timeout_s = max(1.0, budget_s + 0.1)
 
-        start = time.time()
-        while True:
-            status = self.i2c.read_byte(R.RESULT_INTERRUPT_STATUS)
-            if (status & R.INTERRUPT_STATUS_MASK) != 0x00:
-                break
-            if time.time() - start > timeout_s:
-                raise TimeoutError(
-                    f"Measurement did not complete within {timeout_s:.1f}s"
-                )
+            start = time.time()
+            while True:
+                status = self.i2c.read_byte(R.RESULT_INTERRUPT_STATUS)
+                if (status & R.INTERRUPT_STATUS_MASK) != 0x00:
+                    break
+                if time.time() - start > timeout_s:
+                    raise TimeoutError(
+                        f"Measurement did not complete within {timeout_s:.1f}s"
+                    )
 
-        raw_mm = self.i2c.read_word_big_endian(
-            R.RESULT_RANGE_STATUS + 0x0A
-        )
+            raw_mm = self.i2c.read_word_big_endian(
+                R.RESULT_RANGE_STATUS + 0x0A
+            )
 
-        self.i2c.write_byte(R.SYSTEM_INTERRUPT_CLEAR, 0x01)
+            self.i2c.write_byte(R.SYSTEM_INTERRUPT_CLEAR, 0x01)
 
-        return raw_mm
+            return raw_mm
 
     async def get_range_async(self) -> int:
         """Async version of get_range() for future asyncio integration.
@@ -946,12 +951,13 @@ class VL53L0X:
 
         Can be called at runtime without rebooting.
 
-        WARNING: NOT thread-safe — caller MUST stop ContinuousReader
-        or DistanceMonitor before calling this method.
+        Safe to call while other callers may read distance; it takes the
+        same transaction lock used by get_range().
         """
         logger.info("Reinitializing VL53L0X...")
-        self._initialized = False
-        self.initialize()
+        with self._measurement_lock:
+            self._initialized = False
+            self.initialize()
 
     # ------------------------------------------------------------------
     # Cleanup
@@ -962,7 +968,8 @@ class VL53L0X:
 
         Safe to call multiple times.
         """
-        self.i2c.close()
+        with self._measurement_lock:
+            self.i2c.close()
 
     # ------------------------------------------------------------------
     # Backward Compatibility — Direct I2C methods

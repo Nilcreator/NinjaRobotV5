@@ -14,6 +14,7 @@ Tests cover:
 """
 
 import asyncio
+import threading
 from unittest.mock import MagicMock
 
 import pytest
@@ -251,6 +252,57 @@ class TestGetRange:
         sensor.set_offset(10)
         result = sensor.get_range()
         assert result == 240  # 250 - 10
+
+    def test_concurrent_reads_are_serialized_by_transaction_lock(self, sensor, mock_pi):
+        """Whole ranging transactions must not interleave across threads."""
+
+        class CountingLock:
+            def __init__(self):
+                self._lock = threading.RLock()
+                self._guard = threading.Lock()
+                self.active = 0
+                self.entries = 0
+                self.max_active = 0
+
+            def __enter__(self):
+                self._lock.acquire()
+                with self._guard:
+                    self.active += 1
+                    self.entries += 1
+                    self.max_active = max(self.max_active, self.active)
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                with self._guard:
+                    self.active -= 1
+                self._lock.release()
+
+        original = mock_pi.i2c_read_byte_data.side_effect
+
+        def range_read(handle, register):
+            if register == 0x13:
+                return 0x07
+            return original(handle, register)
+
+        mock_pi.i2c_read_byte_data.side_effect = range_read
+        mock_pi.i2c_read_word_data.side_effect = lambda h, r: 0xFA00
+        counting_lock = CountingLock()
+        sensor._measurement_lock = counting_lock
+
+        results = []
+        threads = [
+            threading.Thread(target=lambda: results.append(sensor.get_range()))
+            for _ in range(4)
+        ]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=1.0)
+
+        assert results == [250, 250, 250, 250]
+        assert counting_lock.entries == 4
+        assert counting_lock.max_active == 1
 
 
 # ---------------------------------------------------------------------------

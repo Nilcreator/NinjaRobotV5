@@ -21,7 +21,6 @@ import click
 
 from pi0vl53l0x.config.config_manager import (
     ConfigManager,
-    get_default_config_filepath,
 )
 
 # Optional blessed for TUI
