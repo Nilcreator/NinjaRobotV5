@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import shutil
+import subprocess
+import sys
 from typing import Any
 
 from bless import (
@@ -35,6 +38,11 @@ CHAR_COMMAND_UUID = "00000002-710e-4a5b-8d75-3e5b444bc3cf"
 
 # Response Characteristic (Notify): For sending JSON updates
 CHAR_RESPONSE_UUID = "00000003-710e-4a5b-8d75-3e5b444bc3cf"
+
+BLE_START_ATTEMPTS = 2
+BLE_RECOVERY_DELAY_SECONDS = 1.0
+ADVERTISEMENT_ERROR_FRAGMENT = "register advertisement"
+ADVERTISING_NOT_READY_MESSAGE = "BLE advertising did not start"
 
 
 class NinjaBLEService:
@@ -183,6 +191,47 @@ class NinjaBLEService:
         if self._notify_lock is None:
             self._notify_lock = asyncio.Lock()
 
+        if self._running:
+            log.info("BLE Service is already advertising")
+            return
+
+        last_error: Exception | None = None
+        for attempt in range(1, BLE_START_ATTEMPTS + 1):
+            try:
+                await self._configure_server()
+                await self._start_configured_server()
+            except Exception as exc:
+                last_error = exc
+                self._running = False
+                log.warning(
+                    "BLE advertising start attempt %s/%s failed: %s",
+                    attempt,
+                    BLE_START_ATTEMPTS,
+                    exc,
+                )
+                await self._cleanup_server()
+
+                if (
+                    attempt >= BLE_START_ATTEMPTS
+                    or not self._is_recoverable_start_error(exc)
+                ):
+                    raise
+
+                await self._recover_bluez_advertising()
+                await asyncio.sleep(BLE_RECOVERY_DELAY_SECONDS)
+                continue
+
+            self._running = True
+            log.info(f"BLE Service '{SERVICE_NAME}' advertising...")
+            return
+
+        if last_error:
+            raise last_error
+
+    async def _configure_server(self):
+        """Create and configure a fresh Bless GATT server instance."""
+        await self._cleanup_server()
+
         # Create server
         self._server = BlessServer(name=SERVICE_NAME)
 
@@ -217,6 +266,11 @@ class NinjaBLEService:
             value=bytearray(b"{}"),
         )
 
+    async def _start_configured_server(self):
+        """Start advertising and validate the server reached an active state."""
+        if not self._server:
+            raise RuntimeError("BLE server has not been configured")
+
         # Start Advertising
         started = await self._server.start()
         advertising = True
@@ -227,12 +281,67 @@ class NinjaBLEService:
             except Exception as exc:
                 log.warning("Could not verify BLE advertising state: %s", exc)
 
-        if started is not False and advertising:
-            self._running = True
-            log.info(f"BLE Service '{SERVICE_NAME}' advertising...")
-        else:
-            self._running = False
-            log.error("Failed to start BLE advertising")
+        if started is False or not advertising:
+            raise RuntimeError(ADVERTISING_NOT_READY_MESSAGE)
+
+    def _is_recoverable_start_error(self, exc: Exception) -> bool:
+        """Return whether a BLE start failure is worth an adapter recovery retry."""
+        message = str(exc).lower()
+        return (
+            ADVERTISEMENT_ERROR_FRAGMENT in message
+            or ADVERTISING_NOT_READY_MESSAGE.lower() in message
+        )
+
+    async def _cleanup_server(self):
+        """Best-effort cleanup for a partially-started Bless server."""
+        server = self._server
+        self._server = None
+        self._running = False
+        if not server:
+            return
+
+        try:
+            await server.stop()
+        except Exception as exc:
+            log.debug("BLE server cleanup ignored: %s", exc)
+
+    async def _recover_bluez_advertising(self):
+        """Recover BlueZ adapter state after a failed advertisement registration."""
+        if sys.platform != "linux":
+            return
+
+        bluetoothctl = shutil.which("bluetoothctl")
+        if not bluetoothctl:
+            log.warning("Cannot recover BLE adapter state: bluetoothctl not found")
+            return
+
+        log.warning("Recovering BlueZ advertisement state via Bluetooth power cycle")
+        await asyncio.to_thread(self._run_bluetoothctl_power, bluetoothctl, "off")
+        await asyncio.sleep(BLE_RECOVERY_DELAY_SECONDS)
+        await asyncio.to_thread(self._run_bluetoothctl_power, bluetoothctl, "on")
+
+    @staticmethod
+    def _run_bluetoothctl_power(bluetoothctl: str, state: str):
+        command = [bluetoothctl, "power", state]
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            log.warning("Bluetooth adapter recovery command failed: %s", exc)
+            return
+
+        if completed.returncode != 0:
+            output = (completed.stderr or completed.stdout).strip()
+            log.warning(
+                "Bluetooth adapter recovery command returned %s: %s",
+                completed.returncode,
+                output,
+            )
 
     async def stop(self):
         """Stop the GATT Server."""

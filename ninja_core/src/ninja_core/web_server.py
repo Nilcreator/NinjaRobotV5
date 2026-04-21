@@ -125,7 +125,7 @@ async def lifespan(app: FastAPI):
     try:
         from ninja_ble.service import NinjaBLEService
         app.state.ninja.ble = NinjaBLEService(dispatcher)
-        await asyncio.wait_for(app.state.ninja.ble.start(), timeout=15.0)
+        await asyncio.wait_for(app.state.ninja.ble.start(), timeout=30.0)
         if app.state.ninja.ble.is_running:
             print("BLE Service started.")
         else:
