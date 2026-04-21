@@ -125,12 +125,16 @@ async def lifespan(app: FastAPI):
     try:
         from ninja_ble.service import NinjaBLEService
         app.state.ninja.ble = NinjaBLEService(dispatcher)
-        ble_task = asyncio.create_task(app.state.ninja.ble.start())
-        app.state.ninja.tasks.add(ble_task)
-        ble_task.add_done_callback(app.state.ninja.tasks.discard)
-        print("BLE Service started.")
+        await asyncio.wait_for(app.state.ninja.ble.start(), timeout=15.0)
+        if app.state.ninja.ble.is_running:
+            print("BLE Service started.")
+        else:
+            print("BLE Service initialized but is not advertising.")
     except ImportError as e:
         print(f"BLE modules not found, skipping BLE: {e}")
+        app.state.ninja.ble = None
+    except asyncio.TimeoutError:
+        print("Failed to start BLE Service: startup timed out")
         app.state.ninja.ble = None
     except Exception as e:
         print(f"Failed to start BLE Service: {e}")
@@ -653,7 +657,7 @@ def get_distance_api(request: Request):
 def get_ble_status(request: Request):
     """Returns BLE service advertising status for frontend indicator."""
     ble = getattr(request.app.state.ninja, 'ble', None)
-    if ble and ble._running:
+    if ble and ble.is_running:
         return {"advertising": True, "service_name": "NinjaRobot"}
     return {"advertising": False, "service_name": None}
 

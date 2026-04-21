@@ -47,11 +47,17 @@ class NinjaBLEService:
 
         # Chunk reassembler for large payloads
         self._reassembler = ChunkReassembler(on_ack=self._send_ack_sync)
-        self._notify_lock = asyncio.Lock()
+        self._notify_lock: asyncio.Lock | None = None
         self._next_outbound_transfer_id = 1
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
+
+    @property
+    def is_running(self) -> bool:
+        """Return whether the BLE server is started and ready to notify clients."""
+        return self._running
 
     def _send_ack_sync(
         self,
@@ -71,7 +77,20 @@ class NinjaBLEService:
         }
         if msg:
             ack_msg["msg"] = msg
-        asyncio.create_task(self.on_broadcast(ack_msg))
+        self._schedule_task(self.on_broadcast(ack_msg))
+
+    def _schedule_task(self, coro):
+        """Schedule a coroutine from BLE callbacks, even if they run off-loop."""
+        loop = self._loop
+        if loop and loop.is_running():
+            loop.call_soon_threadsafe(lambda: asyncio.create_task(coro))
+            return
+
+        try:
+            asyncio.create_task(coro)
+        except RuntimeError:
+            log.error("BLE callback fired without a running asyncio loop")
+            coro.close()
 
     def _allocate_outbound_transfer_id(self) -> int:
         transfer_id = self._next_outbound_transfer_id
@@ -126,7 +145,7 @@ class NinjaBLEService:
             command_data = json.loads(json_str)
             log.info(f"BLE Command (legacy): {command_data}")
 
-            asyncio.create_task(
+            self._schedule_task(
                 self.dispatcher.handle_command("ble", command_data)
             )
 
@@ -142,24 +161,27 @@ class NinjaBLEService:
             command_data = json.loads(json_str)
             log.info(f"BLE Command (chunked): {command_data}")
 
-            asyncio.create_task(
+            self._schedule_task(
                 self.dispatcher.handle_command("ble", command_data)
             )
 
         except json.JSONDecodeError:
             log.error("BLE Chunked Payload Error: Invalid JSON")
-            asyncio.create_task(
+            self._schedule_task(
                 self.on_broadcast({"type": "error", "msg": "Invalid JSON payload"})
             )
         except Exception as e:
             log.error(f"BLE Chunked Payload Error: {e}")
-            asyncio.create_task(
+            self._schedule_task(
                 self.on_broadcast({"type": "error", "msg": str(e)})
             )
 
     async def start(self):
         """Start the GATT Server."""
         log.info("Starting BLE Service...")
+        self._loop = asyncio.get_running_loop()
+        if self._notify_lock is None:
+            self._notify_lock = asyncio.Lock()
 
         # Create server
         self._server = BlessServer(name=SERVICE_NAME)
@@ -197,18 +219,27 @@ class NinjaBLEService:
 
         # Start Advertising
         started = await self._server.start()
+        advertising = True
+        is_advertising = getattr(self._server, "is_advertising", None)
+        if callable(is_advertising):
+            try:
+                advertising = bool(await is_advertising())
+            except Exception as exc:
+                log.warning("Could not verify BLE advertising state: %s", exc)
 
-        if started:
+        if started is not False and advertising:
             self._running = True
             log.info(f"BLE Service '{SERVICE_NAME}' advertising...")
         else:
+            self._running = False
             log.error("Failed to start BLE advertising")
 
     async def stop(self):
         """Stop the GATT Server."""
-        if self._running and self._server:
+        if self._server:
             await self._server.stop()
             self._running = False
+            self._loop = None
             log.info("BLE Service stopped")
 
     async def on_broadcast(self, message: dict):
@@ -228,6 +259,9 @@ class NinjaBLEService:
             log.error(f"BLE Broadcast Error: {e}")
 
     async def _notify_payload(self, payload: bytes):
+        if self._notify_lock is None:
+            self._notify_lock = asyncio.Lock()
+
         async with self._notify_lock:
             if len(payload) <= CHUNK_SIZE:
                 await self._notify_packet(payload)
