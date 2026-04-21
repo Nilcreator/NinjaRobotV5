@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
 **Version:** 5.2.5  
-**Last Updated:** 2026-04-21  
+**Last Updated:** 2026-04-22  
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -18,7 +18,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 |---|---|
 | `ninja_utils` | Added `Sensor`, `Actuator` ABCs and `DistanceData` dataclass |
 | `pi0buzzer` | **Non-blocking** threaded sound queue, implements `Actuator` |
-| `pi0vl53l0x` | **REBUILT** — Thread-safe I2C, hardened init, retry with bus recovery, V2 offset fix |
+| `pi0vl53l0x` | **REBUILT** — Thread-safe I2C, whole-ranging transaction lock, hardened init, retry with bus recovery, V2 offset fix |
 | `pi0disp` | **REBUILT** — Thread-safe SPI, delta rendering, PWM brightness, ConfigManager, CLI |
 | `pi0servo` | Added `execute()` for batch control, implements `Actuator` |
 | `ninja_core/hal.py` | **Dynamic driver loading** via `importlib` |
@@ -72,7 +72,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | Component | Change |
 |---|---|
 | `pi0vl53l0x` | **REBUILT** — Full rewrite with modular architecture |
-| `core/i2c.py` | Thread-safe I2C with `threading.Lock`, retry + bus recovery |
+| `core/i2c.py` + `core/sensor.py` | Thread-safe I2C with `threading.Lock`, whole-measurement transaction locking, retry + bus recovery |
 | `core/sensor.py` | Hardened init (firmware boot polling), V2 offset bug fix, health check |
 | `config/config_manager.py` | JSON-based config with export/import, `ConfigManager` class |
 | `cli/sensor_tool.py` | Interactive CLI: `get`, `performance`, `calibrate`, `test`, `status`, `config` |
@@ -208,7 +208,7 @@ NinjaRobotV5/
 ├── pi0vl53l0x/                 # VL53L0X distance sensor library (V5.2.3 REBUILT)
 │   ├── pyproject.toml
 │   ├── README.md
-│   ├── tests/                  # Unit tests (pytest, 60 tests)
+│   ├── tests/                  # Unit tests (pytest, 61 tests)
 │   └── src/pi0vl53l0x/
 │       ├── __init__.py         # Exports VL53L0X, ConfigManager
 │       ├── __main__.py         # CLI entry point
@@ -817,7 +817,7 @@ def __init__(
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `health_check()` | `bool` | Verify sensor responds (reads Model ID) |
-| `reinitialize()` | `None` | Full re-init — NOT thread-safe |
+| `reinitialize()` | `None` | Full re-init for recovery; serialized with measurement transactions |
 | `close()` | `None` | Release I2C handle |
 
 **Backward Compatibility Shim Methods:**
@@ -1922,7 +1922,7 @@ def __init__(self, hal: HardwareAbstractionLayer)
 
 **`get_continuous_distance() -> int`**
 - Returns latest distance from background thread (non-blocking)
-- **Returns:** `0` if continuous mode not started
+- **Returns:** `-1` if no valid reading is currently available
 
 **`get_velocity() -> float`**
 - Returns estimated approach velocity in mm/s

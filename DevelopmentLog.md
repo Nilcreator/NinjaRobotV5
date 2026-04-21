@@ -1,5 +1,14 @@
 # Development Log
 
+## 2026-04-22: Documentation Synchronization Audit ✓
+- **Action**: Reviewed `DevelopmentGuide.md` and the affected `pi0vl53l0x/README.md` against the latest Blockly-driven distance-sensor concurrency and recovery changes.
+- **Details**:
+  - **VL53L0X docs**: Updated `pi0vl53l0x` feature and API documentation to describe transaction-level ranging locks, thread-safe `reinitialize()`, and shared use by the background monitor plus Blockly `robot.distance.read()`.
+  - **Core docs**: Corrected `DistanceMonitor.get_continuous_distance()` unavailable-reading semantics from `0` to `-1`, matching the current runtime behavior before `DistanceWrapper` converts invalid Blockly reads to `9999`.
+  - **Test inventory**: Updated `pi0vl53l0x` test counts from 60 to 61 and documented the new transaction-lock sensor test.
+- **Validation**: Performed a line-by-line documentation audit with Serena symbol/pattern checks against `VL53L0X`, `DistanceMonitor`, and `DistanceWrapper`; followed with stale-text searches for outdated thread-safety and test-count claims. `uv run --with ruff ruff check ninja_core/src pi0vl53l0x/src tests pi0vl53l0x/tests` passed.
+- **Files Modified**: `DevelopmentGuide.md`, `pi0vl53l0x/README.md`, `DevelopmentLog.md`.
+
 ## 2026-04-22: VL53L0X Blockly Concurrency & Recovery Fix ✓
 - **Action**: Fixed VL53L0X failures observed when Blockly code repeatedly called `robot.distance.read()` while the server's background distance monitor was also active.
 - **Root Cause**: `I2CBus` serialized individual byte operations, but `VL53L0X.get_range()` and `get_data()` perform multi-step single-shot ranging transactions. The background monitor and Blockly user code could interleave register writes, causing I2C retries, bus recovery, invalid `-1` readings, and a permanently stopped monitor thread.

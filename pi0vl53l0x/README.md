@@ -5,7 +5,7 @@ A robust Python driver for the VL53L0X Time-of-Flight distance sensor using pigp
 ## Features
 
 - **Hardened initialization** — firmware boot polling (up to 1.0s) prevents "returns 0 after reboot" issue
-- **Thread-safe I2C** — `threading.Lock` serializes all bus access, safe for multi-threaded use
+- **Thread-safe ranging** — individual I2C operations and whole single-shot ranging transactions are serialized for background monitor + Blockly use
 - **Automatic retry** — exponential backoff (10→20→50ms) with bus recovery on persistent failure
 - **Defined exception contract** — `I2CError`, `TimeoutError`, `RuntimeError` for clear error handling
 - **Async ready** — `get_range_async()` for asyncio integration
@@ -21,9 +21,9 @@ pi0vl53l0x/
 ├── pyproject.toml              # Package metadata, dependencies, CLI entry point
 ├── README.md                   # This document
 ├── LICENSE
-├── tests/                      # Unit tests (60 tests total)
+├── tests/                      # Unit tests (61 tests total)
 │   ├── test_i2c.py             # I2C bus wrapper tests (22 tests)
-│   ├── test_sensor.py          # VL53L0X driver tests (22 tests)
+│   ├── test_sensor.py          # VL53L0X driver tests (23 tests)
 │   └── test_config.py          # Config manager tests (16 tests)
 └── src/pi0vl53l0x/
     ├── __init__.py              # Package exports (VL53L0X, ConfigManager, I2CError)
@@ -271,6 +271,12 @@ VL53L0X(
 | `get_ranges(num_samples)` | `list[int]` | Multiple consecutive measurements |
 | `get_range_async()` | `int` | Async version (runs in thread pool executor) |
 
+### Thread Safety
+
+`I2CBus` serializes individual register reads and writes. `VL53L0X` also serializes the complete single-shot ranging transaction with an internal re-entrant measurement lock, so a background `DistanceMonitor` read and Blockly user code calling `robot.distance.read()` cannot interleave the register writes that start, poll, and clear a measurement.
+
+`get_range()`, `get_data()`, `get_ranges()`, `get_range_async()`, `reinitialize()`, and `close()` all use this transaction-level protection where needed. This is important inside NinjaRobotV5 because the web IDE can execute Blockly loops while the server is also polling the same physical VL53L0X sensor.
+
 ### Calibration & Configuration
 
 | Method | Returns | Description |
@@ -283,12 +289,12 @@ VL53L0X(
 | Method | Returns | Description |
 |--------|---------|-------------|
 | `health_check()` | `bool` | Verify sensor responds (reads Model ID) |
-| `reinitialize()` | `None` | Full re-init for recovery (NOT thread-safe) |
+| `reinitialize()` | `None` | Full re-init for recovery; serialized with active ranging transactions |
 | `close()` | `None` | Release I2C handle |
 
 ### I2CBus
 
-Thread-safe I2C wrapper used internally by VL53L0X.
+Thread-safe I2C wrapper used internally by VL53L0X. It protects individual bus operations; the VL53L0X driver layers a measurement transaction lock above it for multi-register ranging flows.
 
 ```python
 from pi0vl53l0x.core.i2c import I2CBus
@@ -333,7 +339,7 @@ manager.import_config("backup.json")
 ## Testing
 
 ```bash
-# Run all unit tests (60 tests)
+# Run all unit tests (61 tests)
 uv run --extra dev pytest tests/ -v
 
 # Lint check
@@ -345,7 +351,7 @@ uv run --extra dev ruff check src/ tests/
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
 | `test_i2c.py` | 22 | I2C ops, retry, recovery, thread safety |
-| `test_sensor.py` | 22 | Init, ranging, offset, health, async, compat |
+| `test_sensor.py` | 23 | Init, ranging, offset, health, async, transaction lock, compat |
 | `test_config.py` | 16 | Load/save, export/import, corrupt JSON |
 
 ### Manual Testing on Raspberry Pi
