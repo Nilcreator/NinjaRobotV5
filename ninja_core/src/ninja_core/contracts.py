@@ -101,11 +101,15 @@ def build_error_event(
     message: str,
     *,
     request_id: str | None = None,
+    details: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    event = {
         "type": "error",
         "protocol_version": PROTOCOL_VERSION,
         "request_id": request_id,
         "code": code,
         "message": message,
     }
+    if details:
+        event["details"] = dict(details)
+    return event

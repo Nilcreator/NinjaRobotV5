@@ -159,6 +159,76 @@ def test_runtime_error_broadcasts_structured_error_event(monkeypatch):
     asyncio.run(run_test())
 
 
+def test_syntax_error_broadcasts_details_without_started_status(monkeypatch):
+    import ninja_core.dispatcher as dispatcher_module
+
+    class StubSafeExecutor:
+        def __init__(self, hal, on_print=None):
+            self.hal = hal
+            self.on_print = on_print
+
+        def execute(self, code, on_complete=None):
+            return {
+                "status": "error",
+                "error_code": "syntax_error",
+                "message": "Syntax error on line 3: unexpected indent",
+                "syntax_error": {
+                    "line": 3,
+                    "offset": 2,
+                    "text": " x = 1",
+                    "message": "unexpected indent",
+                },
+                "code": code,
+            }
+
+        def stop(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_module, "SafeExecutor", StubSafeExecutor)
+    dispatcher_module.CommandDispatcher._instance = None
+
+    async def run_test():
+        dispatcher = dispatcher_module.CommandDispatcher(hal=None)
+        messages = []
+        dispatcher.register_listener(messages.append)
+
+        result = await dispatcher.handle_command(
+            "ble",
+            {
+                "type": "execute",
+                "request_id": "exec-syntax",
+                "workspace_state": {"blocks": []},
+                "code": "if True:\n  print('ok')\n x = 1\n",
+            },
+        )
+
+        assert result["status"] == "error"
+        assert result["error_code"] == "syntax_error"
+        assert dispatcher._active_request_id is None
+        assert messages[0]["type"] == "execute_received"
+        assert messages[0]["workspace_received"] is True
+        assert any(
+            message["type"] == "execution_status"
+            and message["request_id"] == "exec-syntax"
+            and message["status"] == "error"
+            for message in messages
+        )
+        assert any(
+            message["type"] == "error"
+            and message["request_id"] == "exec-syntax"
+            and message["code"] == "syntax_error"
+            and message["details"]["line"] == 3
+            for message in messages
+        )
+        assert not any(
+            message["type"] == "execution_status"
+            and message["status"] == "started"
+            for message in messages
+        )
+
+    asyncio.run(run_test())
+
+
 def test_rejected_second_execute_preserves_active_request_id(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 

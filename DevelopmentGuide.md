@@ -93,6 +93,9 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 |---|---|
 | `ninja_core/dispatcher.py` | Preserves the active execution request when duplicate `execute` commands are rejected |
 | `ninja_core/dispatcher.py` | Broadcasts full execution log lines without transport-era truncation |
+| `ninja_core/dispatcher.py` | Broadcasts structured Blockly syntax errors without reporting a false execution start |
+| `ninja_core/safe_executor.py` | Compiles user code before starting the execution thread and keeps syntax failures from triggering hardware stop cleanup |
+| `ninja_core/contracts.py` | Allows error events to carry structured `details` such as line, offset, and source text |
 | `ninja_ble` | BLE transport v2 remains the required path for large Blockly payloads and large runtime feedback |
 | Runtime contract | `execute`, `stop`, `execution_status`, `execution_log`, `chat`, and `error` stay correlated by `request_id` |
 
@@ -1540,6 +1543,7 @@ set_api_key("gemini", "AIzaSy...")
 - Every execution request carries a `request_id`.
 - Only one execution may be active at a time.
 - If a second `execute` arrives while code is already running, the dispatcher emits an `execute_rejected` error for the new request **without** clearing the original active request.
+- If generated code fails syntax compilation, the dispatcher emits `execute_received`, `execution_status: error`, and `error.code: syntax_error` with structured line details, but it does not emit a false `started` status.
 - Completion, failure, stop, chat explanation, and execution-log events all stay correlated to the active request.
 
 **Usage:**
@@ -2144,10 +2148,11 @@ def __init__(self, hal: HardwareAbstractionLayer, on_print: Callable[[str], None
 - **Parameters:**
     - `code`: Python code string.
     - `on_complete`: Async callback fired when execution completes/fails.
-- **Returns:** `{"status": "running" | "success" | "error", "message": str}`
+- **Returns:** `{"status": "started" | "success" | "error" | "stopped", "message": str}`
 - **Safety Features:**
     - Blocks: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`, `__import__`.
     - Provides: `robot`, `time`, `math`, `print`, `check_stop()`.
+    - Compiles code before starting the execution thread. Syntax failures return `error_code: "syntax_error"` and `syntax_error` details without calling hardware stop cleanup, because no user code has run yet.
 
 **`stop() -> None`**
 - Signals the current execution to stop.
@@ -2299,6 +2304,8 @@ def __init__(self, hal: HardwareAbstractionLayer)
 - `execution_log`
 - `chat`
 - `error`
+
+`error` events may include a `details` object. Blockly syntax errors use this to report `line`, `offset`, `text`, and `message` so the education IDE can display precise feedback.
 
 #### 3.7.4 Key Classes
 

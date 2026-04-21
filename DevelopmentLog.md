@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-04-21: Blockly Syntax Error Runtime Refinement ✓
+- **Action**: Hardened Pi-side Blockly execution handling after a generated indentation error caused hardware cleanup even though user code never started.
+- **Details**:
+  - **Syntax preflight**: `SafeExecutor.execute()` now compiles code before starting the execution thread.
+  - **Hardware safety**: Syntax failures return immediately without calling `robot.request_stop()`, preventing unnecessary display, buzzer, or servo shutdown.
+  - **Structured errors**: `contracts.build_error_event()` can include structured `details`; `CommandDispatcher` broadcasts syntax error line data through the normal BLE feedback contract.
+  - **Executor recovery**: Added tests proving valid code can run immediately after a syntax failure.
+- **Validation**: `uv run --with ruff ruff check ninja_core/src tests` and `PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src uv run --with pytest --with pillow python -m pytest tests/test_safe_executor.py tests/test_dispatcher.py tests/test_contracts.py` passed.
+- **Files Modified**: `ninja_core/src/ninja_core/safe_executor.py`, `ninja_core/src/ninja_core/dispatcher.py`, `ninja_core/src/ninja_core/contracts.py`, `tests/test_safe_executor.py`, `tests/test_dispatcher.py`, `tests/test_contracts.py`, `DevelopmentGuide.md`.
+
 ## 2026-04-21: Blockly Runtime Reliability Refinement ✓
 - **Action**: Closed the remaining Phase 5 classroom-reliability gaps identified during the secondary Blockly/BLE audit.
 - **Details**:

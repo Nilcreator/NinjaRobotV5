@@ -347,6 +347,36 @@ class CommandDispatcher:
 
         if result.get("status") == "error":
             self._active_request_id = previous_request_id
+            if result.get("error_code") == "syntax_error":
+                await self.broadcast(
+                    build_execute_received_event(
+                        request_id,
+                        code,
+                        workspace_state,
+                    )
+                )
+                await self.broadcast(
+                    build_execution_status_event(
+                        request_id,
+                        "error",
+                        result.get("message", "Python syntax error"),
+                    )
+                )
+                await self.broadcast(
+                    build_error_event(
+                        "syntax_error",
+                        result.get("message", "Python syntax error"),
+                        request_id=request_id,
+                        details=result.get("syntax_error"),
+                    )
+                )
+                return {
+                    **result,
+                    "request_id": request_id,
+                    "protocol_version": manifest["protocol_version"],
+                    "manifest": manifest,
+                }
+
             await self.broadcast(
                 build_error_event(
                     "execute_rejected",

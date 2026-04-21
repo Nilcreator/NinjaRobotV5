@@ -107,11 +107,36 @@ class SafeExecutor:
                 break
             time.sleep(min(interval, remaining))
 
+    def _build_syntax_error_result(self, code: str, exc: SyntaxError) -> Dict[str, Any]:
+        line = exc.lineno or 0
+        message = f"Syntax error on line {line}: {exc.msg}" if line else f"Syntax error: {exc.msg}"
+        return {
+            "status": "error",
+            "error_code": "syntax_error",
+            "message": message,
+            "syntax_error": {
+                "line": exc.lineno,
+                "offset": exc.offset,
+                "text": exc.text.strip() if exc.text else None,
+                "message": exc.msg,
+            },
+            "traceback": "",
+            "code": code,
+        }
+
     def execute(self, code: str, on_complete: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
         """Starts execution in a thread. returns status immediately."""
         with self._lock:
             if self._current_thread and self._current_thread.is_alive():
                 return {"status": "error", "message": "Code already running"}
+
+            try:
+                compiled_code = compile(code, "<user_code>", "exec")
+            except SyntaxError as exc:
+                result = self._build_syntax_error_result(code, exc)
+                self._last_result = result
+                log.info("[USER CODE]: %s", result["message"])
+                return result
             
             self._stop_flag = False
             self._execution_log = []
@@ -120,7 +145,6 @@ class SafeExecutor:
             def target():
                 result = {"code": code} # Copy code for analysis reference
                 try:
-                    compiled_code = compile(code, "<user_code>", "exec")
                     exec(compiled_code, self._create_globals())
                     self._last_result["status"] = "success"
                     result.update(self._last_result)
