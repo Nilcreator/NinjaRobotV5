@@ -139,7 +139,7 @@ def test_ble_service_start_accepts_no_return_bless_start(monkeypatch):
     assert len(service._server.characteristics) == 2
 
 
-def test_ble_service_recovers_from_register_advertisement_failure(monkeypatch):
+def test_ble_service_falls_back_to_compact_advertisement_profile(monkeypatch):
     created_servers = []
 
     class FakeBlessServer:
@@ -205,12 +205,14 @@ def test_ble_service_recovers_from_register_advertisement_failure(monkeypatch):
             self.listener = listener
 
     service = service_module.NinjaBLEService(FakeDispatcher())
-    recoveries = []
+    advertisement_profiles = []
 
-    async def fake_recover_bluez_advertising():
-        recoveries.append(True)
+    def fake_install_bluez_advertisement_patch(advertisement_profile):
+        advertisement_profiles.append(advertisement_profile)
 
-    service._recover_bluez_advertising = fake_recover_bluez_advertising
+    service._install_bluez_advertisement_patch = (
+        fake_install_bluez_advertisement_patch
+    )
 
     import asyncio
 
@@ -220,4 +222,4 @@ def test_ble_service_recovers_from_register_advertisement_failure(monkeypatch):
     assert len(created_servers) == 2
     assert created_servers[0].stopped is True
     assert created_servers[1].name == "NinjaRobot"
-    assert recoveries == [True]
+    assert advertisement_profiles == ["name_only", "service_only"]
