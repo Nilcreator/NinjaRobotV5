@@ -28,6 +28,7 @@ from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
 from .movement_controller import MovementController, EmergencyStop
 from .perception import DistanceMonitor
+from .runtime_pipeline import RuntimePipeline
 
 
 # --- Configuration ---
@@ -61,10 +62,9 @@ class AppState:
         self.sound: Optional[RobotSoundPlayer] = None
         self.movement: Optional[MovementController] = None
         self.distance_monitor: Optional[DistanceMonitor] = None
-        self.distance_monitor: Optional[DistanceMonitor] = None
+        self.runtime_pipeline: Optional[RuntimePipeline] = None
         self.first_interaction: bool = True
         self.has_greeted: bool = False
-        self.last_reaction_time: float = 0.0
         self.last_reaction_time: float = 0.0
         self.connection_manager = ConnectionManager()
         self.tasks = set() # Track background tasks
@@ -111,16 +111,28 @@ async def lifespan(app: FastAPI):
     app.state.ninja = AppState()
     app.state.ninja.hal = HardwareAbstractionLayer(config)
     app.state.ninja.hal.initialize()
+    app.state.ninja.runtime_pipeline = RuntimePipeline(app.state.ninja.hal)
 
     # Initialize Dispatcher
     from .dispatcher import CommandDispatcher
-    dispatcher = CommandDispatcher(app.state.ninja.hal)
+    dispatcher = CommandDispatcher(
+        app.state.ninja.hal,
+        runtime_pipeline=app.state.ninja.runtime_pipeline,
+    )
     app.state.ninja.dispatcher = dispatcher
     
     # Bridge Dispatcher -> WebSockets
     # This ensures "chat", "execution_log", "status" events go to the web UI
     dispatcher.register_listener(app.state.ninja.connection_manager.broadcast)
-    
+
+    # Initialize Controllers
+    app.state.ninja.faces = AnimatedFaces(app.state.ninja.hal)
+    app.state.ninja.sound = RobotSoundPlayer(app.state.ninja.hal)
+    app.state.ninja.movement = MovementController(app.state.ninja.hal, config)
+    app.state.ninja.runtime_pipeline.attach_faces(app.state.ninja.faces)
+    app.state.ninja.runtime_pipeline.attach_sound(app.state.ninja.sound)
+    dispatcher.attach_faces(app.state.ninja.faces)
+
     # Initialize BLE Service (conditionally, could fail on non-Linux)
     try:
         from ninja_ble.service import NinjaBLEService
@@ -139,11 +151,6 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Failed to start BLE Service: {e}")
         app.state.ninja.ble = None
-    
-    # Initialize Controllers
-    app.state.ninja.faces = AnimatedFaces(app.state.ninja.hal)
-    app.state.ninja.sound = RobotSoundPlayer(app.state.ninja.hal)
-    app.state.ninja.movement = MovementController(app.state.ninja.hal, config)
     
     # Prime servos at startup (ensures PWM signals are active)
     if app.state.ninja.hal.servos:
@@ -278,6 +285,18 @@ async def setup_network_and_display(app: FastAPI):
 
 # --- Helper Functions ---
 
+async def reclaim_native_runtime(app_state: AppState):
+    """Let direct web/native actions interrupt Blockly display ownership."""
+    pipeline = getattr(app_state, "runtime_pipeline", None)
+    if not pipeline or pipeline.mode == "native":
+        return
+
+    dispatcher = getattr(app_state, "dispatcher", None)
+    if dispatcher and dispatcher.safe_executor.is_running():
+        dispatcher.safe_executor.stop()
+    pipeline.abort_blockly()
+
+
 def _perform_shutdown_animation(app_state: "AppState") -> None:
     """
     Perform graceful shutdown animation: sleepy face + sound → Poweroff pose.
@@ -316,6 +335,7 @@ def _perform_shutdown_animation(app_state: "AppState") -> None:
     print("✅ Shutdown animation complete.")
 
 async def handle_first_interaction(app_state: AppState):
+    await reclaim_native_runtime(app_state)
     if app_state.first_interaction:
         app_state.first_interaction = False
         # Only set to idle if we haven't just greeted (to avoid overriding happy face)
@@ -591,6 +611,7 @@ def get_movements(request: Request):
 @api_router.post("/servos/movements/{name}/execute")
 async def execute_movement(name: str, request: Request):
     state = request.app.state.ninja
+    await reclaim_native_runtime(state)
     if not state.movement:
         raise HTTPException(status_code=500, detail="Movement controller not ready")
     
@@ -624,6 +645,7 @@ def get_expressions(request: Request):
 
 @api_router.post("/display/expressions/{name}")
 async def show_expression(name: str, request: Request):
+    await reclaim_native_runtime(request.app.state.ninja)
     if request.app.state.ninja.faces:
         request.app.state.ninja.faces.play(name, duration_s=3.0)
         await request.app.state.ninja.connection_manager.broadcast({
@@ -639,6 +661,7 @@ def get_sounds(request: Request):
 
 @api_router.post("/sound/emotions/{name}")
 async def play_sound(name: str, request: Request):
+    await reclaim_native_runtime(request.app.state.ninja)
     if request.app.state.ninja.sound:
         await asyncio.to_thread(request.app.state.ninja.sound.play, name)
         await request.app.state.ninja.connection_manager.broadcast({

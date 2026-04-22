@@ -89,12 +89,17 @@ class BuzzerWrapper:
         if self._hal.buzzer:
             self._hal.buzzer.execute({"frequency": frequency, "duration": duration})
 
+    def stop(self, restart_buzzer: bool = True):
+        """Stop Blockly-triggered emotion sounds and keep buzzer usable."""
+        self._player.stop(restart_buzzer=restart_buzzer)
+
 
 class DisplayWrapper:
     """Wrapper for ST7789 display."""
 
-    def __init__(self, hal):
+    def __init__(self, hal, runtime_pipeline=None):
         self._hal = hal
+        self._runtime_pipeline = runtime_pipeline
         self._search_paths = [
             Path(__file__).parent / "static" / "assets" / "images",
         ]
@@ -123,10 +128,12 @@ class DisplayWrapper:
         else:
             log.warning(f"Image '{name}' not found in assets.")
 
-    def clear(self):
+    def clear(self, hold: bool = True):
         """Clear the display (fill with black)."""
         if self._hal.display:
             self._hal.display.execute({"clear": True})
+            if hold and self._runtime_pipeline:
+                self._runtime_pipeline.mark_display_hold()
 
 
 class ServoWrapper:
@@ -300,10 +307,10 @@ class RobotWrapper:
         robot.distance.read()      - Read distance in mm
     """
 
-    def __init__(self, hal, cooperative_sleep=None):
+    def __init__(self, hal, cooperative_sleep=None, faces=None, runtime_pipeline=None):
         self._hal = hal
         self.buzzer = BuzzerWrapper(hal)
-        self.display = DisplayWrapper(hal)
+        self.display = DisplayWrapper(hal, runtime_pipeline=runtime_pipeline)
         self.distance = DistanceWrapper(hal.distance_sensor)
         self._sleep = cooperative_sleep or time.sleep
         
@@ -312,8 +319,9 @@ class RobotWrapper:
         self.servo = ServoArrayWrapper(hal.servos)
         self.servos = self.servo  # Alias for plural access (semantic sugar)
         
-        # Facial expressions engine
-        self._faces = AnimatedFaces(hal)
+        # Facial expressions engine. Blockly shares the native face engine when
+        # available so idle and uploaded expressions cannot draw concurrently.
+        self._faces = faces if faces is not None else AnimatedFaces(hal)
 
     def expression(self, name: str, duration: float = 2.0):
         """Show an animated facial expression on the display.
@@ -341,10 +349,18 @@ class RobotWrapper:
         if self._faces:
             self._faces.stop()
 
+        if self.buzzer:
+            self.buzzer.stop(restart_buzzer=True)
+
         if self._hal:
-            for component_name in ("buzzer", "servos", "display"):
+            for component_name in ("servos",):
                 component = getattr(self._hal, component_name, None)
-                if component and hasattr(component, "off"):
+                if component and hasattr(component, "abort"):
+                    try:
+                        component.abort()
+                    except Exception as exc:
+                        log.warning("Failed to abort %s during request_stop: %s", component_name, exc)
+                elif component and hasattr(component, "off"):
                     try:
                         component.off()
                     except Exception as exc:

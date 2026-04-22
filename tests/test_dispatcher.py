@@ -7,12 +7,14 @@ def test_execute_command_broadcasts_contract_envelope(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
             self.stop_called = False
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
+            if on_start:
+                on_start()
             self.code = code
             self.on_complete = on_complete
             return {"status": "started", "message": "Code execution started"}
@@ -59,12 +61,14 @@ def test_stop_command_broadcasts_stop_requested(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
             self.stop_called = False
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
+            if on_start:
+                on_start()
             return {"status": "started", "message": "Code execution started"}
 
         def stop(self):
@@ -100,11 +104,13 @@ def test_runtime_error_broadcasts_structured_error_event(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
+            if on_start:
+                on_start()
             if on_complete:
                 on_complete(
                     {
@@ -163,11 +169,11 @@ def test_syntax_error_broadcasts_details_without_started_status(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
             return {
                 "status": "error",
                 "error_code": "syntax_error",
@@ -233,14 +239,16 @@ def test_rejected_second_execute_preserves_active_request_id(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
             self.calls = 0
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
             self.calls += 1
             if self.calls == 1:
+                if on_start:
+                    on_start()
                 self.on_complete = on_complete
                 return {"status": "started", "message": "Code execution started"}
             return {"status": "error", "message": "Code already running"}
@@ -293,14 +301,16 @@ def test_executor_logs_remain_correlated_after_rejected_second_execute(monkeypat
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
             self.calls = 0
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
             self.calls += 1
             if self.calls == 1:
+                if on_start:
+                    on_start()
                 self.on_complete = on_complete
                 return {"status": "started", "message": "Code execution started"}
             return {"status": "error", "message": "Code already running"}
@@ -353,11 +363,13 @@ def test_execution_logs_are_broadcast_without_truncation(monkeypatch):
     import ninja_core.dispatcher as dispatcher_module
 
     class StubSafeExecutor:
-        def __init__(self, hal, on_print=None):
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
             self.hal = hal
             self.on_print = on_print
 
-        def execute(self, code, on_complete=None):
+        def execute(self, code, on_complete=None, on_start=None):
+            if on_start:
+                on_start()
             return {"status": "started", "message": "Code execution started"}
 
         def stop(self):
@@ -386,5 +398,174 @@ def test_execution_logs_are_broadcast_without_truncation(monkeypatch):
             and message["content"] == long_message
             for message in messages
         )
+
+    asyncio.run(run_test())
+
+
+def test_runtime_pipeline_begins_and_completes_for_successful_execute(monkeypatch):
+    import ninja_core.dispatcher as dispatcher_module
+
+    class StubSafeExecutor:
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
+            self.hal = hal
+            self.on_print = on_print
+            self.runtime_pipeline = runtime_pipeline
+
+        def execute(self, code, on_complete=None, on_start=None):
+            if on_start:
+                on_start()
+            self.on_complete = on_complete
+            return {"status": "started", "message": "Code execution started"}
+
+        def stop(self):
+            return None
+
+    class FakeRuntimePipeline:
+        def __init__(self):
+            self.events = []
+
+        def begin_blockly(self):
+            self.events.append("begin")
+
+        def complete_blockly(self, status):
+            self.events.append(("complete", status))
+
+        def abort_blockly(self):
+            self.events.append("abort")
+
+    monkeypatch.setattr(dispatcher_module, "SafeExecutor", StubSafeExecutor)
+    dispatcher_module.CommandDispatcher._instance = None
+
+    async def run_test():
+        pipeline = FakeRuntimePipeline()
+        dispatcher = dispatcher_module.CommandDispatcher(
+            hal=None,
+            runtime_pipeline=pipeline,
+        )
+
+        result = await dispatcher.handle_command(
+            "ble",
+            {
+                "type": "execute",
+                "request_id": "exec-pipeline",
+                "code": "print('ok')",
+            },
+        )
+        assert result["status"] == "started"
+        assert pipeline.events == ["begin"]
+
+        dispatcher.safe_executor.on_complete(
+            {"status": "success", "message": "", "code": "print('ok')"}
+        )
+        for _ in range(5):
+            if ("complete", "success") in pipeline.events:
+                break
+            await asyncio.sleep(0)
+
+        assert ("complete", "success") in pipeline.events
+
+    asyncio.run(run_test())
+
+
+def test_runtime_pipeline_not_started_for_syntax_error(monkeypatch):
+    import ninja_core.dispatcher as dispatcher_module
+
+    class StubSafeExecutor:
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
+            return None
+
+        def execute(self, code, on_complete=None, on_start=None):
+            return {
+                "status": "error",
+                "error_code": "syntax_error",
+                "message": "Syntax error on line 1: invalid syntax",
+                "syntax_error": {"line": 1},
+                "code": code,
+            }
+
+        def stop(self):
+            return None
+
+    class FakeRuntimePipeline:
+        def __init__(self):
+            self.events = []
+
+        def begin_blockly(self):
+            self.events.append("begin")
+
+        def complete_blockly(self, status):
+            self.events.append(("complete", status))
+
+        def abort_blockly(self):
+            self.events.append("abort")
+
+    monkeypatch.setattr(dispatcher_module, "SafeExecutor", StubSafeExecutor)
+    dispatcher_module.CommandDispatcher._instance = None
+
+    async def run_test():
+        pipeline = FakeRuntimePipeline()
+        dispatcher = dispatcher_module.CommandDispatcher(
+            hal=None,
+            runtime_pipeline=pipeline,
+        )
+
+        result = await dispatcher.handle_command(
+            "ble",
+            {
+                "type": "execute",
+                "request_id": "exec-syntax",
+                "code": "if",
+            },
+        )
+
+        assert result["status"] == "error"
+        assert pipeline.events == []
+
+    asyncio.run(run_test())
+
+
+def test_stop_command_aborts_blockly_pipeline(monkeypatch):
+    import ninja_core.dispatcher as dispatcher_module
+
+    class StubSafeExecutor:
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
+            self.stop_called = False
+
+        def execute(self, code, on_complete=None, on_start=None):
+            return {"status": "started", "message": "Code execution started"}
+
+        def stop(self):
+            self.stop_called = True
+
+    class FakeRuntimePipeline:
+        def __init__(self):
+            self.abort_called = False
+
+        def begin_blockly(self):
+            return None
+
+        def complete_blockly(self, status):
+            return None
+
+        def abort_blockly(self):
+            self.abort_called = True
+
+    monkeypatch.setattr(dispatcher_module, "SafeExecutor", StubSafeExecutor)
+    dispatcher_module.CommandDispatcher._instance = None
+
+    async def run_test():
+        pipeline = FakeRuntimePipeline()
+        dispatcher = dispatcher_module.CommandDispatcher(
+            hal=None,
+            runtime_pipeline=pipeline,
+        )
+        result = await dispatcher.handle_command(
+            "ble",
+            {"type": "stop", "request_id": "stop-pipeline"},
+        )
+
+        assert result["status"] == "ok"
+        assert dispatcher.safe_executor.stop_called is True
+        assert pipeline.abort_called is True
 
     asyncio.run(run_test())

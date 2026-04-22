@@ -25,19 +25,44 @@ class SafeExecutor:
     A safe execution environment for user-provided Python code.
     """
     
-    def __init__(self, hal: Any, on_print: Optional[Callable[[str], None]] = None):
+    def __init__(
+        self,
+        hal: Any,
+        on_print: Optional[Callable[[str], None]] = None,
+        faces: Any = None,
+        runtime_pipeline: Any = None,
+    ):
         self.hal = hal
         self.on_print = on_print
+        self.faces = faces
+        self.runtime_pipeline = runtime_pipeline
         self._lock = threading.Lock()
         self._current_thread: Optional[threading.Thread] = None
         self._stop_flag = False
         self._execution_log = []
         self._last_result = None
         self._safe_time = SafeTimeProxy(self.sleep)
-        self.robot_wrapper = RobotWrapper(
-            hal,
+        self.robot_wrapper = self._create_robot_wrapper()
+
+    def _create_robot_wrapper(self) -> RobotWrapper:
+        return RobotWrapper(
+            self.hal,
             cooperative_sleep=self.sleep,
+            faces=self.faces,
+            runtime_pipeline=self.runtime_pipeline,
         )
+
+    def attach_faces(self, faces: Any):
+        self.faces = faces
+        self.robot_wrapper = self._create_robot_wrapper()
+
+    def attach_hal(self, hal: Any):
+        self.hal = hal
+        self.robot_wrapper = self._create_robot_wrapper()
+
+    def attach_runtime_pipeline(self, runtime_pipeline: Any):
+        self.runtime_pipeline = runtime_pipeline
+        self.robot_wrapper = self._create_robot_wrapper()
         
     def _safe_print(self, *args, sep=' ', end='\n'):
         msg = sep.join(map(str, args)) + end
@@ -124,7 +149,12 @@ class SafeExecutor:
             "code": code,
         }
 
-    def execute(self, code: str, on_complete: Optional[Callable[[Dict[str, Any]], None]] = None) -> Dict[str, Any]:
+    def execute(
+        self,
+        code: str,
+        on_complete: Optional[Callable[[Dict[str, Any]], None]] = None,
+        on_start: Optional[Callable[[], None]] = None,
+    ) -> Dict[str, Any]:
         """Starts execution in a thread. returns status immediately."""
         with self._lock:
             if self._current_thread and self._current_thread.is_alive():
@@ -141,6 +171,12 @@ class SafeExecutor:
             self._stop_flag = False
             self._execution_log = []
             self._last_result = {"status": "pending"}
+
+            if on_start:
+                try:
+                    on_start()
+                except Exception as exc:
+                    log.warning("Execution start hook failed: %s", exc)
             
             def target():
                 result = {"code": code} # Copy code for analysis reference

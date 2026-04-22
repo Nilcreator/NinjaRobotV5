@@ -15,6 +15,7 @@ from .contracts import (
     ensure_request_id,
 )
 from .safe_executor import SafeExecutor
+from .runtime_pipeline import RuntimePipeline
 
 if TYPE_CHECKING:
     from .hal import HardwareAbstractionLayer
@@ -35,17 +36,23 @@ class CommandDispatcher:
             cls._instance = super(CommandDispatcher, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, hal: Optional[HardwareAbstractionLayer] = None):
+    def __init__(
+        self,
+        hal: Optional[HardwareAbstractionLayer] = None,
+        runtime_pipeline: RuntimePipeline | None = None,
+    ):
         # Singleton init check
         if hasattr(self, "_initialized") and self._initialized:
             return
 
         self.hal = hal
         self.agent = None  # NinjaAgent instance (set via attach_agent)
+        self.runtime_pipeline = runtime_pipeline
         # Initialize SafeExecutor with callback for broadcasting logs
         self.safe_executor = SafeExecutor(
-            self.hal, 
-            on_print=self._on_executor_print
+            self.hal,
+            on_print=self._on_executor_print,
+            runtime_pipeline=self.runtime_pipeline,
         )
         self._listeners: List[Callable[[dict], Any]] = []
         self._active_request_id: str | None = None
@@ -59,8 +66,25 @@ class CommandDispatcher:
     def attach_hal(self, hal: HardwareAbstractionLayer):
         """Update the HAL reference if not provided during init."""
         self.hal = hal
+        if self.runtime_pipeline:
+            self.runtime_pipeline.attach_hal(hal)
         if self.safe_executor:
-            self.safe_executor.hal = hal
+            self.safe_executor.attach_hal(hal)
+
+    def attach_runtime_pipeline(self, runtime_pipeline: RuntimePipeline):
+        """Attach the native/Blockly ownership coordinator."""
+        self.runtime_pipeline = runtime_pipeline
+        if self.hal:
+            self.runtime_pipeline.attach_hal(self.hal)
+        if self.safe_executor:
+            self.safe_executor.attach_runtime_pipeline(runtime_pipeline)
+
+    def attach_faces(self, faces):
+        """Share the native face engine with Blockly user code."""
+        if self.runtime_pipeline:
+            self.runtime_pipeline.attach_faces(faces)
+        if self.safe_executor:
+            self.safe_executor.attach_faces(faces)
 
     def attach_agent(self, agent):
         """Attach the NinjaAgent for processing chat commands."""
@@ -120,6 +144,8 @@ class CommandDispatcher:
                 return await self._handle_execute_command(command)
             elif cmd_type == "stop": # Shortcut for stopping execution
                  self.safe_executor.stop()
+                 if self.runtime_pipeline:
+                     self.runtime_pipeline.abort_blockly()
                  if self._active_request_id:
                      await self.broadcast(
                          build_execution_status_event(
@@ -255,6 +281,11 @@ class CommandDispatcher:
                 result.get("message", ""),
             )
         )
+
+        if self._active_request_id == request_id:
+            self._active_request_id = None
+            if self.runtime_pipeline:
+                self.runtime_pipeline.complete_blockly(status)
         
         # If error, ask NinjaAgent to explain
         if status == "error":
@@ -295,9 +326,6 @@ class CommandDispatcher:
                     )
                  )
 
-        if self._active_request_id == request_id:
-            self._active_request_id = None
-
     async def _handle_execute_command(self, cmd_data: dict) -> dict:
         """Handle code execution commands (Direct Execution + AI Explanation)."""
         action = cmd_data.get("action", "run")
@@ -306,6 +334,8 @@ class CommandDispatcher:
 
         if action == "stop":
             self.safe_executor.stop()
+            if self.runtime_pipeline:
+                self.runtime_pipeline.abort_blockly()
             if self._active_request_id:
                 await self.broadcast(
                     build_execution_status_event(
@@ -343,6 +373,7 @@ class CommandDispatcher:
                 request_id,
                 execution_result,
             ),
+            on_start=self.runtime_pipeline.begin_blockly if self.runtime_pipeline else None,
         )
 
         if result.get("status") == "error":

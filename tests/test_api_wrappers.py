@@ -1,6 +1,6 @@
 import logging
 
-from ninja_core.api_wrappers import DistanceWrapper, RobotWrapper, ServoWrapper
+from ninja_core.api_wrappers import DisplayWrapper, DistanceWrapper, RobotWrapper, ServoWrapper
 
 
 def test_distance_wrapper_returns_sensor_distance():
@@ -42,7 +42,7 @@ def test_servo_wrapper_move_clamps_negative_angles_and_logs(caplog):
     assert "out-of-range servo angle -120" in caplog.text
 
 
-def test_robot_wrapper_request_stop_turns_off_hal_components(monkeypatch):
+def test_robot_wrapper_request_stop_preserves_display_for_idle_restore(monkeypatch):
     class FakeFaces:
         def __init__(self, hal):
             self.hal = hal
@@ -72,5 +72,56 @@ def test_robot_wrapper_request_stop_turns_off_hal_components(monkeypatch):
 
     assert robot._faces.stop_called is True
     assert robot._hal.buzzer.off_called is True
-    assert robot._hal.display.off_called is True
+    assert robot._hal.display.off_called is False
     assert robot._hal.servos.off_called is True
+
+
+def test_robot_wrapper_uses_shared_faces_for_expressions():
+    class SharedFaces:
+        def __init__(self):
+            self.play_calls = []
+
+        def play(self, name, duration_s):
+            self.play_calls.append((name, duration_s))
+
+    class FakeHal:
+        buzzer = None
+        display = None
+        distance_sensor = None
+        servos = None
+
+    faces = SharedFaces()
+    robot = RobotWrapper(FakeHal(), cooperative_sleep=lambda duration: None, faces=faces)
+
+    robot.expression("angry", duration=2.0)
+
+    assert robot._faces is faces
+    assert faces.play_calls == [("angry", 2.0)]
+
+
+def test_display_clear_marks_blockly_display_hold():
+    class FakeDisplay:
+        def __init__(self):
+            self.commands = []
+
+        def execute(self, command):
+            self.commands.append(command)
+
+    class FakeHal:
+        def __init__(self):
+            self.display = FakeDisplay()
+
+    class FakeRuntimePipeline:
+        def __init__(self):
+            self.hold_called = False
+
+        def mark_display_hold(self):
+            self.hold_called = True
+
+    hal = FakeHal()
+    pipeline = FakeRuntimePipeline()
+
+    DisplayWrapper(hal, runtime_pipeline=pipeline).clear()
+
+    assert hal.display.commands == [{"clear": True}]
+    assert pipeline.hold_called is True

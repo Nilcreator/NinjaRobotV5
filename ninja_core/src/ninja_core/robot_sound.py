@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import time
+import threading
 from typing import TYPE_CHECKING
 
 from pi0buzzer.notes import EMOTION_SOUNDS, NOTES
@@ -29,11 +29,13 @@ class RobotSoundPlayer:
             hal: The initialized HardwareAbstractionLayer object.
         """
         self.buzzer = hal.buzzer
+        self._stop_event = threading.Event()
 
     def play(self, emotion: str):
         """
         Plays the sound for the given emotion.
         """
+        self._stop_event.clear()
         if not self.buzzer:
             print("Buzzer is not available in the HAL.")
             return
@@ -46,8 +48,12 @@ class RobotSoundPlayer:
         print(f"Playing sound for: {emotion}")
 
         for note_name, duration in melody:
+            if self._stop_event.is_set():
+                break
+
             if note_name == "pause":
-                time.sleep(duration)
+                if self._stop_event.wait(duration):
+                    break
                 continue
 
             # EMOTION_SOUNDS uses uppercase note names (e.g., "C5");
@@ -56,6 +62,17 @@ class RobotSoundPlayer:
             if frequency:
                 self.buzzer.play_sound(frequency, duration)
                 # A brief pause between notes to make them distinct
-                time.sleep(0.01)
+                if self._stop_event.wait(0.01):
+                    break
             else:
                 print(f"Warning: Note '{note_name}' not found.")
+
+    def stop(self, restart_buzzer: bool = False):
+        """Stop queued native sounds without permanently disabling the buzzer."""
+        self._stop_event.set()
+        if not self.buzzer or not hasattr(self.buzzer, "off"):
+            return
+
+        self.buzzer.off()
+        if restart_buzzer and hasattr(self.buzzer, "initialize"):
+            self.buzzer.initialize()
