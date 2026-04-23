@@ -112,6 +112,15 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/api_wrappers.py` | Prevents idle/expression display races by using the shared face engine; `robot.display.clear()` now creates an intentional Blockly display hold |
 | Runtime contract | Direct web/native interaction preserves native functions, BLE Blockly upload temporarily stops native actions, and Stop/Disconnect restores native idle |
 
+### Key Changes (V5.2.7 - GPIO Blockly Motion Contract):
+| Component | Change |
+|---|---|
+| `ninja_core/api_wrappers.py` | Adds GPIO-first `robot.servos.move_pin()` and `robot.servos.move_pins()` wrappers for Blockly-generated motion code |
+| `ninja_core/contracts.py` | Defaults new execute manifests to generator version `web-blockly-v2` while preserving manifest override support |
+| `ServoArrayWrapper` | Normalizes `F`/`M`/`S` speed modes, clamps Blockly angles to `-90..90`, rejects unknown GPIO pins, and forwards batch moves to pi0servo `move_all_sync()` |
+| Blockly contract | Code IDE motion blocks now address GPIO pins `20..27` directly and use pi0servo speed modes instead of legacy motion duration |
+| Runtime compatibility | Existing index-based `robot.servo[n]` and `robot.servos.move_all()` remain available for direct Pi/native code and older scripts |
+
 ### Required Setup:
 ```bash
 uv run pi0buzzer init 17
@@ -2276,14 +2285,25 @@ def __init__(
 - `buzzer` (BuzzerWrapper): Sound control.
 - `display` (DisplayWrapper): Screen control.
 - `distance` (DistanceWrapper): Sensor reading.
-- `servo` (ServoArrayWrapper): Direct servo access (indexable 0-7 or batch).
+- `servo` (ServoArrayWrapper): Legacy direct servo access (indexable 0-7 or batch).
+- `servos` (ServoArrayWrapper): GPIO-first servo access used by Blockly motion generators.
 
 ##### Class: `ServoArrayWrapper`
 
 **Methods:**
 - `__getitem__(index)`: Access individual servo (e.g., `robot.servo[0]`).
-- `move_all(angles: list, duration: float)`: Move all 8 servos.
+- `move_pin(pin: int, angle: float, speed_mode: str = "M", easing: str = "ease_in_out_cubic") -> bool`: Move one configured GPIO servo using pi0servo speed modes (`F`, `M`, `S`). Angles are clamped to `-90..90`.
+- `move_pins(movements: dict[int, float], speed_mode: str = "M", per_servo_speeds: dict[int, str] | None = None, easing: str = "ease_in_out_cubic", force: bool = True) -> bool`: Move multiple GPIO servos together. Unknown GPIO pins raise `ValueError`; invalid speed modes fall back to `M`.
+- `move_all(angles: list, duration: float)`: Legacy batch movement for older code. Blockly v2 generators should use `move_pin()` or `move_pins()` instead.
 - `center()`: Reset all servos to center (`0°` in the Blockly-facing `-90..90` range).
+
+**Blockly Motion API Notes:**
+- The NinjaRoboticPlatform Code IDE generator version `web-blockly-v2` emits GPIO-first calls:
+  - Set GPIO: `robot.servos.move_pin(20, 45, speed_mode="F")`
+  - Center GPIO: `robot.servos.move_pin(20, 0, speed_mode="M")`
+  - Set All GPIO Servos: `robot.servos.move_pins({20: 0, 21: 0, 22: 0, 23: 0, 24: 0, 25: 0, 26: 0, 27: 0}, speed_mode="M")`
+  - Move Multiple Servos: `robot.servos.move_pins({20: 45, 21: -30}, per_servo_speeds={20: "F", 21: "S"})`
+- Blockly motion speed is not a delay. Use the Code IDE Time Pause block, which generates cooperative `sleep(seconds)`, when a pause is needed between actions.
 
 ##### Class: `BuzzerWrapper`
 
@@ -2375,7 +2395,7 @@ def __init__(
   "request_id": "execute-123",
   "manifest": {
     "protocol_version": "blockly-v1",
-    "generator_version": "web-blockly-v1",
+    "generator_version": "web-blockly-v2",
     "workspace_format": "blockly-json"
   },
   "workspace_state": {"blocks": []},

@@ -5,7 +5,7 @@ from typing import Any, Mapping
 
 PROTOCOL_VERSION = "blockly-v1"
 WORKSPACE_FORMAT = "blockly-json"
-DEFAULT_GENERATOR_VERSION = "web-blockly-v1"
+DEFAULT_GENERATOR_VERSION = "web-blockly-v2"
 DEFAULT_CODE_PREVIEW_LENGTH = 120
 
 

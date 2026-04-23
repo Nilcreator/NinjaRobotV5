@@ -1,4 +1,5 @@
 from ninja_core.contracts import (
+    DEFAULT_GENERATOR_VERSION,
     PROTOCOL_VERSION,
     build_error_event,
     build_execution_log_event,
@@ -9,8 +10,10 @@ from ninja_core.contracts import (
 
 
 def test_build_execution_manifest_defaults_and_overrides():
+    default_manifest = build_execution_manifest()
     manifest = build_execution_manifest({"generator_version": "web-blockly-v2"})
 
+    assert default_manifest["generator_version"] == DEFAULT_GENERATOR_VERSION
     assert manifest == {
         "protocol_version": PROTOCOL_VERSION,
         "generator_version": "web-blockly-v2",

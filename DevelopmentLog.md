@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-04-23: Blockly GPIO Motion Contract Refinement ✓
+- **Action**: Added GPIO-first servo wrapper APIs for Blockly-generated motion code and synchronized the Pi runtime docs with the Code IDE motion changes.
+- **Details**:
+  - **GPIO servo API**: `ServoArrayWrapper` now exposes `move_pin(pin, angle, speed_mode="M")` and `move_pins({pin: angle}, per_servo_speeds={...})` for GPIO-addressed motion.
+  - **Speed-mode routing**: Wrapper calls normalize `F`/`M`/`S` speed modes, clamp Blockly angles to `-90..90`, reject unknown GPIO pins, and forward synchronized targets to pi0servo `move_all_sync()`.
+  - **Compatibility**: Existing native/direct APIs such as `robot.servo[n]`, `robot.servos.move_all()`, and other `ninja_core` wrappers remain available for Raspberry Pi web-interface and legacy script use.
+  - **Protocol default**: Updated the Pi-side default Blockly generator manifest to `web-blockly-v2`, while still accepting sender-provided manifest overrides.
+  - **Documentation**: Updated `DevelopmentGuide.md` with V5.2.7 notes and the `web-blockly-v2` GPIO/speed/multi-servo examples.
+- **Validation**: `PYTHONDONTWRITEBYTECODE=1 uv run --with ruff ruff check ninja_core/src tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`41 passed, 1 skipped`). Paired Code IDE validation also passed with focused Blockly tests, full `npm test -- --run`, `npm run lint`, and `npm run build`.
+- **Files Modified**: `ninja_core/src/ninja_core/api_wrappers.py`, `ninja_core/src/ninja_core/contracts.py`, `tests/test_api_wrappers.py`, `tests/test_contracts.py`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-04-23: Native/Blockly Dual Pipeline Refinement ✓
 - **Action**: Fixed Blockly BLE expression/display ownership conflicts by separating native robot behavior from uploaded Blockly execution.
 - **Root Cause**: Blockly execution could create or use display/sound actions independently from the native idle pipeline, allowing uploaded expressions or display clears to race with the web server's idle face animation.
