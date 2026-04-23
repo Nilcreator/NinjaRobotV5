@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-04-23: Native/Blockly Dual Pipeline Refinement ✓
+- **Action**: Fixed Blockly BLE expression/display ownership conflicts by separating native robot behavior from uploaded Blockly execution.
+- **Root Cause**: Blockly execution could create or use display/sound actions independently from the native idle pipeline, allowing uploaded expressions or display clears to race with the web server's idle face animation.
+- **Details**:
+  - **RuntimePipeline**: Added a native/Blockly ownership coordinator that stops native face, sound, and servo output when valid Blockly code starts.
+  - **Shared face engine**: `SafeExecutor` and `RobotWrapper` now reuse the native `AnimatedFaces` instance so `robot.expression("angry")` does not overlap with idle animation.
+  - **Display clear hold**: `robot.display.clear()` now keeps the display blank after successful Blockly completion until native interaction, the next upload, Stop Robot, or Disconnect restores ownership.
+  - **Stop/disconnect restore**: Dispatcher stop handling aborts Blockly ownership and resumes native idle; direct web actions reclaim native mode before running.
+  - **Documentation**: Updated `DevelopmentGuide.md` with the dual-pipeline contract, affected APIs, and BLE stop/disconnect behavior.
+- **Validation**: `PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`37 passed, 1 skipped`). `uv run --with ruff ruff check ninja_core/src tests` passed. Paired IDE validation in `NinjaRoboticPlatform` also passed with `npm test -- --run` and `npm run lint`.
+- **Files Modified**: `ninja_core/src/ninja_core/runtime_pipeline.py`, `ninja_core/src/ninja_core/api_wrappers.py`, `ninja_core/src/ninja_core/dispatcher.py`, `ninja_core/src/ninja_core/robot_sound.py`, `ninja_core/src/ninja_core/safe_executor.py`, `ninja_core/src/ninja_core/web_server.py`, `tests/test_api_wrappers.py`, `tests/test_dispatcher.py`, `tests/test_runtime_pipeline.py`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-04-22: Documentation Synchronization Audit ✓
 - **Action**: Reviewed `DevelopmentGuide.md` and the affected `pi0vl53l0x/README.md` against the latest Blockly-driven distance-sensor concurrency and recovery changes.
 - **Details**:

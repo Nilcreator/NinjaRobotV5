@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.5  
-**Last Updated:** 2026-04-22  
+**Version:** 5.2.6
+**Last Updated:** 2026-04-23
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -101,6 +101,16 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/api_wrappers.py` | Returns the documented 9999mm fallback for invalid sensor reads so Blockly obstacle checks do not treat sensor failure as a near obstacle |
 | `ninja_ble` | BLE transport v2 remains the required path for large Blockly payloads and large runtime feedback |
 | Runtime contract | `execute`, `stop`, `execution_status`, `execution_log`, `chat`, and `error` stay correlated by `request_id` |
+
+### Key Changes (V5.2.6 - Native/Blockly Dual Pipeline):
+| Component | Change |
+|---|---|
+| `ninja_core/runtime_pipeline.py` | **NEW** - Coordinates native robot behavior and uploaded Blockly execution ownership |
+| `ninja_core/web_server.py` | Wires `RuntimePipeline` into AppState, Dispatcher, shared faces, shared sound, and native web actions |
+| `ninja_core/dispatcher.py` | Switches to Blockly ownership only after syntax compilation succeeds, then restores native idle on completion, stop, or disconnect |
+| `ninja_core/safe_executor.py` | Adds an execution `on_start` hook and shares native `AnimatedFaces` with Blockly code |
+| `ninja_core/api_wrappers.py` | Prevents idle/expression display races by using the shared face engine; `robot.display.clear()` now creates an intentional Blockly display hold |
+| Runtime contract | Direct web/native interaction preserves native functions, BLE Blockly upload temporarily stops native actions, and Stop/Disconnect restores native idle |
 
 ### Required Setup:
 ```bash
@@ -267,6 +277,7 @@ NinjaRobotV5/
         ├── facial_expressions.py   # Visual emotions
         ├── robot_sound.py      # Auditory feedback
         ├── perception.py       # Distance monitoring
+        ├── runtime_pipeline.py # Native/Blockly ownership coordinator
         ├── safe_executor.py    # Sandboxed execution (V5 Phase 4)
 
         ├── web_server.py       # FastAPI server (BLE + Web)
@@ -1518,7 +1529,7 @@ set_api_key("gemini", "AIzaSy...")
 ##### Class: `CommandDispatcher` (Singleton)
 
 **Constructor:**
-`__init__(self, hal: Optional[HardwareAbstractionLayer] = None)`
+`__init__(self, hal: Optional[HardwareAbstractionLayer] = None, runtime_pipeline: RuntimePipeline | None = None)`
 
 **Methods:**
 
@@ -1528,6 +1539,12 @@ set_api_key("gemini", "AIzaSy...")
 
 **`attach_agent(self, agent: Any) -> None`**
 - Connects the `NinjaAgent` instance for AI command processing.
+
+**`attach_runtime_pipeline(self, runtime_pipeline: RuntimePipeline) -> None`**
+- Attaches the native/Blockly ownership coordinator and forwards it to `SafeExecutor`.
+
+**`attach_faces(self, faces: AnimatedFaces) -> None`**
+- Shares the native face engine with Blockly user code so idle animation and uploaded expressions cannot draw concurrently.
 
 **`async handle_command(self, source: str, command: dict) -> dict`**
 - Main entry point for all commands.
@@ -1539,14 +1556,17 @@ set_api_key("gemini", "AIzaSy...")
 **Supported Command Types:**
 1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
 2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
-3. **`execute`** -> Runs Blockly-generated Python through `SafeExecutor`, broadcasts `execute_received`, then `execution_status: started`, and keeps all follow-up events on the same `request_id`.
-4. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()` and broadcasts `execution_status: stop_requested` for the active request.
+3. **`execute`** -> Compiles Blockly-generated Python through `SafeExecutor`; after compilation succeeds, `RuntimePipeline.begin_blockly()` stops native idle/sound/servo actions before user code starts. The dispatcher then broadcasts `execute_received`, `execution_status: started`, and keeps all follow-up events on the same `request_id`.
+4. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()`, calls `RuntimePipeline.abort_blockly()`, broadcasts `execution_status: stop_requested` for the active request, and restores native idle behavior.
 
 **Execution Lifecycle Guarantees:**
 - Every execution request carries a `request_id`.
 - Only one execution may be active at a time.
 - If a second `execute` arrives while code is already running, the dispatcher emits an `execute_rejected` error for the new request **without** clearing the original active request.
 - If generated code fails syntax compilation, the dispatcher emits `execute_received`, `execution_status: error`, and `error.code: syntax_error` with structured line details, but it does not emit a false `started` status.
+- Blockly ownership starts only after syntax compilation succeeds. Syntax failures therefore do not stop native idle animation or direct web-interface behavior.
+- On completion, `RuntimePipeline.complete_blockly(status)` restores native idle unless the successful Blockly program intentionally requested a display hold with `robot.display.clear()`.
+- Stop requests from BLE, Stop Robot, or Code IDE disconnect use `RuntimePipeline.abort_blockly()` and always return to native idle.
 - Completion, failure, stop, chat explanation, and execution-log events all stay correlated to the active request.
 
 **Usage:**
@@ -1981,11 +2001,13 @@ Global application state container.
 
 **Attributes:**
 - `hal` (HardwareAbstractionLayer | None)
+- `dispatcher` (CommandDispatcher | None)
 - `agent` (NinjaAgent | None)
 - `faces` (AnimatedFaces | None)
 - `sound` (RobotSoundPlayer | None)
 - `movement` (MovementController | None)
 - `distance_monitor` (DistanceMonitor | None)
+- `runtime_pipeline` (RuntimePipeline | None)
 - `first_interaction` (bool): Whether first user request received
 - `has_greeted` (bool): Whether welcome greeting played
 
@@ -1996,9 +2018,11 @@ FastAPI lifespan context manager for startup/shutdown.
 **Startup:**
 1. Loads config
 2. Initializes HAL
-3. Attempts to initialize NinjaAgent (catches `MissingAPIKeyError`)
+3. Creates `RuntimePipeline` and `CommandDispatcher`
 4. Initializes faces, sound, movement, distance monitor
-5. Calls `setup_network_and_display(app)` for ngrok
+5. Attaches shared faces/sound to `RuntimePipeline` and Dispatcher
+6. Attempts to initialize NinjaAgent (catches `MissingAPIKeyError`)
+7. Calls `setup_network_and_display(app)` for ngrok
 
 **Shutdown:**
 1. Stops all background threads (faces, distance monitor)
@@ -2012,7 +2036,7 @@ Sets up ngrok tunnel and displays QR code.
 ##### Helper Functions
 
 **`handle_first_interaction(app_state: AppState) -> None`**
-- Clears QR code and shows idle face on first user request
+- Reclaims native runtime ownership if Blockly display hold is active, then clears QR code and shows idle face on first user request
 
 **`trigger_welcome(app_state: AppState) -> None`**
 - Plays happy face + sound for 3 seconds (called on web connect)
@@ -2024,6 +2048,11 @@ Sets up ngrok tunnel and displays QR code.
 - Executes AI agent's action plan (face, sound, movement)
 - Runs face and sound in parallel threads
 - Waits for movements to complete
+
+**`reclaim_native_runtime(app_state: AppState) -> None`**
+- Lets direct web/native interaction interrupt Blockly ownership.
+- Stops active Blockly execution if needed, clears display-hold state, and resumes native idle face.
+- Called before direct native movement, expression, and sound API actions.
 
 ##### API Endpoints
 
@@ -2139,25 +2168,36 @@ uv run ninja_core server
 
 **Constructor:**
 ```python
-def __init__(self, hal: HardwareAbstractionLayer, on_print: Callable[[str], None] = None)
+def __init__(
+    self,
+    hal: HardwareAbstractionLayer,
+    on_print: Callable[[str], None] = None,
+    faces: AnimatedFaces | None = None,
+    runtime_pipeline: RuntimePipeline | None = None,
+)
 ```
 
 **Parameters:**
 - `hal`: Hardware Abstraction Layer for accessing `robot` API.
 - `on_print`: Callback for capturing `print()` output (e.g., for broadcasting to WebSockets).
+- `faces`: Optional shared native `AnimatedFaces` instance.
+- `runtime_pipeline`: Optional native/Blockly ownership coordinator.
 
 **Methods:**
 
-**`execute(code: str, on_complete: Callable[[dict], None] = None) -> dict`**
+**`execute(code: str, on_complete: Callable[[dict], None] = None, on_start: Callable[[], None] = None) -> dict`**
 - Executes Python code in a restricted sandbox.
 - **Parameters:**
     - `code`: Python code string.
     - `on_complete`: Async callback fired when execution completes/fails.
+    - `on_start`: Optional callback fired after successful compilation and before the user-code thread starts.
 - **Returns:** `{"status": "started" | "success" | "error" | "stopped", "message": str}`
 - **Safety Features:**
     - Blocks: `os`, `sys`, `subprocess`, `open`, `eval`, `exec`, `__import__`.
     - Provides: `robot`, `time`, `math`, `print`, `check_stop()`.
     - Compiles code before starting the execution thread. Syntax failures return `error_code: "syntax_error"` and `syntax_error` details without calling hardware stop cleanup, because no user code has run yet.
+    - Uses `on_start` for the native-to-Blockly pipeline switch so syntax errors do not interrupt native idle behavior.
+    - Builds `RobotWrapper` with shared faces and runtime-pipeline hooks when provided by `web_server.py`.
 
 **`stop() -> None`**
 - Signals the current execution to stop.
@@ -2169,6 +2209,45 @@ from ninja_core.safe_executor import SafeExecutor
 executor = SafeExecutor(hal, on_print=lambda msg: print(f"[LOG] {msg}"))
 result = executor.execute("robot.buzzer.play('happy')")
 ```
+
+---
+
+#### 3.6.11 `runtime_pipeline.py`
+
+**Module:** `ninja_core.runtime_pipeline`
+
+**Purpose:** Coordinates the two runtime pipelines:
+
+1. **Native pipeline**: Direct interaction through the Raspberry Pi web interface, idle face animation, web-triggered expressions, sounds, and movements.
+2. **Blockly pipeline**: Uploaded code received from the NinjaRoboticPlatform Code IDE over BLE.
+
+##### Class: `RuntimePipeline`
+
+**Constructor:**
+```python
+def __init__(
+    self,
+    hal: HardwareAbstractionLayer | None = None,
+    faces: AnimatedFaces | None = None,
+    sound: RobotSoundPlayer | None = None,
+)
+```
+
+**Methods:**
+- `attach_hal(hal)`: Updates the shared HAL reference after startup wiring.
+- `attach_faces(faces)`: Shares the native face engine with Blockly execution.
+- `attach_sound(sound)`: Shares the native sound player with Blockly execution.
+- `begin_blockly()`: Switches to Blockly mode, stops native face animation, stops native sound playback, and aborts active native servo motion.
+- `mark_display_hold()`: Records that Blockly `robot.display.clear()` intentionally wants the screen to stay blank after successful execution.
+- `complete_blockly(status)`: Returns to native idle after Blockly completion, except for successful display-clear holds.
+- `abort_blockly()`: Cancels Blockly ownership and immediately restores native idle. Used by Stop Robot and BLE disconnect.
+- `reclaim_native()`: Lets a direct web/native action take control back from a Blockly hold.
+
+**Ownership Rules:**
+- Direct Raspberry Pi web-interface actions preserve all native `ninja_core` functions.
+- A BLE Blockly upload temporarily stops native idle/action output before running user code.
+- Normal completion restores idle face after expressions and other transient Blockly actions.
+- `robot.display.clear()` is the intentional exception: on success it keeps the display blank until the next Blockly upload, Stop Robot, Disconnect, or direct web/native interaction.
 
 ---
 
@@ -2184,7 +2263,13 @@ result = executor.execute("robot.buzzer.play('happy')")
 
 **Constructor:**
 ```python
-def __init__(self, hal: HardwareAbstractionLayer)
+def __init__(
+    self,
+    hal: HardwareAbstractionLayer,
+    cooperative_sleep: Callable[[float], None] | None = None,
+    faces: AnimatedFaces | None = None,
+    runtime_pipeline: RuntimePipeline | None = None,
+)
 ```
 
 **Attributes:**
@@ -2198,7 +2283,7 @@ def __init__(self, hal: HardwareAbstractionLayer)
 **Methods:**
 - `__getitem__(index)`: Access individual servo (e.g., `robot.servo[0]`).
 - `move_all(angles: list, duration: float)`: Move all 8 servos.
-- `center()`: Reset all servos to 90°.
+- `center()`: Reset all servos to center (`0°` in the Blockly-facing `-90..90` range).
 
 ##### Class: `BuzzerWrapper`
 
@@ -2210,7 +2295,12 @@ def __init__(self, hal: HardwareAbstractionLayer)
 
 **Methods:**
 - `image(name: str)`: Shows asset image. Valid: `star`, `heart`.
-- `clear()`: Clears the display.
+- `clear(hold: bool = True)`: Clears the display. During Blockly execution, the default `hold=True` marks the runtime pipeline so the blank display remains after successful code completion until native ownership is reclaimed.
+
+##### RobotWrapper Runtime Notes
+
+- `expression(name, duration=2.0)` uses the shared native `AnimatedFaces` engine when available, preventing the idle face thread from drawing over uploaded expressions.
+- `request_stop()` stops shared faces, Blockly-triggered sound playback, and active servo motion without powering down the display, allowing `RuntimePipeline` to restore idle cleanly.
 
 ##### Class: `DistanceWrapper`
 
@@ -2297,6 +2387,8 @@ def __init__(self, hal: HardwareAbstractionLayer)
 ```json
 {"type": "stop", "request_id": "stop-123", "reason": "user_stop"}
 ```
+
+`reason` may also be `"disconnect"` when the Code IDE is closing a BLE session. Both forms abort Blockly ownership and restore native idle behavior.
 
 **ACK Envelope (Transport v2):**
 ```json
