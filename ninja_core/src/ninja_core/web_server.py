@@ -136,7 +136,10 @@ async def lifespan(app: FastAPI):
     # Initialize BLE Service (conditionally, could fail on non-Linux)
     try:
         from ninja_ble.service import NinjaBLEService
-        app.state.ninja.ble = NinjaBLEService(dispatcher)
+        app.state.ninja.ble = NinjaBLEService(
+            dispatcher,
+            service_name=config.bluetooth.name,
+        )
         await asyncio.wait_for(app.state.ninja.ble.start(), timeout=30.0)
         if app.state.ninja.ble.is_running:
             print("BLE Service started.")
@@ -681,8 +684,8 @@ def get_ble_status(request: Request):
     """Returns BLE service advertising status for frontend indicator."""
     ble = getattr(request.app.state.ninja, 'ble', None)
     if ble and ble.is_running:
-        return {"advertising": True, "service_name": "NinjaRobot"}
-    return {"advertising": False, "service_name": None}
+        return {"advertising": True, "service_name": ble.service_name}
+    return {"advertising": False, "service_name": getattr(ble, "service_name", None)}
 
 @api_router.post("/system/shutdown")
 async def system_shutdown(request: Request):

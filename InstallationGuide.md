@@ -754,6 +754,21 @@ Configuration updated and saved to config.json!
 > [!TIP]
 > If you change any hardware wiring or recalibrate a component later, run `uv run ninja_core config import` again to sync the changes.
 
+### Step 7.7: Name Your Robot
+
+To make Bluetooth discovery easier when you have multiple NinjaRobots nearby, save a custom BLE name:
+
+```bash
+uv run ninja_core config set-name "Classroom Ninja 1"
+```
+
+Guidelines:
+- Keep the name under 29 UTF-8 bytes so it fits in BLE advertising packets.
+- Use quotes if the name contains spaces.
+- Restart `uv run ninja_core server` (or reboot the Raspberry Pi) after changing the name so the new Bluetooth name is advertised.
+
+When you scan from the NinjaRoboticPlatform Code IDE or nRF Connect, look for the new name instead of the default `NinjaRobot`.
+
 ---
 
 ## 8. System Integration Testing
@@ -1559,6 +1574,21 @@ Configuration updated and saved to config.json!
 > [!TIP]
 > ハードウェアの配線変更やコンポーネントの再校正を行った場合は、`uv run ninja_core config import` を再度実行して変更を同期してください。
 
+### ステップ7.7: ロボットに名前を付ける
+
+複数の NinjaRobot を近くで使う場合に Bluetooth 検出をしやすくするため、BLE 名を保存できます：
+
+```bash
+uv run ninja_core config set-name "Classroom Ninja 1"
+```
+
+ガイドライン：
+- 名前は BLE 広告パケットに収まるよう **29 UTF-8 バイト以内** にしてください。
+- 名前にスペースを含む場合は引用符で囲ってください。
+- 変更後は `uv run ninja_core server` を再起動するか、Raspberry Pi を再起動して新しい Bluetooth 名を広告させてください。
+
+NinjaRoboticPlatform Code IDE や nRF Connect からスキャンするときは、デフォルトの `NinjaRobot` ではなく新しい名前を探してください。
+
 ---
 
 ## 8. システム統合テスト
@@ -2354,6 +2384,21 @@ Configuration updated and saved to config.json!
 > [!TIP]
 > 如果之後更改了硬體接線或重新校準了元件，請再次執行 `uv run ninja_core config import` 以同步變更。
 
+### 步驟 7.7：為您的機器人命名
+
+如果附近有多台 NinjaRobot，您可以儲存自訂的 BLE 名稱，讓 Bluetooth 掃描時更容易辨識：
+
+```bash
+uv run ninja_core config set-name "Classroom Ninja 1"
+```
+
+注意事項：
+- 名稱請保持在 **29 個 UTF-8 位元組以內**，以便放入 BLE 廣播封包。
+- 如果名稱包含空格，請使用引號。
+- 變更後請重新啟動 `uv run ninja_core server`，或重新開機 Raspberry Pi，讓新的 Bluetooth 名稱開始廣播。
+
+之後從 NinjaRoboticPlatform Code IDE 或 nRF Connect 掃描時，請尋找新的名稱，而不是預設的 `NinjaRobot`。
+
 ---
 
 ## 8. 系統整合測試
@@ -2598,4 +2643,3 @@ uv pip install -e . --force-reinstall
 - **探索程式碼**：查看 `ninja_core/README.md` 了解開發者文件
 
 **恭喜！** 您的 NinjaRobot V5 現在已準備就緒。盡情探索和實驗您的 AI 機器人吧！🤖
-

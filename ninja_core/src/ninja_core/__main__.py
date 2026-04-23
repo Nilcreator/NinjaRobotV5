@@ -1,6 +1,6 @@
 import click
 
-from .config import import_and_update_config, set_api_key
+from .config import import_and_update_config, set_api_key, set_robot_name
 
 from .movement_cli import run_cli as run_movement_cli
 
@@ -53,6 +53,17 @@ def set_key(service, key):
     Usage: ninja_core config set-key gemini YOUR_API_KEY
     """
     set_api_key(service, key)
+
+
+@config.command("set-name")
+@click.argument("name")
+def set_name(name):
+    """
+    Set the BLE advertising name shown during Bluetooth discovery.
+
+    Usage: ninja_core config set-name "Classroom Ninja 1"
+    """
+    set_robot_name(name)
 
 
 @main.command("chat")

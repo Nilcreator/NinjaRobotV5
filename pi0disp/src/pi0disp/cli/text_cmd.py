@@ -21,11 +21,10 @@ def text(text_content, scroll, lang, size, color, bg, speed, duration):
     """
     try:
         import pigpio
-        from PIL import Image, ImageDraw
 
         from ..config.config_manager import ConfigManager
         from ..core.driver import ST7789V
-        from ..effects.text_ticker import TextTicker, load_font
+        from ..effects.text_ticker import TextTicker, render_centered_text_image
 
         cm = ConfigManager()
         cfg = cm.load()
@@ -67,18 +66,14 @@ def text(text_content, scroll, lang, size, color, bg, speed, duration):
             ticker.stop()
         else:
             # Static text
-            font = load_font(lang, size)
-            image = Image.new("RGB", (lcd.width, lcd.height), bg_color)
-            draw = ImageDraw.Draw(image)
-
-            # Center the text
-            bbox = draw.textbbox((0, 0), text_content, font=font)
-            text_w = bbox[2] - bbox[0]
-            text_h = bbox[3] - bbox[1]
-            x = (lcd.width - text_w) // 2
-            y = (lcd.height - text_h) // 2
-
-            draw.text((x, y), text_content, font=font, fill=text_color)
+            image = render_centered_text_image(
+                lcd,
+                text_content,
+                font_size=size,
+                color=text_color,
+                bg_color=bg_color,
+                language=lang,
+            )
             lcd.display(image)
             click.echo(f"Displayed: \"{text_content}\"")
 

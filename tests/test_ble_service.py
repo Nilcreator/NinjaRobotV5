@@ -11,6 +11,8 @@ from ninja_ble.chunking import ChunkReassembler
 
 
 def test_ble_service_chunks_large_broadcasts(monkeypatch):
+    custom_name = "Classroom Ninja 1"
+
     class FakeBlessServer:
         def __init__(self, name=None):
             self.name = name
@@ -48,9 +50,12 @@ def test_ble_service_chunks_large_broadcasts(monkeypatch):
         def register_listener(self, listener):
             self.listener = listener
 
-    service = service_module.NinjaBLEService(FakeDispatcher())
+    service = service_module.NinjaBLEService(
+        FakeDispatcher(),
+        service_name=custom_name,
+    )
     service._running = True
-    service._server = FakeBlessServer(name="NinjaRobot")
+    service._server = FakeBlessServer(name=custom_name)
 
     message = {"type": "chat", "text": "z" * 1800, "category": "chat_response"}
 
@@ -72,6 +77,8 @@ def test_ble_service_chunks_large_broadcasts(monkeypatch):
 
 
 def test_ble_service_start_accepts_no_return_bless_start(monkeypatch):
+    custom_name = "Desk Robot A"
+
     class FakeBlessServer:
         def __init__(self, name=None):
             self.name = name
@@ -129,19 +136,24 @@ def test_ble_service_start_accepts_no_return_bless_start(monkeypatch):
         def register_listener(self, listener):
             self.listener = listener
 
-    service = service_module.NinjaBLEService(FakeDispatcher())
+    service = service_module.NinjaBLEService(
+        FakeDispatcher(),
+        service_name=custom_name,
+    )
 
     import asyncio
 
     asyncio.run(service.start())
 
     assert service.is_running is True
-    assert service._server.name == "NinjaRobot"
+    assert service.service_name == custom_name
+    assert service._server.name == custom_name
     assert service._server.services == [service_module.SERVICE_UUID]
     assert len(service._server.characteristics) == 2
 
 
 def test_ble_service_falls_back_to_compact_advertisement_profile(monkeypatch):
+    custom_name = "Lab Robot 02"
     created_servers = []
 
     class FakeBlessServer:
@@ -206,11 +218,14 @@ def test_ble_service_falls_back_to_compact_advertisement_profile(monkeypatch):
         def register_listener(self, listener):
             self.listener = listener
 
-    service = service_module.NinjaBLEService(FakeDispatcher())
+    service = service_module.NinjaBLEService(
+        FakeDispatcher(),
+        service_name=custom_name,
+    )
     advertisement_profiles = []
 
-    def fake_install_bluez_advertisement_patch(advertisement_profile):
-        advertisement_profiles.append(advertisement_profile)
+    def fake_install_bluez_advertisement_patch(advertisement_profile, service_name):
+        advertisement_profiles.append((advertisement_profile, service_name))
 
     service._install_bluez_advertisement_patch = (
         fake_install_bluez_advertisement_patch
@@ -223,12 +238,16 @@ def test_ble_service_falls_back_to_compact_advertisement_profile(monkeypatch):
     assert service.is_running is True
     assert len(created_servers) == 2
     assert created_servers[0].stopped is True
-    assert created_servers[1].name == "NinjaRobot"
-    assert advertisement_profiles == ["name_only", "service_only"]
+    assert created_servers[1].name == custom_name
+    assert advertisement_profiles == [
+        ("name_only", custom_name),
+        ("service_only", custom_name),
+    ]
 
 
 def test_compact_advertisement_properties_are_read_only(monkeypatch):
     pytest.importorskip("dbus_next")
+    custom_name = "Robot Shelf 3"
 
     bless_stub = types.SimpleNamespace(
         BlessServer=object,
@@ -249,7 +268,10 @@ def test_compact_advertisement_properties_are_read_only(monkeypatch):
     service_module = importlib.import_module("ninja_ble.service")
 
     name_advertisement = (
-        service_module.NinjaBLEService._build_bluez_advertisement_class("name_only")
+        service_module.NinjaBLEService._build_bluez_advertisement_class(
+            "name_only",
+            custom_name,
+        )
     )
     service_advertisement = (
         service_module.NinjaBLEService._build_bluez_advertisement_class("service_only")
@@ -257,3 +279,8 @@ def test_compact_advertisement_properties_are_read_only(monkeypatch):
 
     assert name_advertisement.LocalName.access.value == "read"
     assert service_advertisement.ServiceUUIDs.access.value == "read"
+
+    fake_app = types.SimpleNamespace(base_path="/org/ninja")
+    fake_type = types.SimpleNamespace(value="peripheral")
+    advertisement = name_advertisement(fake_type, 0, fake_app)
+    assert advertisement.LocalName == custom_name

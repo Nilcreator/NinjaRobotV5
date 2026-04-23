@@ -9,7 +9,26 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+DEFAULT_BLE_NAME = "NinjaRobot"
+MAX_BLE_NAME_BYTES = 29
+
+
+def normalize_ble_name(name: str) -> str:
+    """Normalize and validate the BLE advertising name."""
+    normalized = " ".join(name.strip().split())
+    if not normalized:
+        raise ValueError("Robot name cannot be empty.")
+
+    encoded = normalized.encode("utf-8")
+    if len(encoded) > MAX_BLE_NAME_BYTES:
+        raise ValueError(
+            f"Robot name must fit within {MAX_BLE_NAME_BYTES} UTF-8 bytes for BLE advertising."
+        )
+
+    return normalized
 
 
 # --- Data Models for Configuration ---
@@ -63,12 +82,27 @@ class SensorConfig(BaseModel):
     pass
 
 
+class BluetoothConfig(BaseModel):
+    """Configuration for Bluetooth Low Energy advertising."""
+
+    name: str = Field(
+        default=DEFAULT_BLE_NAME,
+        description="Bluetooth advertising name shown during robot discovery.",
+    )
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        return normalize_ble_name(value)
+
+
 class NinjaConfig(BaseModel):
     """The root configuration model for the entire robot."""
 
     servos: ServosConfig = Field(default_factory=ServosConfig)
     buzzer: BuzzerConfig = Field(default_factory=BuzzerConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
+    bluetooth: BluetoothConfig = Field(default_factory=BluetoothConfig)
     sensors: SensorConfig = Field(default_factory=SensorConfig)
     movements: Dict[str, list] = Field(
         default_factory=dict, description="Named servo movement sequences."
@@ -249,3 +283,18 @@ def set_api_key(service: str, key: str):
     config.api_keys[service] = key
     save_config(config)
     print(f"API key for '{service}' has been saved.")
+
+
+def set_robot_name(name: str, path: Path = CONFIG_FILE_PATH) -> str:
+    """
+    Sets the BLE advertising name and saves the configuration.
+    """
+    normalized_name = normalize_ble_name(name)
+    config = load_config(path)
+    config.bluetooth.name = normalized_name
+    save_config(config, path)
+    print(
+        f"Robot BLE name set to '{normalized_name}'. Restart the NinjaRobot BLE service "
+        "or web server to apply the new advertising name."
+    )
+    return normalized_name

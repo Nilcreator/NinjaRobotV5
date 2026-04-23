@@ -121,6 +121,24 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | Blockly contract | Code IDE motion blocks now address GPIO pins `20..27` directly and use pi0servo speed modes instead of legacy motion duration |
 | Runtime compatibility | Existing index-based `robot.servo[n]` and `robot.servos.move_all()` remain available for direct Pi/native code and older scripts |
 
+### Key Changes (V5.2.8 - Blockly Text & Music Contract):
+| Component | Change |
+|---|---|
+| `pi0disp/effects/text_ticker.py` | Adds shared centered-text rendering and `auto` font-language resolution for static/scrolled Blockly text |
+| `pi0buzzer/notes.py` | Adds built-in song catalog for Blockly music playback: `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, `head_shoulders_knees_and_toes` |
+| `pi0buzzer/core/music.py` | Adds `play_named_song(name)` for non-blocking saved-melody playback |
+| `ninja_core/api_wrappers.py` | Adds `robot.display.text(...)`, `DisplayWrapper.stop()`, and `robot.buzzer.play_song(name)`; `request_stop()` now stops active scrolling text before restoring native idle |
+| Blockly contract | Code IDE Text and Sound categories can now generate Show Text and Play Music blocks against the same Pi-side runtime contract |
+
+### Key Changes (V5.2.9 - BLE Robot Naming):
+| Component | Change |
+|---|---|
+| `ninja_core/config.py` | Adds persistent `bluetooth.name` config with BLE-safe normalization and `set_robot_name()` |
+| `ninja_core/__main__.py` | Adds `uv run ninja_core config set-name "<name>"` for saving a custom Bluetooth discovery name |
+| `ninja_ble/service.py` | Uses the saved name for Bless server startup and compact BlueZ advertisements instead of a hard-coded string |
+| `ninja_core/web_server.py` | Starts BLE with the configured name and reports the active configured name via `/ble/status` |
+| BLE workflow | Custom names must fit in 29 UTF-8 bytes and take effect the next time the BLE service starts |
+
 ### Required Setup:
 ```bash
 uv run pi0buzzer init 17
@@ -637,9 +655,12 @@ def __init__(self, pin: int, pi: Optional[pigpio.pi] = None, volume: int = 128)
 |---|---|---|
 | `play_note(note_name, duration)` | `"C4"`, `0.3` | Play named note (case-insensitive). Non-blocking. |
 | `play_song(song)` | `[("C4", 0.3), ("pause", 0.1), ...]` | Queue note sequence. Non-blocking. |
+| `play_named_song(name)` | `"happy_birthday"`, `"jingle_bells"`, etc. | Queue one of the built-in Blockly melodies. Non-blocking. |
 | `play_emotion(name)` | `"happy"`, `"sad"`, etc. | Play predefined emotion sound. Non-blocking. |
 | `play_demo()` | — | Play built-in Twinkle Twinkle Little Star |
 | `play_music()` | — | Interactive keyboard piano (stdin-based) |
+
+**Built-in Song Names:** `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, `head_shoulders_knees_and_toes`
 
 **Usage:**
 ```python
@@ -647,6 +668,7 @@ from pi0buzzer.core.music import MusicBuzzer
 
 with MusicBuzzer(pin=17) as buzzer:
     buzzer.play_emotion("happy")
+    buzzer.play_named_song("jingle_bells")
     buzzer.play_song([
         ("C4", 0.3), ("E4", 0.3), ("G4", 0.3), ("C5", 0.6),
     ])
@@ -1166,9 +1188,16 @@ def __init__(
     color: Tuple[int, int, int] = (255, 255, 255),
     bg_color: Tuple[int, int, int] = (0, 0, 0),
     speed: float = 2.0,
-    language: str = "en",
+    language: str = "auto",
 )
 ```
+
+**Helper Functions:**
+
+| Function | Description |
+|---|---|
+| `resolve_font_language(language="auto", text="")` | Resolves the bundled font family to `en`, `ja`, or `zh-tw`. `auto` selects Japanese for CJK text and English otherwise. |
+| `render_centered_text_image(lcd, text, font_size=32, color=(255,255,255), bg_color=(0,0,0), language="auto")` | Returns a display-sized `PIL.Image.Image` with centered text. Reused by the CLI and Blockly APIs. |
 
 **Methods:**
 
@@ -1488,12 +1517,19 @@ class SensorConfig(BaseModel):
     pass  # Placeholder for future sensor settings
 ```
 
+**`BluetoothConfig`** (Pydantic BaseModel)
+```python
+class BluetoothConfig(BaseModel):
+    name: str = "NinjaRobot"
+```
+
 **`NinjaConfig`** (Pydantic BaseModel)
 ```python
 class NinjaConfig(BaseModel):
     servos: ServosConfig = Field(default_factory=ServosConfig)
     buzzer: BuzzerConfig = Field(default_factory=BuzzerConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
+    bluetooth: BluetoothConfig = Field(default_factory=BluetoothConfig)
     sensors: SensorConfig = Field(default_factory=SensorConfig)
     movements: Dict[str, list] = Field(default_factory=dict)
     api_keys: Dict[str, str] = Field(default_factory=dict)
@@ -1507,6 +1543,9 @@ class NinjaConfig(BaseModel):
 **`save_config(config: NinjaConfig, path: Path = Path("config.json")) -> None`**
 - Saves configuration to JSON
 
+**`normalize_ble_name(name: str) -> str`**
+- Trims repeated whitespace and validates the BLE advertising name fits within 29 UTF-8 bytes
+
 **`import_and_update_config() -> None`**
 - Imports `servo.json` and `buzzer.json` into main `config.json`
 - Applies default servo calibration if `servo.json` not found
@@ -1514,19 +1553,24 @@ class NinjaConfig(BaseModel):
 **`set_api_key(service: str, key: str) -> None`**
 - Sets an API key (e.g., "gemini") and saves config
 
+**`set_robot_name(name: str, path: Path = Path("config.json")) -> str`**
+- Saves a new Bluetooth discovery name under `config.json["bluetooth"]["name"]`
+- Takes effect the next time `ninja_core server` (and its BLE service) starts
+
 **Usage:**
 ```python
-from ninja_core.config import load_config, save_config, set_api_key
+from ninja_core.config import load_config, set_api_key, set_robot_name
 
 config = load_config()
 print(config.servos.calibration)
+print(config.bluetooth.name)
 print(config.api_keys.get("gemini"))
 
 set_api_key("gemini", "AIzaSy...")
+set_robot_name("Desk Robot A")
 ```
 
 ---
-
 ---
 
 #### 3.6.2 `dispatcher.py` (New Phase 2)
@@ -2165,6 +2209,11 @@ uv run ninja_core server
 - Sets an API key
 - **Example:** `uv run ninja_core config set-key gemini AIzaSy...`
 
+**`config set-name <name>`**
+- Sets the Bluetooth discovery name stored in `config.json`
+- **Example:** `uv run ninja_core config set-name "Classroom Ninja 1"`
+- **Note:** Restart `uv run ninja_core server` after changing the name so BLE advertising reloads it
+
 ---
 
 #### 3.6.10 `safe_executor.py` (New Phase 4)
@@ -2305,22 +2354,31 @@ def __init__(
   - Move Multiple Servos: `robot.servos.move_pins({20: 45, 21: -30}, per_servo_speeds={20: "F", 21: "S"})`
 - Blockly motion speed is not a delay. Use the Code IDE Time Pause block, which generates cooperative `sleep(seconds)`, when a pause is needed between actions.
 
+**Blockly Text & Sound API Notes:**
+- The Code IDE Text category now provides Show Text, which accepts standard Blockly text inputs such as `text` and `text_join` and generates `robot.display.text(message, scroll=..., duration=...)`.
+- Static Show Text uses shared centered rendering; scrolling Show Text uses the Pi ticker runtime and stops cleanly on normal completion, Stop Robot, or Disconnect.
+- The Code IDE Sound category now provides Play Music, which generates `robot.buzzer.play_song("<built-in-name>")`.
+- Built-in Blockly song names are `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, and `head_shoulders_knees_and_toes`.
+
 ##### Class: `BuzzerWrapper`
 
 **Methods:**
 - `play(name: str)`: Plays a predefined sound. Valid: `happy`, `sad`, `exciting`, `angry`, `confusing`, etc.
+- `play_song(name: str)`: Plays a built-in melody. Valid: `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, `head_shoulders_knees_and_toes`.
 - `tone(freq: int, duration: float)`: Plays raw frequency.
 
 ##### Class: `DisplayWrapper`
 
 **Methods:**
 - `image(name: str)`: Shows asset image. Valid: `star`, `heart`.
+- `text(content, scroll: bool = False, duration: float = 2.0, speed: float = 2.0, language: str = "auto", font_size: int = 32, color=(255,255,255), bg_color=(0,0,0))`: Shows static centered text or scrolling ticker text for a cooperative display duration.
 - `clear(hold: bool = True)`: Clears the display. During Blockly execution, the default `hold=True` marks the runtime pipeline so the blank display remains after successful code completion until native ownership is reclaimed.
+- `stop()`: Stops any active scrolling-text ticker without clearing the current display frame.
 
 ##### RobotWrapper Runtime Notes
 
 - `expression(name, duration=2.0)` uses the shared native `AnimatedFaces` engine when available, preventing the idle face thread from drawing over uploaded expressions.
-- `request_stop()` stops shared faces, Blockly-triggered sound playback, and active servo motion without powering down the display, allowing `RuntimePipeline` to restore idle cleanly.
+- `request_stop()` stops shared faces, active scrolling text, Blockly-triggered sound playback, and active servo motion without powering down the display, allowing `RuntimePipeline` to restore idle cleanly.
 
 ##### Class: `DistanceWrapper`
 
@@ -2360,7 +2418,7 @@ def __init__(
 
 | Item | Value |
 |---|---|
-| **Service Name** | `NinjaRobot` |
+| **Service Name** | Configurable via `config.json["bluetooth"]["name"]` (default: `NinjaRobot`) |
 | **Service UUID** | `00000001-710e-4a5b-8d75-3e5b444bc3cf` |
 | **Transport Contract** | `blockly-v1` events over raw JSON for small payloads and BLE transport v2 chunking for large payloads |
 
@@ -2429,7 +2487,7 @@ def __init__(
 **`NinjaBLEService`** (`service.py`)
 ```python
 class NinjaBLEService:
-    def __init__(self, dispatcher: CommandDispatcher): ...
+    def __init__(self, dispatcher: CommandDispatcher, service_name: str = "NinjaRobot"): ...
     async def start(self): ...          # Start GATT server & advertising
     async def stop(self): ...           # Stop server
     async def on_broadcast(self, message: dict): ...  # Send BLE notification
@@ -2441,7 +2499,7 @@ from ninja_ble.service import NinjaBLEService
 from ninja_core.dispatcher import CommandDispatcher
 
 dispatcher = CommandDispatcher(hal)
-ble_service = NinjaBLEService(dispatcher)
+ble_service = NinjaBLEService(dispatcher, service_name=config.bluetooth.name)
 asyncio.create_task(ble_service.start())
 ```
 
@@ -2456,7 +2514,7 @@ asyncio.create_task(ble_service.start())
 #### 3.7.6 Testing with nRF Connect
 
 1. Start server: `uv run ninja_core server`
-2. Open nRF Connect → Scan → Connect to "NinjaRobot"
+2. Open nRF Connect → Scan → Connect to the configured robot name (default: `NinjaRobot`)
 3. Subscribe to Response characteristic (`...0003`)
 4. Write to Command characteristic (`...0002`):
    ```json
@@ -2474,7 +2532,7 @@ asyncio.create_task(ble_service.start())
 - **Location:** Project root
 - **Format:** JSON
 - **Managed by:** `ninja_core.config`
-- **Contains:** All hardware settings, movements, API keys
+- **Contains:** All hardware settings, BLE name, movements, API keys
 
 **`servo.json`** (Servo Calibration)
 - **Location:** Project root or `pi0servo/`
@@ -2502,7 +2560,12 @@ asyncio.create_task(ble_service.start())
    uv run ninja_core config set-key gemini YOUR_KEY
    ```
 
-3. **Verify:**
+3. **Optional: Set BLE Name**
+   ```bash
+   uv run ninja_core config set-name "Desk Robot A"
+   ```
+
+4. **Verify:**
    ```bash
    cat config.json
    ```
@@ -2529,6 +2592,9 @@ asyncio.create_task(ble_service.start())
         "dc": 18,
         "rst": 19,
         "blk": 20
+    },
+    "bluetooth": {
+        "name": "Desk Robot A"
     },
     "sensors": {},
     "movements": {

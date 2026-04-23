@@ -10,7 +10,9 @@ Available API (V5.2.1 - ±90° standardized):
     robot.servos.move_pins({pin: angle}, ...) - Move GPIO servos together
     robot.buzzer.tone(f, d)    - Play frequency f for d seconds
     robot.buzzer.play(name)    - Play emotion sound
+    robot.buzzer.play_song(name) - Play a built-in melody
     robot.display.clear()      - Clear display
+    robot.display.text(msg, ...) - Show static or scrolling text
     robot.expression(name)     - Show facial expression
     robot.distance.read()      - Read distance in mm
 """
@@ -20,7 +22,10 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+
 from PIL import Image
+from pi0disp.effects.text_ticker import TextTicker, render_centered_text_image
+
 from .robot_sound import RobotSoundPlayer
 from .facial_expressions import AnimatedFaces
 
@@ -106,6 +111,16 @@ class BuzzerWrapper:
         if self._hal.buzzer:
             self._hal.buzzer.execute({"frequency": frequency, "duration": duration})
 
+    def play_song(self, name):
+        """Play a built-in melody by name."""
+        if not self._hal.buzzer:
+            return
+        if not hasattr(self._hal.buzzer, "play_named_song"):
+            log.warning("Built-in song playback is not available on the active buzzer driver.")
+            return
+        self.stop(restart_buzzer=True)
+        self._hal.buzzer.play_named_song(name)
+
     def stop(self, restart_buzzer: bool = True):
         """Stop Blockly-triggered emotion sounds and keep buzzer usable."""
         self._player.stop(restart_buzzer=restart_buzzer)
@@ -114,17 +129,31 @@ class BuzzerWrapper:
 class DisplayWrapper:
     """Wrapper for ST7789 display."""
 
-    def __init__(self, hal, runtime_pipeline=None):
+    def __init__(self, hal, runtime_pipeline=None, cooperative_sleep=None):
         self._hal = hal
         self._runtime_pipeline = runtime_pipeline
+        self._sleep = cooperative_sleep or time.sleep
+        self._active_ticker = None
         self._search_paths = [
             Path(__file__).parent / "static" / "assets" / "images",
         ]
+
+    def stop(self):
+        """Stop any active scrolling text without clearing the display."""
+        ticker = self._active_ticker
+        self._active_ticker = None
+        if ticker is None:
+            return
+        try:
+            ticker.stop()
+        except Exception as exc:
+            log.warning("Failed to stop active text ticker: %s", exc)
 
     def image(self, name):
         """Display an image by name (e.g., 'star' -> 'star.png')."""
         if not self._hal.display:
             return
+        self.stop()
 
         image_path = None
         for path in self._search_paths:
@@ -148,9 +177,60 @@ class DisplayWrapper:
     def clear(self, hold: bool = True):
         """Clear the display (fill with black)."""
         if self._hal.display:
+            self.stop()
             self._hal.display.execute({"clear": True})
             if hold and self._runtime_pipeline:
                 self._runtime_pipeline.mark_display_hold()
+
+    def text(
+        self,
+        content,
+        scroll: bool = False,
+        duration: float = 2.0,
+        speed: float = 2.0,
+        language: str = "auto",
+        font_size: int = 32,
+        color: tuple[int, int, int] = (255, 255, 255),
+        bg_color: tuple[int, int, int] = (0, 0, 0),
+    ):
+        """Display static or scrolling text for a cooperative duration."""
+        if not self._hal.display:
+            return
+
+        display_duration = max(0.0, float(duration))
+        text_value = str(content)
+        self.stop()
+
+        if scroll:
+            ticker = TextTicker(
+                self._hal.display,
+                text_value,
+                font_size=font_size,
+                color=color,
+                bg_color=bg_color,
+                speed=speed,
+                language=language,
+            )
+            self._active_ticker = ticker
+            ticker.start()
+            try:
+                self._sleep(display_duration)
+            finally:
+                if self._active_ticker is ticker:
+                    self._active_ticker = None
+                ticker.stop()
+            return
+
+        image = render_centered_text_image(
+            self._hal.display,
+            text_value,
+            font_size=font_size,
+            color=color,
+            bg_color=bg_color,
+            language=language,
+        )
+        self._hal.display.execute({"image": image})
+        self._sleep(display_duration)
 
 
 class ServoWrapper:
@@ -400,17 +480,23 @@ class RobotWrapper:
         robot.servo[n].angle = x   - Set servo n (0-7) to angle x (±90°)
         robot.buzzer.tone(f, d)    - Play frequency f for d seconds
         robot.buzzer.play(name)    - Play emotion sound
+        robot.buzzer.play_song(name) - Play a built-in melody
         robot.display.clear()      - Clear display
+        robot.display.text(msg, ...) - Show static or scrolling text
         robot.expression(name)     - Show animated facial expression
         robot.distance.read()      - Read distance in mm
     """
 
     def __init__(self, hal, cooperative_sleep=None, faces=None, runtime_pipeline=None):
         self._hal = hal
-        self.buzzer = BuzzerWrapper(hal)
-        self.display = DisplayWrapper(hal, runtime_pipeline=runtime_pipeline)
-        self.distance = DistanceWrapper(hal.distance_sensor)
         self._sleep = cooperative_sleep or time.sleep
+        self.buzzer = BuzzerWrapper(hal)
+        self.display = DisplayWrapper(
+            hal,
+            runtime_pipeline=runtime_pipeline,
+            cooperative_sleep=self._sleep,
+        )
+        self.distance = DistanceWrapper(hal.distance_sensor)
         
         # Servos: wrap MultiServo to provide list-like access
         # robot.servo[n].angle = x
@@ -446,6 +532,9 @@ class RobotWrapper:
         """Best-effort stop hook for cooperative executor cancellation."""
         if self._faces:
             self._faces.stop()
+
+        if self.display:
+            self.display.stop()
 
         if self.buzzer:
             self.buzzer.stop(restart_buzzer=True)

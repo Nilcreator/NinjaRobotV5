@@ -18,11 +18,13 @@ except ImportError:
 
 from pi0buzzer.core.driver import Buzzer
 from pi0buzzer.notes import (
+    BUILTIN_SONGS,
     DEMO_SONG,
     EMOTION_SOUNDS,
     KEYBOARD_MAP,
     NOTES,
     get_emotion_names,
+    get_song_names,
 )
 
 try:
@@ -123,6 +125,18 @@ class MusicBuzzer(Buzzer):
             )
             return
         self.play_song(sound)
+
+    def play_named_song(self, name: str) -> None:
+        """Play a predefined built-in song by name (non-blocking)."""
+        song = BUILTIN_SONGS.get(name)
+        if song is None:
+            log.warning(
+                "Unknown built-in song: %s. Available: %s",
+                name,
+                ", ".join(get_song_names()),
+            )
+            return
+        self.play_song(song)
 
     def play_demo(self) -> None:
         """Play the built-in demo melody (Twinkle Twinkle Little Star)."""

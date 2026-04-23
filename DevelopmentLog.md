@@ -1,5 +1,26 @@
 # Development Log
 
+## 2026-04-23: BLE Robot Naming Refinement ✓
+- **Action**: Added persistent Bluetooth naming support so each NinjaRobotV5 can advertise a user-defined discovery name instead of relying on the shared default.
+- **Details**:
+  - **Config model**: Added `bluetooth.name` to `config.json`, BLE-safe normalization, and `set_robot_name()` in `ninja_core.config`.
+  - **CLI command**: Added `uv run ninja_core config set-name "<name>"` to save a custom robot name for future BLE sessions.
+  - **BLE runtime**: Updated `NinjaBLEService` to advertise the configured name through both Bless server startup and the compact BlueZ advertisement fallback.
+  - **Web status**: Updated `web_server.py` to start BLE with the saved name and report the configured name from `/ble/status`.
+  - **Documentation**: Added Installation Guide section `7.7 Name your robot` and refreshed the Development Guide config, CLI, BLE, and config.json reference sections.
+- **Validation**: `uv run --with ruff ruff check ninja_core/src ninja_ble/src tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests/test_ble_service.py tests/test_config.py` passed (`7 passed, 1 skipped`). `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`49 passed, 1 skipped`).
+- **Files Modified**: `ninja_core/src/ninja_core/config.py`, `ninja_core/src/ninja_core/__main__.py`, `ninja_core/src/ninja_core/web_server.py`, `ninja_ble/src/ninja_ble/service.py`, `tests/test_ble_service.py`, `tests/test_config.py`, `InstallationGuide.md`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
+## 2026-04-23: Blockly Text & Music Contract Refinement ✓
+- **Action**: Added Pi-side text/music wrapper APIs for Blockly and synchronized the runtime documentation with the new Show Text and Play Music blocks.
+- **Details**:
+  - **Display text API**: Added shared centered-text rendering and `robot.display.text(...)` with static/scrolling modes, cooperative duration handling, and ticker cleanup on stop or disconnect.
+  - **Built-in songs**: Added `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, and `head_shoulders_knees_and_toes` to `pi0buzzer.notes`, plus `MusicBuzzer.play_named_song()` and `robot.buzzer.play_song()`.
+  - **Stop cleanup**: `RobotWrapper.request_stop()` now stops active scrolling text before native idle is restored, matching the Code IDE Stop Robot and Disconnect contract.
+  - **Documentation**: Updated `DevelopmentGuide.md` with V5.2.8 notes, the new buzzer/display APIs, and Blockly text/music examples.
+- **Validation**: `uv run --with ruff ruff check ninja_core/src pi0disp/src pi0buzzer/src tests pi0disp/tests pi0buzzer/tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`45 passed, 1 skipped`). `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uv run --with pytest --with pillow python -m pytest tests` passed in `pi0disp` (`57 passed`). `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src uv run --with pytest python -m pytest tests` passed in `pi0buzzer` (`65 passed`). Paired Code IDE validation also passed with focused Blockly tests, full `npm test -- --run`, `npm run lint`, and `npm run build`.
+- **Files Modified**: `pi0disp/src/pi0disp/effects/text_ticker.py`, `pi0disp/src/pi0disp/cli/text_cmd.py`, `pi0disp/tests/test_text_ticker.py`, `pi0buzzer/src/pi0buzzer/notes.py`, `pi0buzzer/src/pi0buzzer/core/music.py`, `pi0buzzer/tests/test_music.py`, `ninja_core/src/ninja_core/api_wrappers.py`, `tests/test_api_wrappers.py`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-04-23: Blockly GPIO Motion Contract Refinement ✓
 - **Action**: Added GPIO-first servo wrapper APIs for Blockly-generated motion code and synchronized the Pi runtime docs with the Code IDE motion changes.
 - **Details**:

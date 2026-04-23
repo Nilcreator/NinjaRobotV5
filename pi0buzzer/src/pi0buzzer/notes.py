@@ -8,7 +8,7 @@ consistency across the entire NinjaRobot V5 platform.
 
 Usage::
 
-    from pi0buzzer.notes import NOTES, EMOTION_SOUNDS, KEYBOARD_MAP
+    from pi0buzzer.notes import BUILTIN_SONGS, EMOTION_SOUNDS, KEYBOARD_MAP, NOTES
 """
 
 # -------------------------------------------------------------------
@@ -113,10 +113,26 @@ EMOTION_SOUNDS: dict[str, list[tuple[str, float]]] = {
 
 
 # -------------------------------------------------------------------
-# Demo song — Twinkle Twinkle Little Star (for buzzer-tool)
+# Built-in songs — single-pass Blockly-friendly buzzer arrangements
 # -------------------------------------------------------------------
 
-DEMO_SONG: list[tuple[str, float]] = [
+HAPPY_BIRTHDAY_SONG: list[tuple[str, float]] = [
+    ("G4", 0.2), ("G4", 0.2), ("A4", 0.4), ("G4", 0.4), ("C5", 0.4), ("B4", 0.8),
+    ("G4", 0.2), ("G4", 0.2), ("A4", 0.4), ("G4", 0.4), ("D5", 0.4), ("C5", 0.8),
+    ("G4", 0.2), ("G4", 0.2), ("G5", 0.4), ("E5", 0.4), ("C5", 0.4), ("B4", 0.4), ("A4", 0.8),
+    ("F5", 0.2), ("F5", 0.2), ("E5", 0.4), ("C5", 0.4), ("D5", 0.4), ("C5", 0.8),
+]
+
+JINGLE_BELLS_CHORUS: list[tuple[str, float]] = [
+    ("E5", 0.25), ("E5", 0.25), ("E5", 0.5),
+    ("E5", 0.25), ("E5", 0.25), ("E5", 0.5),
+    ("E5", 0.25), ("G5", 0.25), ("C5", 0.25), ("D5", 0.25), ("E5", 0.75),
+    ("F5", 0.25), ("F5", 0.25), ("F5", 0.25), ("F5", 0.25), ("F5", 0.25),
+    ("E5", 0.25), ("E5", 0.25), ("E5", 0.25), ("E5", 0.25),
+    ("D5", 0.25), ("D5", 0.25), ("E5", 0.25), ("D5", 0.25), ("G5", 0.75),
+]
+
+TWINKLE_TWINKLE_LITTLE_STAR: list[tuple[str, float]] = [
     ("C4", 0.3), ("C4", 0.3), ("G4", 0.3), ("G4", 0.3),
     ("A4", 0.3), ("A4", 0.3), ("G4", 0.6),
     ("pause", 0.1),
@@ -124,7 +140,28 @@ DEMO_SONG: list[tuple[str, float]] = [
     ("D4", 0.3), ("D4", 0.3), ("C4", 0.6),
 ]
 
+HEAD_SHOULDERS_KNEES_AND_TOES_CHORUS: list[tuple[str, float]] = [
+    ("G4", 0.2), ("G4", 0.2), ("A4", 0.2), ("B4", 0.2), ("A4", 0.2), ("G4", 0.4),
+    ("G4", 0.2), ("G4", 0.2), ("A4", 0.2), ("B4", 0.2), ("A4", 0.2), ("G4", 0.4),
+    ("B4", 0.2), ("B4", 0.2), ("C5", 0.2), ("C5", 0.2), ("D5", 0.4), ("C5", 0.2), ("B4", 0.4),
+    ("G4", 0.2), ("G4", 0.2), ("A4", 0.2), ("B4", 0.2), ("A4", 0.2), ("G4", 0.4),
+]
+
+BUILTIN_SONGS: dict[str, list[tuple[str, float]]] = {
+    "happy_birthday": HAPPY_BIRTHDAY_SONG,
+    "jingle_bells": JINGLE_BELLS_CHORUS,
+    "twinkle_twinkle_little_star": TWINKLE_TWINKLE_LITTLE_STAR,
+    "head_shoulders_knees_and_toes": HEAD_SHOULDERS_KNEES_AND_TOES_CHORUS,
+}
+
+DEMO_SONG = TWINKLE_TWINKLE_LITTLE_STAR
+
 
 def get_emotion_names() -> list[str]:
     """Return sorted list of available emotion sound names."""
     return sorted(EMOTION_SOUNDS.keys())
+
+
+def get_song_names() -> list[str]:
+    """Return sorted list of available built-in song names."""
+    return sorted(BUILTIN_SONGS.keys())

@@ -3,6 +3,7 @@ import logging
 import pytest
 
 from ninja_core.api_wrappers import (
+    BuzzerWrapper,
     DisplayWrapper,
     DistanceWrapper,
     RobotWrapper,
@@ -144,6 +145,34 @@ def test_servo_array_move_pins_defaults_invalid_speed_mode(caplog):
     assert "invalid servo speed mode turbo" in caplog.text
 
 
+def test_buzzer_wrapper_play_song_uses_named_song_api():
+    class FakeBuzzer:
+        def __init__(self):
+            self.off_called = False
+            self.initialize_called = False
+            self.played_song = None
+
+        def play_named_song(self, name):
+            self.played_song = name
+
+        def off(self):
+            self.off_called = True
+
+        def initialize(self):
+            self.initialize_called = True
+
+    class FakeHal:
+        def __init__(self):
+            self.buzzer = FakeBuzzer()
+
+    wrapper = BuzzerWrapper(FakeHal())
+    wrapper.play_song("jingle_bells")
+
+    assert wrapper._hal.buzzer.off_called is True
+    assert wrapper._hal.buzzer.initialize_called is True
+    assert wrapper._hal.buzzer.played_song == "jingle_bells"
+
+
 def test_robot_wrapper_request_stop_preserves_display_for_idle_restore(monkeypatch):
     class FakeFaces:
         def __init__(self, hal):
@@ -176,6 +205,46 @@ def test_robot_wrapper_request_stop_preserves_display_for_idle_restore(monkeypat
     assert robot._hal.buzzer.off_called is True
     assert robot._hal.display.off_called is False
     assert robot._hal.servos.off_called is True
+
+
+def test_robot_wrapper_request_stop_stops_active_text_ticker(monkeypatch):
+    class FakeFaces:
+        def __init__(self, hal):
+            self.hal = hal
+
+        def stop(self):
+            return None
+
+    class FakeComponent:
+        def __init__(self):
+            self.off_called = False
+
+        def off(self):
+            self.off_called = True
+
+    class FakeHal:
+        def __init__(self):
+            self.buzzer = FakeComponent()
+            self.display = FakeComponent()
+            self.servos = FakeComponent()
+            self.distance_sensor = None
+
+    class FakeTicker:
+        def __init__(self):
+            self.stop_called = False
+
+        def stop(self):
+            self.stop_called = True
+
+    monkeypatch.setattr("ninja_core.api_wrappers.AnimatedFaces", FakeFaces)
+    robot = RobotWrapper(FakeHal())
+    ticker = FakeTicker()
+    robot.display._active_ticker = ticker
+
+    robot.request_stop()
+
+    assert ticker.stop_called is True
+    assert robot._hal.display.off_called is False
 
 
 def test_robot_wrapper_uses_shared_faces_for_expressions():
@@ -227,3 +296,79 @@ def test_display_clear_marks_blockly_display_hold():
 
     assert hal.display.commands == [{"clear": True}]
     assert pipeline.hold_called is True
+
+
+def test_display_text_static_renders_image_and_waits():
+    class FakeDisplay:
+        width = 240
+        height = 320
+
+        def __init__(self):
+            self.commands = []
+
+        def execute(self, command):
+            self.commands.append(command)
+
+    class FakeHal:
+        def __init__(self):
+            self.display = FakeDisplay()
+
+    sleep_calls = []
+    hal = FakeHal()
+
+    DisplayWrapper(hal, cooperative_sleep=sleep_calls.append).text("Hello NinjaRobot", duration=1.5)
+
+    assert sleep_calls == [1.5]
+    assert len(hal.display.commands) == 1
+    assert "image" in hal.display.commands[0]
+
+
+def test_display_text_scroll_starts_and_stops_ticker(monkeypatch):
+    events = []
+
+    class FakeDisplay:
+        width = 240
+        height = 320
+
+        def execute(self, command):
+            raise AssertionError(f"scrolling text should not call execute: {command}")
+
+    class FakeHal:
+        def __init__(self):
+            self.display = FakeDisplay()
+
+    class FakeTicker:
+        def __init__(self, lcd, text, font_size, color, bg_color, speed, language):
+            events.append(
+                {
+                    "lcd": lcd,
+                    "text": text,
+                    "font_size": font_size,
+                    "color": color,
+                    "bg_color": bg_color,
+                    "speed": speed,
+                    "language": language,
+                }
+            )
+
+        def start(self):
+            events.append("start")
+
+        def stop(self):
+            events.append("stop")
+
+    monkeypatch.setattr("ninja_core.api_wrappers.TextTicker", FakeTicker)
+    sleep_calls = []
+    hal = FakeHal()
+
+    DisplayWrapper(hal, cooperative_sleep=sleep_calls.append).text(
+        "Scroll me",
+        scroll=True,
+        duration=2.0,
+        speed=3.5,
+    )
+
+    assert sleep_calls == [2.0]
+    assert events[0]["text"] == "Scroll me"
+    assert events[0]["speed"] == 3.5
+    assert events[1:] == ["start", "stop"]

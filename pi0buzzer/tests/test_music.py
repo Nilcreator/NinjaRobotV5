@@ -2,7 +2,7 @@
 
 import time
 
-from pi0buzzer.notes import EMOTION_SOUNDS, NOTES, get_emotion_names
+from pi0buzzer.notes import BUILTIN_SONGS, EMOTION_SOUNDS, NOTES, get_emotion_names, get_song_names
 
 
 class TestMusicBuzzerPlayNote:
@@ -83,6 +83,20 @@ class TestMusicBuzzerPlayDemo:
         assert music_buzzer.pi.set_PWM_frequency.call_count >= 1
 
 
+class TestMusicBuzzerPlayNamedSong:
+    """Test play_named_song() method."""
+
+    def test_play_named_song(self, music_buzzer):
+        music_buzzer.play_named_song("jingle_bells")
+        time.sleep(1.0)
+        assert music_buzzer.pi.set_PWM_frequency.call_count >= 1
+
+    def test_play_named_song_unknown(self, music_buzzer):
+        music_buzzer.play_named_song("nonexistent_song")
+        time.sleep(0.1)
+        assert music_buzzer.pi.set_PWM_frequency.call_count == 0
+
+
 class TestNotesModule:
     """Test the notes.py constants."""
 
@@ -100,4 +114,19 @@ class TestNotesModule:
 
     def test_emotion_names_sorted(self):
         names = get_emotion_names()
+        assert names == sorted(names)
+
+    def test_all_builtin_songs_are_valid(self):
+        for name, melody in BUILTIN_SONGS.items():
+            for note, duration in melody:
+                if note != "pause":
+                    assert note in NOTES, f"Song '{name}' uses unknown note: {note}"
+                assert duration > 0, f"Song '{name}' has non-positive duration: {duration}"
+
+    def test_get_song_names(self):
+        names = get_song_names()
+        assert "happy_birthday" in names
+        assert "jingle_bells" in names
+        assert "twinkle_twinkle_little_star" in names
+        assert "head_shoulders_knees_and_toes" in names
         assert names == sorted(names)

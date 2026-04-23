@@ -13,6 +13,7 @@ from bless import (
     GATTAttributePermissions,
 )
 
+from ninja_core.config import DEFAULT_BLE_NAME, normalize_ble_name
 from ninja_core.dispatcher import CommandDispatcher
 from .chunking import (
     CHUNK_SIZE,
@@ -28,7 +29,7 @@ from .chunking import (
 log = logging.getLogger(__name__)
 
 # --- Constants ---
-SERVICE_NAME = "NinjaRobot"
+SERVICE_NAME = DEFAULT_BLE_NAME
 SERVICE_UUID = "00000001-710e-4a5b-8d75-3e5b444bc3cf"
 
 # Command Characteristic (Write): For receiving JSON commands
@@ -47,8 +48,13 @@ ADVERTISING_NOT_READY_MESSAGE = "BLE advertising did not start"
 class NinjaBLEService:
     """BLE GATT Server for NinjaRobot V5."""
 
-    def __init__(self, dispatcher: CommandDispatcher):
+    def __init__(
+        self,
+        dispatcher: CommandDispatcher,
+        service_name: str = SERVICE_NAME,
+    ):
         self.dispatcher = dispatcher
+        self.service_name = normalize_ble_name(service_name)
         self._running = False
         self._server: BlessServer | None = None
 
@@ -226,7 +232,7 @@ class NinjaBLEService:
             self._running = True
             log.info(
                 "BLE Service '%s' advertising with %s profile...",
-                SERVICE_NAME,
+                self.service_name,
                 advertisement_profile,
             )
             return
@@ -237,10 +243,13 @@ class NinjaBLEService:
     async def _configure_server(self, advertisement_profile: str):
         """Create and configure a fresh Bless GATT server instance."""
         await self._cleanup_server()
-        self._install_bluez_advertisement_patch(advertisement_profile)
+        self._install_bluez_advertisement_patch(
+            advertisement_profile,
+            self.service_name,
+        )
 
         # Create server
-        self._server = BlessServer(name=SERVICE_NAME)
+        self._server = BlessServer(name=self.service_name)
 
         # Set callbacks AFTER creation (required by bless API)
         self._server.read_request_func = self._on_read
@@ -299,7 +308,11 @@ class NinjaBLEService:
             or ADVERTISING_NOT_READY_MESSAGE.lower() in message
         )
 
-    def _install_bluez_advertisement_patch(self, advertisement_profile: str):
+    def _install_bluez_advertisement_patch(
+        self,
+        advertisement_profile: str,
+        service_name: str,
+    ):
         """Patch Bless on BlueZ to use compact legacy advertisements for Chrome."""
         if sys.platform != "linux":
             return
@@ -322,10 +335,14 @@ class NinjaBLEService:
 
         application.BlueZLEAdvertisement = self._build_bluez_advertisement_class(
             advertisement_profile,
+            service_name,
         )
 
     @staticmethod
-    def _build_bluez_advertisement_class(advertisement_profile: str):
+    def _build_bluez_advertisement_class(
+        advertisement_profile: str,
+        service_name: str = SERVICE_NAME,
+    ):
         """Build a minimal LEAdvertisement1 class compatible with BlueZ legacy ads."""
         from dbus_next import PropertyAccess
         from dbus_next.service import ServiceInterface, dbus_property, method
@@ -340,7 +357,7 @@ class NinjaBLEService:
                 self.path = app.base_path + "/advertisement" + str(index)
                 self._type = advertising_type.value
                 self._service_uuids: list[str] = []
-                self._local_name = SERVICE_NAME
+                self._local_name = service_name
                 super().__init__(self.interface_name)
 
             @method()
