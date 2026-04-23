@@ -56,14 +56,14 @@ def set_key(service, key):
 
 
 @config.command("set-name")
-@click.argument("name")
+@click.argument("name", nargs=-1)
 def set_name(name):
     """
     Set the BLE advertising name shown during Bluetooth discovery.
 
     Usage: ninja_core config set-name "Classroom Ninja 1"
     """
-    set_robot_name(name)
+    set_robot_name(" ".join(name))
 
 
 @main.command("chat")
