@@ -856,6 +856,7 @@ dependencies = [
     { name = "bless" },
     { name = "dbus-fast", version = "2.45.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version != '3.12.*' or sys_platform != 'win32'" },
     { name = "dbus-fast", version = "3.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*' and sys_platform == 'win32'" },
+    { name = "dbus-next" },
     { name = "ninja-core" },
 ]
 
@@ -864,6 +865,7 @@ requires-dist = [
     { name = "bleak", specifier = ">=0.21.0,<1.0.0" },
     { name = "bless", specifier = ">=0.2.6" },
     { name = "dbus-fast", specifier = ">=1.86.0" },
+    { name = "dbus-next", specifier = ">=0.2.3" },
     { name = "ninja-core", specifier = ">=0.1.0" },
 ]
 
@@ -930,6 +932,7 @@ dependencies = [
     { name = "blessed" },
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "click", version = "8.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "dbus-next" },
     { name = "fastapi" },
     { name = "google-generativeai" },
     { name = "googlesearch-python" },
@@ -965,6 +968,7 @@ dev = [
 requires-dist = [
     { name = "blessed" },
     { name = "click" },
+    { name = "dbus-next", specifier = ">=0.2.3" },
     { name = "fastapi" },
     { name = "google-generativeai" },
     { name = "googlesearch-python" },

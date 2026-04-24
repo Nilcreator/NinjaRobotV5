@@ -38,9 +38,10 @@ CHAR_COMMAND_UUID = "00000002-710e-4a5b-8d75-3e5b444bc3cf"
 # Response Characteristic (Notify): For sending JSON updates
 CHAR_RESPONSE_UUID = "00000003-710e-4a5b-8d75-3e5b444bc3cf"
 
-BLE_ADVERTISEMENT_PROFILES = ("name_only", "service_only")
+BLE_ADVERTISEMENT_PROFILES = ("name_only", "service_only", "connectable_only")
 BLE_START_ATTEMPTS = len(BLE_ADVERTISEMENT_PROFILES)
 BLE_RECOVERY_DELAY_SECONDS = 1.0
+BLE_ADAPTER_POWER_CYCLE_SECONDS = 0.75
 ADVERTISEMENT_ERROR_FRAGMENT = "register advertisement"
 ADVERTISING_NOT_READY_MESSAGE = "BLE advertising did not start"
 
@@ -216,8 +217,10 @@ class NinjaBLEService:
                     attempt,
                     BLE_START_ATTEMPTS,
                     advertisement_profile,
-                    exc,
+                    self._describe_start_error(exc),
                 )
+                if attempt == 1 and self._is_recoverable_start_error(exc):
+                    await self._recover_adapter_after_start_failure()
                 await self._cleanup_server()
 
                 if (
@@ -308,6 +311,35 @@ class NinjaBLEService:
             or ADVERTISING_NOT_READY_MESSAGE.lower() in message
         )
 
+    def _describe_start_error(self, exc: Exception) -> str:
+        """Return a concise BLE start error with D-Bus detail when available."""
+        details = [str(exc) or exc.__class__.__name__]
+        dbus_name = getattr(exc, "dbus_error", None) or getattr(exc, "_dbus_error_name", None)
+        if dbus_name:
+            details.append(f"D-Bus error: {dbus_name}")
+        return " | ".join(details)
+
+    async def _recover_adapter_after_start_failure(self) -> bool:
+        """Best-effort BlueZ adapter reset for transient advertisement failures."""
+        server = self._server
+        adapter = getattr(server, "adapter", None)
+        if adapter is None:
+            return False
+
+        try:
+            from dbus_next.signature import Variant
+
+            iface = adapter.get_interface("org.freedesktop.DBus.Properties")
+            await iface.call_set("org.bluez.Adapter1", "Powered", Variant("b", False))
+            await asyncio.sleep(BLE_ADAPTER_POWER_CYCLE_SECONDS)
+            await iface.call_set("org.bluez.Adapter1", "Powered", Variant("b", True))
+            await asyncio.sleep(BLE_ADAPTER_POWER_CYCLE_SECONDS)
+            log.info("Power-cycled Bluetooth adapter after advertisement start failure.")
+            return True
+        except Exception as exc:
+            log.debug("Bluetooth adapter recovery skipped/failed: %s", exc)
+            return False
+
     def _install_bluez_advertisement_patch(
         self,
         advertisement_profile: str,
@@ -349,6 +381,7 @@ class NinjaBLEService:
 
         include_service_uuid = advertisement_profile == "service_only"
         include_local_name = advertisement_profile == "name_only"
+        connectable_only = advertisement_profile == "connectable_only"
 
         class BaseNinjaAdvertisement(ServiceInterface):
             interface_name = "org.bluez.LEAdvertisement1"
@@ -367,6 +400,9 @@ class NinjaBLEService:
             @dbus_property(access=PropertyAccess.READ)
             def Type(self) -> "s":  # type: ignore # noqa: F821 N802
                 return self._type
+
+        if connectable_only:
+            return BaseNinjaAdvertisement
 
         if include_service_uuid:
 

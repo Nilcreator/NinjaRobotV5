@@ -33,6 +33,7 @@ dependencies = [
     "pyngrok",
     "python-multipart",
     "qrcode[pil]",
+    "dbus-next>=0.2.3",
     
     # AI and utilities
     "google-generativeai",
