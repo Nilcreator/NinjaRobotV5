@@ -14,6 +14,7 @@ from bless import (
 )
 
 from ninja_core.config import DEFAULT_BLE_NAME, normalize_ble_name
+from ninja_core.contracts import PROTOCOL_VERSION, ensure_request_id
 from ninja_core.dispatcher import CommandDispatcher
 from .chunking import (
     CHUNK_SIZE,
@@ -159,6 +160,9 @@ class NinjaBLEService:
             command_data = json.loads(json_str)
             log.info(f"BLE Command (legacy): {command_data}")
 
+            if self._handle_service_command(command_data):
+                return
+
             self._schedule_task(
                 self.dispatcher.handle_command("ble", command_data)
             )
@@ -175,6 +179,9 @@ class NinjaBLEService:
             command_data = json.loads(json_str)
             log.info(f"BLE Command (chunked): {command_data}")
 
+            if self._handle_service_command(command_data):
+                return
+
             self._schedule_task(
                 self.dispatcher.handle_command("ble", command_data)
             )
@@ -189,6 +196,30 @@ class NinjaBLEService:
             self._schedule_task(
                 self.on_broadcast({"type": "error", "msg": str(e)})
             )
+
+    def _handle_service_command(self, command_data: dict[str, Any]) -> bool:
+        """Handle BLE transport commands that should not enter robot runtime."""
+        if not isinstance(command_data, dict):
+            return False
+
+        if command_data.get("type") != "robot_info":
+            return False
+
+        request_id = ensure_request_id(command_data, "robot-info")
+        self._schedule_task(
+            self.on_broadcast(
+                {
+                    "type": "robot_info",
+                    "protocol_version": PROTOCOL_VERSION,
+                    "request_id": request_id,
+                    "name": self.service_name,
+                    "service_name": self.service_name,
+                    "display_name": self.service_name,
+                    "ble_name": self.service_name,
+                }
+            )
+        )
+        return True
 
     async def start(self):
         """Start the GATT Server."""

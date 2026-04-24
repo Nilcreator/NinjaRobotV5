@@ -769,6 +769,37 @@ Guidelines:
 
 When you scan from the NinjaRoboticPlatform Code IDE or nRF Connect, look for the new name instead of the default `NinjaRobot`.
 
+#### Troubleshooting Bluetooth Rename and Discovery
+
+On the Raspberry Pi, update dependencies and restart cleanly:
+
+```bash
+cd ~/NinjaRobotV5
+uv sync
+sudo rfkill unblock bluetooth
+sudo systemctl restart bluetooth
+uv run ninja_core server
+```
+
+If it still fails, run this Pi-side diagnosis:
+
+```bash
+systemctl status bluetooth hciuart --no-pager
+rfkill list bluetooth
+bluetoothctl show
+journalctl -u bluetooth -b --no-pager | tail -100
+```
+
+If `bluetoothctl show` has no controller or says not powered, fix the Pi Bluetooth stack first:
+
+```bash
+sudo apt update
+sudo apt install -y pi-bluetooth bluez
+sudo systemctl enable --now bluetooth hciuart
+sudo rfkill unblock bluetooth
+sudo reboot
+```
+
 ---
 
 ## 8. System Integration Testing
@@ -1589,6 +1620,37 @@ uv run ninja_core config set-name "Classroom Ninja 1"
 
 NinjaRoboticPlatform Code IDE や nRF Connect からスキャンするときは、デフォルトの `NinjaRobot` ではなく新しい名前を探してください。
 
+#### Bluetooth 名変更と検出のトラブルシューティング
+
+Raspberry Pi 側で依存関係を更新し、クリーンに再起動します：
+
+```bash
+cd ~/NinjaRobotV5
+uv sync
+sudo rfkill unblock bluetooth
+sudo systemctl restart bluetooth
+uv run ninja_core server
+```
+
+それでも失敗する場合は、Pi 側で次の診断を実行してください：
+
+```bash
+systemctl status bluetooth hciuart --no-pager
+rfkill list bluetooth
+bluetoothctl show
+journalctl -u bluetooth -b --no-pager | tail -100
+```
+
+`bluetoothctl show` でコントローラーが表示されない、または powered ではないと表示される場合は、先に Pi の Bluetooth スタックを修復してください：
+
+```bash
+sudo apt update
+sudo apt install -y pi-bluetooth bluez
+sudo systemctl enable --now bluetooth hciuart
+sudo rfkill unblock bluetooth
+sudo reboot
+```
+
 ---
 
 ## 8. システム統合テスト
@@ -2398,6 +2460,37 @@ uv run ninja_core config set-name "Classroom Ninja 1"
 - 變更後請重新啟動 `uv run ninja_core server`，或重新開機 Raspberry Pi，讓新的 Bluetooth 名稱開始廣播。
 
 之後從 NinjaRoboticPlatform Code IDE 或 nRF Connect 掃描時，請尋找新的名稱，而不是預設的 `NinjaRobot`。
+
+#### Bluetooth 重新命名與掃描疑難排解
+
+在 Raspberry Pi 上更新依賴並乾淨地重新啟動：
+
+```bash
+cd ~/NinjaRobotV5
+uv sync
+sudo rfkill unblock bluetooth
+sudo systemctl restart bluetooth
+uv run ninja_core server
+```
+
+如果仍然失敗，請執行以下 Pi 端診斷：
+
+```bash
+systemctl status bluetooth hciuart --no-pager
+rfkill list bluetooth
+bluetoothctl show
+journalctl -u bluetooth -b --no-pager | tail -100
+```
+
+如果 `bluetoothctl show` 沒有控制器，或顯示尚未 powered，請先修復 Pi 的 Bluetooth stack：
+
+```bash
+sudo apt update
+sudo apt install -y pi-bluetooth bluez
+sudo systemctl enable --now bluetooth hciuart
+sudo rfkill unblock bluetooth
+sudo reboot
+```
 
 ---
 

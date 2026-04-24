@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import json
 import sys
@@ -74,6 +75,83 @@ def test_ble_service_chunks_large_broadcasts(monkeypatch):
 
     assert reassembled is not None
     assert json.loads(reassembled.decode("utf-8")) == message
+
+
+def test_ble_service_answers_robot_info_from_configured_name(monkeypatch):
+    custom_name = "NinjaV4 Sasuke"
+
+    class FakeBlessServer:
+        def __init__(self, name=None):
+            self.name = name
+            self._characteristics = {
+                "00000003-710e-4a5b-8d75-3e5b444bc3cf": types.SimpleNamespace(value=bytearray())
+            }
+            self.updates = []
+
+        def get_characteristic(self, uuid):
+            return self._characteristics.get(uuid)
+
+        def update_value(self, service_uuid, characteristic_uuid):
+            char = self._characteristics[characteristic_uuid]
+            self.updates.append(bytes(char.value))
+
+    bless_stub = types.SimpleNamespace(
+        BlessServer=FakeBlessServer,
+        BlessGATTCharacteristic=object,
+        GATTCharacteristicProperties=types.SimpleNamespace(
+            write=1,
+            write_without_response=2,
+            read=4,
+            notify=8,
+        ),
+        GATTAttributePermissions=types.SimpleNamespace(
+            writeable=1,
+            readable=2,
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "bless", bless_stub)
+    sys.modules.pop("ninja_ble.service", None)
+    service_module = importlib.import_module("ninja_ble.service")
+
+    class FakeDispatcher:
+        def __init__(self):
+            self.commands = []
+
+        def register_listener(self, listener):
+            self.listener = listener
+
+        async def handle_command(self, source, command):
+            self.commands.append((source, command))
+            return {"status": "unexpected"}
+
+    dispatcher = FakeDispatcher()
+    service = service_module.NinjaBLEService(
+        dispatcher,
+        service_name=custom_name,
+    )
+    service._running = True
+    service._server = FakeBlessServer(name=custom_name)
+
+    async def dispatch_robot_info():
+        service._handle_legacy_json(
+            json.dumps(
+                {
+                    "type": "robot_info",
+                    "request_id": "robot-info-1",
+                }
+            ).encode("utf-8")
+        )
+        await asyncio.sleep(0)
+
+    asyncio.run(dispatch_robot_info())
+
+    assert dispatcher.commands == []
+    assert len(service._server.updates) == 1
+    message = json.loads(service._server.updates[0].decode("utf-8"))
+    assert message["type"] == "robot_info"
+    assert message["request_id"] == "robot-info-1"
+    assert message["service_name"] == custom_name
+    assert message["name"] == custom_name
 
 
 def test_ble_service_start_accepts_no_return_bless_start(monkeypatch):
