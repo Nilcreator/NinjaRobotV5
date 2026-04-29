@@ -33,6 +33,21 @@ class ActionValidationError(ActionLibraryError):
 class ActionNameConflictError(ActionLibraryError):
     """Raised when an action name conflicts with an existing action or movement."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        conflict_type: str = "saved_action",
+        action_name: str | None = None,
+        action_slug: str | None = None,
+        can_overwrite: bool = False,
+    ):
+        super().__init__(message)
+        self.conflict_type = conflict_type
+        self.action_name = action_name
+        self.action_slug = action_slug
+        self.can_overwrite = can_overwrite
+
 
 class ActionNotFoundError(ActionLibraryError):
     """Raised when a saved action cannot be found."""
@@ -175,6 +190,7 @@ class ActionLibrary:
         name: str,
         *,
         native_movement_names: Iterable[str] = (),
+        allow_existing_action: bool = False,
     ) -> tuple[str, str]:
         normalized_name = normalize_action_name(name)
         slug = slugify_action_name(normalized_name)
@@ -184,15 +200,25 @@ class ActionLibrary:
         native_slugs = {slugify_action_name(native_name) for native_name in native_movement_names}
         if name_key in native_keys or slug in native_slugs:
             raise ActionNameConflictError(
-                f"Action name '{normalized_name}' conflicts with an existing native movement."
+                f"Action name '{normalized_name}' conflicts with an existing native movement.",
+                conflict_type="native_movement",
+                action_name=normalized_name,
+                action_slug=slug,
+                can_overwrite=False,
             )
 
         for record in self.list_actions():
             record_name = record.get("name", "")
             record_slug = record.get("slug", "")
             if record_slug == slug or action_name_key(record_name) == name_key:
+                if allow_existing_action:
+                    return normalized_name, slug
                 raise ActionNameConflictError(
-                    f"Action name '{normalized_name}' already exists."
+                    f"Action name '{normalized_name}' already exists.",
+                    conflict_type="saved_action",
+                    action_name=record_name or normalized_name,
+                    action_slug=record_slug or slug,
+                    can_overwrite=True,
                 )
 
         return normalized_name, slug
@@ -205,16 +231,21 @@ class ActionLibrary:
         workspace_state: Mapping[str, Any] | None = None,
         manifest: Mapping[str, Any] | None = None,
         native_movement_names: Iterable[str] = (),
+        overwrite: bool = False,
     ) -> dict[str, Any]:
         normalized_name, slug = self.ensure_name_available(
             name,
             native_movement_names=native_movement_names,
+            allow_existing_action=overwrite,
         )
         validated_code = validate_action_code(code)
         if workspace_state is not None and not isinstance(workspace_state, Mapping):
             raise ActionValidationError("Blockly workspace state must be a JSON object.")
         workspace_payload = dict(workspace_state) if workspace_state else None
         timestamp = _utc_timestamp()
+        existing_record = self.find_action(normalized_name) if overwrite else None
+        if existing_record:
+            slug = existing_record.get("slug") or slug
         record = {
             "schema_version": ACTION_SCHEMA_VERSION,
             "name": normalized_name,
@@ -223,7 +254,9 @@ class ActionLibrary:
             "manifest": build_execution_manifest(manifest),
             "workspace_state": workspace_payload,
             "code": validated_code,
-            "created_at": timestamp,
+            "created_at": existing_record.get("created_at", timestamp)
+            if existing_record
+            else timestamp,
             "updated_at": timestamp,
         }
 
@@ -234,7 +267,7 @@ class ActionLibrary:
             json.dump(record, f, indent=2, ensure_ascii=False)
             f.write("\n")
         os.replace(tmp_path, target_path)
-        return record
+        return {**record, "overwritten": bool(existing_record)}
 
     def build_replay_code(self, action_chain: Iterable[Mapping[str, Any]]) -> str:
         lines = [

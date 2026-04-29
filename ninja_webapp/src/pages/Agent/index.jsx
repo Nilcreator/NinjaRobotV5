@@ -13,13 +13,14 @@ function Agent() {
     const { t, i18n } = useTranslation();
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [pendingMessages, setPendingMessages] = useState(0);
     const [distance, setDistance] = useState(null);
     const [isRecording, setIsRecording] = useState(false);
     const [logs, setLogs] = useState([]);
     const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const logsEndRef = useRef(null);
+    const isLoading = pendingMessages > 0;
 
     // Scroll to bottom when new messages arrive
     useEffect(() => {
@@ -91,12 +92,12 @@ function Agent() {
     }, []);
 
     const sendMessage = async () => {
-        if (!input.trim() || isLoading) return;
+        if (!input.trim()) return;
 
         const userMessage = input.trim();
         setInput('');
         setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-        setIsLoading(true);
+        setPendingMessages(prev => prev + 1);
 
         try {
             const response = await fetch('/api/agent/chat', {
@@ -116,7 +117,7 @@ function Agent() {
                 content: t('agent.error') || 'Error: Could not connect.'
             }]);
         } finally {
-            setIsLoading(false);
+            setPendingMessages(prev => Math.max(0, prev - 1));
         }
     };
 
@@ -265,12 +266,12 @@ function Agent() {
                         onKeyPress={handleKeyPress}
                         placeholder={t('agent.placeholder')}
                         className={styles.textInput}
-                        disabled={isLoading || isRecording}
+                        disabled={isRecording}
                     />
                     <button
                         className={styles.sendButton}
                         onClick={sendMessage}
-                        disabled={!input.trim() || isLoading}
+                        disabled={!input.trim()}
                     >
                         {t('agent.send')}
                     </button>

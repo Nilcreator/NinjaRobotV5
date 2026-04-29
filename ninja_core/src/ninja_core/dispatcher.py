@@ -293,14 +293,17 @@ class CommandDispatcher:
                 workspace_state=cmd_data.get("workspace_state"),
                 manifest=manifest,
                 native_movement_names=self._native_movement_names,
+                overwrite=bool(cmd_data.get("overwrite", False)),
             )
         except ActionNameConflictError as exc:
             event = build_action_save_status_event(
                 request_id,
                 "conflict",
                 str(exc),
-                action_name=str(cmd_data.get("name", "")),
+                action_name=exc.action_name or str(cmd_data.get("name", "")),
+                action_slug=exc.action_slug,
                 code="action_name_conflict",
+                can_overwrite=exc.can_overwrite,
             )
             await self.broadcast(event)
             return {
@@ -310,6 +313,10 @@ class CommandDispatcher:
                 "request_id": request_id,
                 "protocol_version": manifest["protocol_version"],
                 "manifest": manifest,
+                "save_status": "conflict",
+                "action_name": exc.action_name or str(cmd_data.get("name", "")),
+                "action_slug": exc.action_slug,
+                "can_overwrite": exc.can_overwrite,
             }
         except ActionValidationError as exc:
             event = build_action_save_status_event(
@@ -327,6 +334,8 @@ class CommandDispatcher:
                 "request_id": request_id,
                 "protocol_version": manifest["protocol_version"],
                 "manifest": manifest,
+                "save_status": "error",
+                "action_name": str(cmd_data.get("name", "")),
             }
         except ActionLibraryError as exc:
             event = build_action_save_status_event(
@@ -344,6 +353,8 @@ class CommandDispatcher:
                 "request_id": request_id,
                 "protocol_version": manifest["protocol_version"],
                 "manifest": manifest,
+                "save_status": "error",
+                "action_name": str(cmd_data.get("name", "")),
             }
         except Exception as exc:
             event = build_action_save_status_event(
@@ -361,6 +372,8 @@ class CommandDispatcher:
                 "request_id": request_id,
                 "protocol_version": manifest["protocol_version"],
                 "manifest": manifest,
+                "save_status": "error",
+                "action_name": str(cmd_data.get("name", "")),
             }
 
         if self.agent and hasattr(self.agent, "refresh_capabilities"):
@@ -368,10 +381,15 @@ class CommandDispatcher:
 
         event = build_action_save_status_event(
             request_id,
-            "saved",
-            f"Saved Blockly action '{record['name']}'",
+            "overwritten" if record.get("overwritten") else "saved",
+            (
+                f"Overwrote Blockly action '{record['name']}'"
+                if record.get("overwritten")
+                else f"Saved Blockly action '{record['name']}'"
+            ),
             action_name=record["name"],
             action_slug=record["slug"],
+            overwritten=bool(record.get("overwritten", False)),
         )
         await self.broadcast(event)
         return {
@@ -381,6 +399,9 @@ class CommandDispatcher:
             "manifest": manifest,
             "action_name": record["name"],
             "action_slug": record["slug"],
+            "save_status": event["status"],
+            "message": event["message"],
+            "overwritten": bool(record.get("overwritten", False)),
         }
 
     async def execute_action_chain(

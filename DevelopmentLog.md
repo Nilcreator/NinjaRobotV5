@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-04-30: Saved Action Overwrite And Agent Interruption Refinement ✓
+- **Action**: Refined saved Blockly action collision handling and web-agent interruption behavior for long-running saved actions.
+- **Implementation**:
+  - **Protected overwrite**: `ActionLibrary.save_action(..., overwrite=True)` can replace existing saved Blockly actions while preserving native `config.json` movements from overwrite.
+  - **Collision metadata**: `action_save_status` now includes `can_overwrite` and `overwritten` so the Code IDE can distinguish saved-action conflicts from protected native movement conflicts.
+  - **BLE response fallback**: `NinjaBLEService` now sends a save-action response fallback from the dispatcher result, preventing browser-side `action_save_status` timeouts during collision handling.
+  - **Agent interruption**: New web-agent messages call a cooperative interruption path that stops active SafeExecutor code, aborts servos, stops face/sound output, and serializes action-plan execution with an async lock before running the new command.
+  - **Safety limit**: Non-cooperative Python loops that never reach `check_stop()` are not force-killed in-thread; the server returns a safety warning instead of starting a second robot action on top of the first.
+- **Validation**: `PYTHONDONTWRITEBYTECODE=1 uv run --with ruff ruff check ninja_core/src ninja_ble/src tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`64 passed`).
+
 ## 2026-04-29: Saved Blockly Action Library Refinement ✓
 - **Action**: Added a persistent saved-action pipeline so complete Blockly programs uploaded from the NinjaRoboticPlatform Code IDE can be named, stored on the robot, and replayed by the NinjaRobotV5 AI agent.
 - **Implementation**:

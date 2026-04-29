@@ -49,15 +49,38 @@ def test_action_library_rejects_duplicate_and_native_movement_conflicts(tmp_path
     library = ActionLibrary(tmp_path / "ninja_actions")
     library.save_action(name="Wave", code='print("ok")')
 
-    with pytest.raises(ActionNameConflictError):
+    with pytest.raises(ActionNameConflictError) as saved_conflict:
         library.save_action(name="wave", code='print("again")')
+    assert saved_conflict.value.can_overwrite is True
+    assert saved_conflict.value.conflict_type == "saved_action"
 
-    with pytest.raises(ActionNameConflictError):
+    with pytest.raises(ActionNameConflictError) as native_conflict:
         library.save_action(
             name="Poweroff",
             code='print("native conflict")',
             native_movement_names=["Poweroff"],
         )
+    assert native_conflict.value.can_overwrite is False
+    assert native_conflict.value.conflict_type == "native_movement"
+
+
+def test_action_library_overwrites_saved_action_but_not_native_movement(tmp_path):
+    library = ActionLibrary(tmp_path / "ninja_actions")
+    original = library.save_action(name="Wave", code='print("old")')
+    updated = library.save_action(name="wave", code='print("new")', overwrite=True)
+
+    assert updated["overwritten"] is True
+    assert updated["created_at"] == original["created_at"]
+    assert library.get_action("Wave")["code"] == 'print("new")'
+
+    with pytest.raises(ActionNameConflictError) as native_conflict:
+        library.save_action(
+            name="Poweroff",
+            code='print("native conflict")',
+            native_movement_names=["Poweroff"],
+            overwrite=True,
+        )
+    assert native_conflict.value.can_overwrite is False
 
 
 def test_action_library_rejects_disallowed_imports(tmp_path):

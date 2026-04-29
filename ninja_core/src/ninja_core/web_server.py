@@ -71,6 +71,7 @@ class AppState:
         self.connection_manager = ConnectionManager()
         self.tasks = set() # Track background tasks
         self.shutdown_event = asyncio.Event()  # Signal for graceful shutdown
+        self.action_plan_lock: Optional[asyncio.Lock] = None
 
 # --- Connection Manager ---
 class ConnectionManager:
@@ -115,6 +116,7 @@ async def lifespan(app: FastAPI):
     app.state.ninja.hal.initialize()
     app.state.ninja.runtime_pipeline = RuntimePipeline(app.state.ninja.hal)
     app.state.ninja.action_library = ActionLibrary()
+    app.state.ninja.action_plan_lock = asyncio.Lock()
 
     # Initialize Dispatcher
     from .dispatcher import CommandDispatcher
@@ -310,6 +312,66 @@ async def reclaim_native_runtime(app_state: AppState):
     pipeline.abort_blockly()
 
 
+async def interrupt_active_robot_action(
+    app_state: AppState,
+    *,
+    timeout: float = 2.0,
+) -> dict:
+    """Stop the current robot-owned action before processing a newer agent request."""
+    dispatcher = getattr(app_state, "dispatcher", None)
+    safe_executor = getattr(dispatcher, "safe_executor", None) if dispatcher else None
+    was_running = bool(safe_executor and safe_executor.is_running())
+    pipeline = getattr(app_state, "runtime_pipeline", None)
+    action_locked = bool(app_state.action_plan_lock and app_state.action_plan_lock.locked())
+    should_interrupt = was_running or action_locked or bool(pipeline and pipeline.mode != "native")
+
+    if not should_interrupt:
+        return {
+            "interrupted": False,
+            "stopped": True,
+            "still_running": False,
+        }
+
+    if safe_executor:
+        try:
+            safe_executor.stop()
+        except Exception as exc:
+            print(f"Failed to stop active SafeExecutor action: {exc}")
+
+    servos = getattr(app_state.hal, "servos", None) if app_state.hal else None
+    if servos and hasattr(servos, "abort"):
+        try:
+            servos.abort()
+        except Exception as exc:
+            print(f"Failed to abort active servo motion: {exc}")
+
+    if app_state.sound and hasattr(app_state.sound, "stop"):
+        try:
+            app_state.sound.stop(restart_buzzer=True)
+        except Exception as exc:
+            print(f"Failed to stop active sound: {exc}")
+
+    if app_state.faces:
+        try:
+            app_state.faces.stop()
+        except Exception as exc:
+            print(f"Failed to stop active face animation: {exc}")
+
+    if pipeline and pipeline.mode != "native":
+        pipeline.abort_blockly()
+
+    deadline = time.monotonic() + timeout
+    while safe_executor and safe_executor.is_running() and time.monotonic() < deadline:
+        await asyncio.sleep(0.05)
+
+    still_running = bool(safe_executor and safe_executor.is_running())
+    return {
+        "interrupted": was_running,
+        "stopped": not still_running,
+        "still_running": still_running,
+    }
+
+
 def _perform_shutdown_animation(app_state: "AppState") -> None:
     """
     Perform graceful shutdown animation: sleepy face + sound → Poweroff pose.
@@ -415,6 +477,16 @@ def safety_check(app_state: AppState) -> bool:
     return False
 
 async def execute_action_plan(app_state: AppState, action_plan: dict):
+    lock = app_state.action_plan_lock
+    if lock is None:
+        await _execute_action_plan_unlocked(app_state, action_plan)
+        return
+
+    async with lock:
+        await _execute_action_plan_unlocked(app_state, action_plan)
+
+
+async def _execute_action_plan_unlocked(app_state: AppState, action_plan: dict):
     tasks = []
     action_chain = action_plan.get("action_chain", [])
     if not action_chain and action_plan.get("action"):
@@ -553,6 +625,22 @@ async def agent_chat(payload: AgentChatRequest, request: Request):
     if not state.agent:
         raise HTTPException(status_code=400, detail="Agent not active")
 
+    interruption = await interrupt_active_robot_action(state)
+    if interruption["still_running"]:
+        message = (
+            "I tried to stop the current action, but it is still running. "
+            "Please use Stop Robot or restart the server before starting another action."
+        )
+        await state.connection_manager.broadcast({
+            "type": "log",
+            "message": "Agent request blocked: previous action did not stop cooperatively.",
+        })
+        return {
+            "response": message,
+            "log": "Previous action did not stop within the safe interruption timeout.",
+            "interrupted": interruption,
+        }
+
     result = await state.agent.process_command(payload.message)
     
     if result.get("action_plan"):
@@ -601,6 +689,18 @@ async def agent_voice(request: Request, file: UploadFile = File(...)):
 
     if not state.agent:
         raise HTTPException(status_code=400, detail="Agent not active")
+
+    interruption = await interrupt_active_robot_action(state)
+    if interruption["still_running"]:
+        return {
+            "response": (
+                "I tried to stop the current action, but it is still running. "
+                "Please use Stop Robot or restart the server before starting another action."
+            ),
+            "transcription": "Voice Processed",
+            "log": "Previous action did not stop within the safe interruption timeout.",
+            "interrupted": interruption,
+        }
 
     # Save to temp file
     try:

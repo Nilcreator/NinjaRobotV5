@@ -143,10 +143,10 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | Component | Change |
 |---|---|
 | `ninja_core/action_library.py` | **NEW** - Stores complete Blockly action records uploaded from the Code IDE in `ninja_actions/*.json` |
-| `ninja_core/dispatcher.py` | Adds `save_action` command handling, name-conflict validation, `action_save_status` events, and saved-action replay through the SafeExecutor |
+| `ninja_core/dispatcher.py` | Adds `save_action` command handling, protected overwrite validation, `action_save_status` events, and saved-action replay through the SafeExecutor |
 | `ninja_core/ninja_agent.py` | Loads saved Blockly action names alongside native config movements and can return `action_chain` plans for AI replay |
-| `ninja_core/web_server.py` | Wires the action library into startup, dispatcher, and agent refresh so newly saved actions are immediately available |
-| BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; duplicate names are rejected by the robot |
+| `ninja_core/web_server.py` | Wires the action library into startup, dispatcher, agent refresh, and cooperative interruption for new chat requests |
+| BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; saved Blockly duplicates can be overwritten only with explicit confirmation, while native movements remain protected |
 
 ### Required Setup:
 ```bash
@@ -1626,7 +1626,7 @@ set_robot_name("Desk Robot A")
 1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
 2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
 3. **`execute`** -> Compiles Blockly-generated Python through `SafeExecutor`; after compilation succeeds, `RuntimePipeline.begin_blockly()` stops native idle/sound/servo actions before user code starts. The dispatcher then broadcasts `execute_received`, `execution_status: started`, and keeps all follow-up events on the same `request_id`.
-4. **`save_action`** -> Validates and persists a complete Code IDE Blockly action. The dispatcher broadcasts `action_save_status: saved`, `conflict`, or `error` and refreshes AI capabilities after a successful save.
+4. **`save_action`** -> Validates and persists a complete Code IDE Blockly action. The dispatcher broadcasts `action_save_status: saved`, `overwritten`, `conflict`, or `error` and refreshes AI capabilities after a successful save or overwrite.
 5. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()`, calls `RuntimePipeline.abort_blockly()`, broadcasts `execution_status: stop_requested` for the active request, and restores native idle behavior.
 
 **Execution Lifecycle Guarantees:**
@@ -2354,8 +2354,8 @@ def __init__(self, root: Path | str = ACTION_LIBRARY_PATH)
 - `list_names() -> list[str]`: Returns user-facing saved action names for the AI prompt.
 - `find_action(name_or_slug: str) -> dict | None`: Finds by normalized name or slug.
 - `get_action(name_or_slug: str) -> dict`: Returns a saved action or raises `ActionNotFoundError`.
-- `ensure_name_available(name, native_movement_names=()) -> tuple[str, str]`: Rejects empty/oversized names and conflicts with native config movement names or existing saved Blockly actions.
-- `save_action(name=..., code=..., workspace_state=..., manifest=..., native_movement_names=...) -> dict`: Validates imports/syntax, stores the record atomically, and returns the saved record.
+- `ensure_name_available(name, native_movement_names=(), allow_existing_action=False) -> tuple[str, str]`: Rejects empty/oversized names and conflicts with native config movement names or existing saved Blockly actions.
+- `save_action(name=..., code=..., workspace_state=..., manifest=..., native_movement_names=..., overwrite=False) -> dict`: Validates imports/syntax, stores the record atomically, and returns the saved record. `overwrite=True` may replace a saved Blockly action but never a native config movement.
 - `build_replay_code(action_chain) -> str`: Builds SafeExecutor-compatible Python that replays one or more saved Blockly actions with bounded repetitions and cooperative `check_stop()` calls.
 
 **Validation Rules:**
@@ -2364,6 +2364,8 @@ def __init__(self, root: Path | str = ACTION_LIBRARY_PATH)
 - Saved Python must parse/compile and may only import `time`, `math`, `random`, or `ninja_core`.
 - Code size is limited to 128 KiB per action.
 - Name conflicts are decided by the robot, not by the browser, so native movements and saved Blockly actions share one action namespace.
+- Saved Blockly action conflicts return `can_overwrite: true`; native movement conflicts return `can_overwrite: false`.
+- Long-running saved Blockly actions remain cooperative. New web-agent messages request `SafeExecutor.stop()`, abort active servo motion, stop display/sound/face output, and wait briefly before the next action plan runs. Non-cooperative Python loops that never call `check_stop()` cannot be safely killed in-thread and must be stopped through Stop Robot or server restart.
 
 ---
 
@@ -2535,7 +2537,7 @@ def __init__(
 }
 ```
 
-The robot persists this as a complete Blockly action in `ninja_actions/`. If `name` conflicts with a native `config.json` movement or another saved Blockly action, the robot returns `action_save_status` with `status: "conflict"` and `code: "action_name_conflict"`; the Code IDE must prompt the user for a new name.
+The robot persists this as a complete Blockly action in `ninja_actions/`. If `name` conflicts with a native `config.json` movement, the robot returns `action_save_status` with `status: "conflict"`, `code: "action_name_conflict"`, and `can_overwrite: false`. If `name` conflicts with another saved Blockly action, the event includes `can_overwrite: true`; the Code IDE may ask the user for confirmation and resend `save_action` with `"overwrite": true`.
 
 **Stop Command:**
 ```json

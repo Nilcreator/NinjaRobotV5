@@ -65,6 +65,7 @@ class NinjaBLEService:
         self._notify_lock: asyncio.Lock | None = None
         self._next_outbound_transfer_id = 1
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._save_action_broadcasts: set[str] = set()
 
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
@@ -163,9 +164,7 @@ class NinjaBLEService:
             if self._handle_service_command(command_data):
                 return
 
-            self._schedule_task(
-                self.dispatcher.handle_command("ble", command_data)
-            )
+            self._schedule_task(self._handle_dispatcher_command(command_data))
 
         except json.JSONDecodeError:
             log.error("BLE Write Error: Invalid JSON")
@@ -182,9 +181,7 @@ class NinjaBLEService:
             if self._handle_service_command(command_data):
                 return
 
-            self._schedule_task(
-                self.dispatcher.handle_command("ble", command_data)
-            )
+            self._schedule_task(self._handle_dispatcher_command(command_data))
 
         except json.JSONDecodeError:
             log.error("BLE Chunked Payload Error: Invalid JSON")
@@ -220,6 +217,61 @@ class NinjaBLEService:
             )
         )
         return True
+
+    async def _handle_dispatcher_command(self, command_data: dict[str, Any]):
+        """Run a robot command and provide request/response fallback events."""
+        try:
+            result = await self.dispatcher.handle_command("ble", command_data)
+            if command_data.get("type") == "save_action":
+                await self._broadcast_save_action_result(result)
+        except Exception as exc:
+            log.exception("Dispatcher command failed")
+            request_id = command_data.get("request_id")
+            if command_data.get("type") == "save_action" and request_id:
+                await self.on_broadcast(
+                    {
+                        "type": "action_save_status",
+                        "protocol_version": PROTOCOL_VERSION,
+                        "request_id": request_id,
+                        "status": "error",
+                        "message": str(exc),
+                        "code": "action_save_failed",
+                    }
+                )
+
+    async def _broadcast_save_action_result(self, result: dict[str, Any]):
+        """Fallback notification for save_action command responses.
+
+        Dispatcher broadcasts remain the primary event path. This direct response
+        prevents the browser from timing out if a save collision happens before a
+        client observes the normal broadcast.
+        """
+        request_id = result.get("request_id")
+        if not request_id or not result.get("save_status"):
+            return
+        if request_id in self._save_action_broadcasts:
+            self._save_action_broadcasts.discard(request_id)
+            return
+
+        event = {
+            "type": "action_save_status",
+            "protocol_version": result.get("protocol_version", PROTOCOL_VERSION),
+            "request_id": request_id,
+            "status": result.get("save_status"),
+            "message": result.get("message", ""),
+        }
+        if result.get("error_code"):
+            event["code"] = result["error_code"]
+        if result.get("action_name"):
+            event["action_name"] = result["action_name"]
+        if result.get("action_slug"):
+            event["action_slug"] = result["action_slug"]
+        if "can_overwrite" in result:
+            event["can_overwrite"] = bool(result["can_overwrite"])
+        if "overwritten" in result:
+            event["overwritten"] = bool(result["overwritten"])
+
+        await self.on_broadcast(event)
 
     async def start(self):
         """Start the GATT Server."""
@@ -489,6 +541,8 @@ class NinjaBLEService:
         try:
             payload = json.dumps(message, separators=(",", ":")).encode("utf-8")
             await self._notify_payload(payload)
+            if message.get("type") == "action_save_status" and message.get("request_id"):
+                self._save_action_broadcasts.add(str(message["request_id"]))
             log.debug(f"BLE Notify: {message}")
 
         except Exception as e:

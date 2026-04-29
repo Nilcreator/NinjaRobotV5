@@ -645,6 +645,7 @@ def test_save_action_command_persists_and_broadcasts_status(tmp_path, monkeypatc
                 "message": "Saved Blockly action 'Happy Wave'",
                 "action_name": "Happy Wave",
                 "action_slug": "happy-wave",
+                "overwritten": False,
             }
         ]
 
@@ -686,6 +687,46 @@ def test_save_action_command_rejects_native_name_conflict(tmp_path, monkeypatch)
         assert messages[0]["type"] == "action_save_status"
         assert messages[0]["status"] == "conflict"
         assert messages[0]["code"] == "action_name_conflict"
+        assert messages[0]["can_overwrite"] is False
+
+    asyncio.run(run_test())
+
+
+def test_save_action_command_can_overwrite_saved_action(tmp_path, monkeypatch):
+    import ninja_core.dispatcher as dispatcher_module
+    from ninja_core.action_library import ActionLibrary
+
+    class StubSafeExecutor:
+        def __init__(self, hal, on_print=None, runtime_pipeline=None):
+            return None
+
+    monkeypatch.setattr(dispatcher_module, "SafeExecutor", StubSafeExecutor)
+    dispatcher_module.CommandDispatcher._instance = None
+
+    async def run_test():
+        action_library = ActionLibrary(tmp_path / "ninja_actions")
+        action_library.save_action(name="Wave", code='print("old")')
+        dispatcher = dispatcher_module.CommandDispatcher(hal=None)
+        dispatcher.attach_action_library(action_library)
+        messages = []
+        dispatcher.register_listener(messages.append)
+
+        result = await dispatcher.handle_command(
+            "ble",
+            {
+                "type": "save_action",
+                "request_id": "save-action-overwrite",
+                "name": "Wave",
+                "code": 'print("new")',
+                "overwrite": True,
+            },
+        )
+
+        assert result["status"] == "ok"
+        assert action_library.get_action("Wave")["code"] == 'print("new")'
+        assert messages[0]["type"] == "action_save_status"
+        assert messages[0]["status"] == "overwritten"
+        assert messages[0]["overwritten"] is True
 
     asyncio.run(run_test())
 

@@ -72,6 +72,7 @@ def test_build_action_save_status_event_includes_saved_action_metadata():
         "Saved Blockly action",
         action_name="Wave",
         action_slug="wave",
+        overwritten=True,
     )
 
     assert event == {
@@ -82,4 +83,5 @@ def test_build_action_save_status_event_includes_saved_action_metadata():
         "message": "Saved Blockly action",
         "action_name": "Wave",
         "action_slug": "wave",
+        "overwritten": True,
     }

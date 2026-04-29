@@ -123,6 +123,8 @@ def build_action_save_status_event(
     action_name: str | None = None,
     action_slug: str | None = None,
     code: str | None = None,
+    can_overwrite: bool | None = None,
+    overwritten: bool | None = None,
 ) -> dict[str, Any]:
     event = {
         "type": "action_save_status",
@@ -137,4 +139,8 @@ def build_action_save_status_event(
         event["action_slug"] = action_slug
     if code:
         event["code"] = code
+    if can_overwrite is not None:
+        event["can_overwrite"] = can_overwrite
+    if overwritten is not None:
+        event["overwritten"] = overwritten
     return event
