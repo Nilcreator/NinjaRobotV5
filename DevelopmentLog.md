@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-04-29: Saved Blockly Action Library Refinement ✓
+- **Action**: Added a persistent saved-action pipeline so complete Blockly programs uploaded from the NinjaRoboticPlatform Code IDE can be named, stored on the robot, and replayed by the NinjaRobotV5 AI agent.
+- **Implementation**:
+  - **Action library**: Added `ninja_core.action_library.ActionLibrary`, storing validated `ninja-action-v1` records in `ninja_actions/*.json` with generated Python, Blockly workspace metadata, manifest, normalized name, slug, and timestamps.
+  - **Robot-authoritative conflicts**: The Pi now rejects action names that conflict with native `config.json` movements or existing saved Blockly actions and returns `action_save_status` with `code: action_name_conflict`.
+  - **BLE command contract**: `CommandDispatcher` now handles `save_action`, broadcasts saved/conflict/error status events, and refreshes agent capabilities after a successful save.
+  - **AI replay path**: `NinjaAgent` now exposes saved Blockly action names in its prompt and may return `action_chain`; `web_server.execute_action_plan()` replays that chain through `CommandDispatcher.execute_action_chain()` and the SafeExecutor/runtime-pipeline path.
+  - **Documentation**: Updated `README.md` and `DevelopmentGuide.md` with the saved action library, BLE command/event contract, replay behavior, and validation rules.
+- **Validation**: `PYTHONDONTWRITEBYTECODE=1 uv run --with ruff ruff check ninja_core/src ninja_ble/src tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`62 passed`).
+- **Files Modified**: `ninja_core/src/ninja_core/action_library.py`, `ninja_core/src/ninja_core/contracts.py`, `ninja_core/src/ninja_core/dispatcher.py`, `ninja_core/src/ninja_core/ninja_agent.py`, `ninja_core/src/ninja_core/web_server.py`, `ninja_core/src/ninja_core/__main__.py`, `tests/test_action_library.py`, `tests/test_contracts.py`, `tests/test_dispatcher.py`, `README.md`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-04-23: BLE Robot Naming Refinement ✓
 - **Action**: Added persistent Bluetooth naming support so each NinjaRobotV5 can advertise a user-defined discovery name instead of relying on the shared default.
 - **Details**:

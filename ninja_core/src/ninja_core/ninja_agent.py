@@ -7,6 +7,7 @@ import google.generativeai as genai
 from google.generativeai.types import GenerationConfig, Tool
 
 from .config import NinjaConfig
+from .action_library import ActionLibrary
 from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
 
@@ -25,7 +26,9 @@ class NinjaAgent:
     It uses Google Gemini to understand commands and control the robot.
     """
 
-    def __init__(self, config: NinjaConfig):
+    def __init__(self, config: NinjaConfig, action_library: ActionLibrary | None = None):
+        self.config = config
+        self.action_library = action_library or ActionLibrary()
         self.api_key = config.api_keys.get("gemini")
         if not self.api_key:
             raise MissingAPIKeyError(
@@ -65,9 +68,20 @@ class NinjaAgent:
     def _load_robot_capabilities(self, config: NinjaConfig) -> Dict[str, List[str]]:
         """Loads available movements, faces, and sounds from config and classes."""
         movements = list(config.movements.keys())
+        actions = self.action_library.list_names()
         faces = list(AnimatedFaces(None).animations.keys())  # type: ignore # Hack to get keys without full init
         sounds = list(RobotSoundPlayer.SOUNDS.keys())
-        return {"movements": movements, "faces": faces, "sounds": sounds}
+        return {"movements": movements, "actions": actions, "faces": faces, "sounds": sounds}
+
+    def refresh_capabilities(self):
+        """Refresh saved Blockly action names without restarting the server."""
+        self.robot_capabilities = self._load_robot_capabilities(self.config)
+        self.system_prompt = self._create_system_prompt()
+        self.model = genai.GenerativeModel(
+            model_name="gemini-3-flash-preview",
+            generation_config=GenerationConfig(temperature=0.7),
+            system_instruction=self.system_prompt,
+        )
 
     def _create_system_prompt(self) -> str:
         """Creates the system prompt with nuance, multilingual, and personality instructions."""
@@ -77,7 +91,8 @@ You interact with users in English, Japanese, Traditional Chinese, or Simplified
 
 Your Capabilities:
 1.  **Physical Actions**: You can control your body, face, and voice.
-    -   **Movements**: {self.robot_capabilities["movements"]}
+    -   **Native Servo Movements**: {self.robot_capabilities["movements"]}
+    -   **Saved Blockly Actions**: {self.robot_capabilities["actions"]}
     -   **Faces**: {self.robot_capabilities["faces"]}
     -   **Sounds**: {self.robot_capabilities["sounds"]}
 
@@ -86,10 +101,14 @@ Instructions for Responses:
 -   **Semantic Nuance**: Map intent to actions.
     -   Example: "I'm joyful" -> Use "happy" face/sound.
     -   Example: "Walk forward five steps" -> Chain "walk_forward" 5 times.
+    -   Example: "Do my saved dance" -> Use "action_chain" with the matching saved Blockly action name.
     -   Example: "Weather?" -> Search, show "confused" face while thinking, then "speaking".
 -   **JSON Output**: To perform actions, your response MUST contain a valid JSON object.
     -   Format:
         {{
+            "action_chain": [
+                {{"name": "saved_blockly_action_name", "repetitions": 1}}
+            ],
             "chain": [
                 {{"name": "movement_name", "repetitions": 1}}
             ],
@@ -100,7 +119,8 @@ Instructions for Responses:
             "sound_chain": ["sound1", "sound2"],
             "response": "..."
         }}
-    -   "chain": Movement sequence (optional).
+    -   "action_chain": Saved Blockly action sequence (optional). Use this for uploaded Code IDE actions.
+    -   "chain": Native servo movement sequence (optional). Use only for built-in/config movements.
     -   "face_chain": List of faces to play in order. "duration" is in seconds (null = infinite/until next). Use this for reactions (e.g., "confused" -> "speaking").
     -   "sound_chain": List of sounds to play in order.
     -   "response": Your spoken reply.

@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.6
-**Last Updated:** 2026-04-23
+**Version:** 5.2.10
+**Last Updated:** 2026-04-29
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -138,6 +138,15 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_ble/service.py` | Uses the saved name for Bless server startup and compact BlueZ advertisements instead of a hard-coded string |
 | `ninja_core/web_server.py` | Starts BLE with the configured name and reports the active configured name via `/ble/status` |
 | BLE workflow | Custom names must fit in 29 UTF-8 bytes and take effect the next time the BLE service starts |
+
+### Key Changes (V5.2.10 - Saved Blockly Action Library):
+| Component | Change |
+|---|---|
+| `ninja_core/action_library.py` | **NEW** - Stores complete Blockly action records uploaded from the Code IDE in `ninja_actions/*.json` |
+| `ninja_core/dispatcher.py` | Adds `save_action` command handling, name-conflict validation, `action_save_status` events, and saved-action replay through the SafeExecutor |
+| `ninja_core/ninja_agent.py` | Loads saved Blockly action names alongside native config movements and can return `action_chain` plans for AI replay |
+| `ninja_core/web_server.py` | Wires the action library into startup, dispatcher, and agent refresh so newly saved actions are immediately available |
+| BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; duplicate names are rejected by the robot |
 
 ### Required Setup:
 ```bash
@@ -295,6 +304,7 @@ NinjaRobotV5/
     └── src/ninja_core/
         ├── __init__.py
         ├── __main__.py         # CLI entry point
+        ├── action_library.py   # Saved Blockly action library
         ├── config.py           # Centralized configuration
         ├── hal.py              # Hardware Abstraction Layer (dynamic loading)
         ├── dispatcher.py       # Command router (V5 Phase 2)
@@ -1596,8 +1606,14 @@ set_robot_name("Desk Robot A")
 **`attach_runtime_pipeline(self, runtime_pipeline: RuntimePipeline) -> None`**
 - Attaches the native/Blockly ownership coordinator and forwards it to `SafeExecutor`.
 
+**`attach_action_library(self, action_library: ActionLibrary, native_movement_names: Iterable[str] | None = None) -> None`**
+- Connects the persistent saved Blockly action library and the native movement-name set used for duplicate-name rejection.
+
 **`attach_faces(self, faces: AnimatedFaces) -> None`**
 - Shares the native face engine with Blockly user code so idle animation and uploaded expressions cannot draw concurrently.
+
+**`async execute_action_chain(self, action_chain: Iterable[dict], request_id: str | None = None) -> dict`**
+- Builds replay Python from saved Blockly actions and executes it through the same SafeExecutor/runtime-pipeline path as a BLE `execute` upload.
 
 **`async handle_command(self, source: str, command: dict) -> dict`**
 - Main entry point for all commands.
@@ -1610,7 +1626,8 @@ set_robot_name("Desk Robot A")
 1. **`chat`** -> Routes to `NinjaAgent.process_command()`. Broadcasts user message and AI response.
 2. **`hal`** -> Routes to `HardwareAbstractionLayer`.
 3. **`execute`** -> Compiles Blockly-generated Python through `SafeExecutor`; after compilation succeeds, `RuntimePipeline.begin_blockly()` stops native idle/sound/servo actions before user code starts. The dispatcher then broadcasts `execute_received`, `execution_status: started`, and keeps all follow-up events on the same `request_id`.
-4. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()`, calls `RuntimePipeline.abort_blockly()`, broadcasts `execution_status: stop_requested` for the active request, and restores native idle behavior.
+4. **`save_action`** -> Validates and persists a complete Code IDE Blockly action. The dispatcher broadcasts `action_save_status: saved`, `conflict`, or `error` and refreshes AI capabilities after a successful save.
+5. **`stop`** -> Sends a cooperative stop signal to `SafeExecutor.stop()`, calls `RuntimePipeline.abort_blockly()`, broadcasts `execution_status: stop_requested` for the active request, and restores native idle behavior.
 
 **Execution Lifecycle Guarantees:**
 - Every execution request carries a `request_id`.
@@ -1621,6 +1638,7 @@ set_robot_name("Desk Robot A")
 - On completion, `RuntimePipeline.complete_blockly(status)` restores native idle unless the successful Blockly program intentionally requested a display hold with `robot.display.clear()`.
 - Stop requests from BLE, Stop Robot, or Code IDE disconnect use `RuntimePipeline.abort_blockly()` and always return to native idle.
 - Completion, failure, stop, chat explanation, and execution-log events all stay correlated to the active request.
+- Saved Blockly action replay is intentionally routed through `execute_action_chain()` instead of directly importing Python from disk, so replay keeps syntax validation, stop handling, runtime ownership, and execution feedback behavior identical to a live Code IDE upload.
 
 **Usage:**
 ```python
@@ -1699,25 +1717,29 @@ Raised when Gemini API key is not configured.
 
 **Constructor:**
 ```python
-def __init__(self, config: NinjaConfig)
+def __init__(self, config: NinjaConfig, action_library: ActionLibrary | None = None)
 ```
 
 **Raises:** `MissingAPIKeyError` if `config.api_keys["gemini"]` is missing
 
 **Attributes:**
 - `api_key` (str): Gemini API key
-- `robot_capabilities` (dict): Available movements, faces, sounds
+- `action_library` (ActionLibrary | None): Optional persistent Blockly action library
+- `robot_capabilities` (dict): Available native movements, saved Blockly actions, faces, sounds
 - `system_prompt` (str): AI instruction prompt
 - `model` (genai.GenerativeModel): Gemini model instance
 
 **Methods:**
 
 **`_load_robot_capabilities(config: NinjaConfig) -> dict`**
-- Private method to extract available actions from config
+- Private method to extract native config movements and saved Blockly action names
 
 **`_create_system_prompt() -> str`**
 - Private method to generate the AI system prompt
 - Includes multilingual instructions and JSON output format
+
+**`refresh_capabilities() -> None`**
+- Reloads native movement and saved Blockly action names, then rebuilds the Gemini system prompt. Called after a new Blockly action is saved.
 
 **`async process_command(user_input: str) -> dict`**
 - Main method to process text commands
@@ -1727,10 +1749,11 @@ def __init__(self, config: NinjaConfig)
 - **Returns:** Dict with keys:
   - `action_plan` (dict): JSON action plan.
     ```json
-    {
-      "chain": [{"name": "move_name", "repetitions": 1}, ...],
-      "face_chain": [{"name": "face_name", "duration": 2.0}, ...],
-      "sound_chain": ["sound1", "sound2"],
+	    {
+	      "chain": [{"name": "move_name", "repetitions": 1}, ...],
+	      "action_chain": [{"name": "saved_blockly_action_name", "repetitions": 1}, ...],
+	      "face_chain": [{"name": "face_name", "duration": 2.0}, ...],
+	      "sound_chain": ["sound1", "sound2"],
       "face": "face_name", # (Legacy)
       "sound": "sound_name", # (Legacy)
       "movement": "move_name", # (Legacy)
@@ -1772,7 +1795,8 @@ agent = NinjaAgent(config)
 async def main():
     result = await agent.process_command("Walking forward 3 times")
     print(result["response"])
-    # result['action_plan']['chain'] contains movement steps
+    # result['action_plan']['chain'] contains native movement steps
+    # result['action_plan']['action_chain'] contains saved Blockly actions
 
 asyncio.run(main())
 ```
@@ -2059,6 +2083,7 @@ Global application state container.
 - `faces` (AnimatedFaces | None)
 - `sound` (RobotSoundPlayer | None)
 - `movement` (MovementController | None)
+- `action_library` (ActionLibrary | None)
 - `distance_monitor` (DistanceMonitor | None)
 - `runtime_pipeline` (RuntimePipeline | None)
 - `first_interaction` (bool): Whether first user request received
@@ -2071,9 +2096,9 @@ FastAPI lifespan context manager for startup/shutdown.
 **Startup:**
 1. Loads config
 2. Initializes HAL
-3. Creates `RuntimePipeline` and `CommandDispatcher`
+3. Creates `RuntimePipeline`, `ActionLibrary`, and `CommandDispatcher`
 4. Initializes faces, sound, movement, distance monitor
-5. Attaches shared faces/sound to `RuntimePipeline` and Dispatcher
+5. Attaches shared faces/sound and saved-action library to `RuntimePipeline`, Dispatcher, and NinjaAgent
 6. Attempts to initialize NinjaAgent (catches `MissingAPIKeyError`)
 7. Calls `setup_network_and_display(app)` for ngrok
 
@@ -2098,9 +2123,10 @@ Sets up ngrok tunnel and displays QR code.
 - Returns True if distance <= 50mm
 
 **`execute_action_plan(app_state: AppState, action_plan: dict) -> None`**
-- Executes AI agent's action plan (face, sound, movement)
+- Executes AI agent's action plan (face, sound, native movement, saved Blockly action)
 - Runs face and sound in parallel threads
 - Waits for movements to complete
+- Replays `action_chain` entries through `CommandDispatcher.execute_action_chain()` so saved Blockly actions reuse SafeExecutor, stop handling, and native/Blockly ownership restoration
 
 **`reclaim_native_runtime(app_state: AppState) -> None`**
 - Lets direct web/native interaction interrupt Blockly ownership.
@@ -2310,8 +2336,40 @@ def __init__(
 ---
 
 
+#### 3.6.12 `action_library.py`
 
-#### 3.6.12 `api_wrappers.py` (New Phase 4)
+**Module:** `ninja_core.action_library`
+
+**Purpose:** Persistent library for complete Blockly actions uploaded from the NinjaRoboticPlatform Code IDE. Saved records live in `ninja_actions/*.json` at the project runtime root and include the generated Python code, Blockly workspace metadata, manifest, user-facing name, filesystem-safe slug, and timestamps.
+
+##### Class: `ActionLibrary`
+
+**Constructor:**
+```python
+def __init__(self, root: Path | str = ACTION_LIBRARY_PATH)
+```
+
+**Methods:**
+- `list_actions() -> list[dict]`: Loads valid `ninja-action-v1` records.
+- `list_names() -> list[str]`: Returns user-facing saved action names for the AI prompt.
+- `find_action(name_or_slug: str) -> dict | None`: Finds by normalized name or slug.
+- `get_action(name_or_slug: str) -> dict`: Returns a saved action or raises `ActionNotFoundError`.
+- `ensure_name_available(name, native_movement_names=()) -> tuple[str, str]`: Rejects empty/oversized names and conflicts with native config movement names or existing saved Blockly actions.
+- `save_action(name=..., code=..., workspace_state=..., manifest=..., native_movement_names=...) -> dict`: Validates imports/syntax, stores the record atomically, and returns the saved record.
+- `build_replay_code(action_chain) -> str`: Builds SafeExecutor-compatible Python that replays one or more saved Blockly actions with bounded repetitions and cooperative `check_stop()` calls.
+
+**Validation Rules:**
+- Action names are normalized with Unicode NFKC, trimmed, case-folded for conflict checks, and limited to 80 UTF-8 bytes.
+- Slugs are filesystem-safe. Non-ASCII-only names fall back to a stable hash slug.
+- Saved Python must parse/compile and may only import `time`, `math`, `random`, or `ninja_core`.
+- Code size is limited to 128 KiB per action.
+- Name conflicts are decided by the robot, not by the browser, so native movements and saved Blockly actions share one action namespace.
+
+---
+
+
+
+#### 3.6.13 `api_wrappers.py` (New Phase 4)
 
 **Module:** `ninja_core.api_wrappers`
 
@@ -2461,6 +2519,24 @@ def __init__(
 }
 ```
 
+**Save Action Command (Blockly IDE):**
+```json
+{
+  "type": "save_action",
+  "request_id": "save-action-123",
+  "manifest": {
+    "protocol_version": "blockly-v1",
+    "generator_version": "web-blockly-v2",
+    "workspace_format": "blockly-json"
+  },
+  "name": "NinjaV5 wave and smile",
+  "workspace_state": {"blocks": []},
+  "code": "from ninja_core import robot\nrobot.expression('happy')\n"
+}
+```
+
+The robot persists this as a complete Blockly action in `ninja_actions/`. If `name` conflicts with a native `config.json` movement or another saved Blockly action, the robot returns `action_save_status` with `status: "conflict"` and `code: "action_name_conflict"`; the Code IDE must prompt the user for a new name.
+
 **Stop Command:**
 ```json
 {"type": "stop", "request_id": "stop-123", "reason": "user_stop"}
@@ -2477,6 +2553,7 @@ def __init__(
 - `execute_received`
 - `execution_status`
 - `execution_log`
+- `action_save_status`
 - `chat`
 - `error`
 

@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from pyngrok import ngrok, conf
 
 from .config import load_config, set_api_key
+from .action_library import ActionLibrary
 from .hal import HardwareAbstractionLayer
 from .ninja_agent import NinjaAgent, MissingAPIKeyError
 from .facial_expressions import AnimatedFaces
@@ -61,6 +62,7 @@ class AppState:
         self.faces: Optional[AnimatedFaces] = None
         self.sound: Optional[RobotSoundPlayer] = None
         self.movement: Optional[MovementController] = None
+        self.action_library: Optional[ActionLibrary] = None
         self.distance_monitor: Optional[DistanceMonitor] = None
         self.runtime_pipeline: Optional[RuntimePipeline] = None
         self.first_interaction: bool = True
@@ -112,6 +114,7 @@ async def lifespan(app: FastAPI):
     app.state.ninja.hal = HardwareAbstractionLayer(config)
     app.state.ninja.hal.initialize()
     app.state.ninja.runtime_pipeline = RuntimePipeline(app.state.ninja.hal)
+    app.state.ninja.action_library = ActionLibrary()
 
     # Initialize Dispatcher
     from .dispatcher import CommandDispatcher
@@ -120,6 +123,10 @@ async def lifespan(app: FastAPI):
         runtime_pipeline=app.state.ninja.runtime_pipeline,
     )
     app.state.ninja.dispatcher = dispatcher
+    dispatcher.attach_action_library(
+        app.state.ninja.action_library,
+        native_movement_names=config.movements.keys(),
+    )
     
     # Bridge Dispatcher -> WebSockets
     # This ensures "chat", "execution_log", "status" events go to the web UI
@@ -166,7 +173,10 @@ async def lifespan(app: FastAPI):
 
     # Initialize Agent and attach to Dispatcher
     try:
-        app.state.ninja.agent = NinjaAgent(config)
+        app.state.ninja.agent = NinjaAgent(
+            config,
+            action_library=app.state.ninja.action_library,
+        )
         dispatcher.attach_agent(app.state.ninja.agent)
         print("Ninja AI Agent initialized and attached to Dispatcher.")
     except MissingAPIKeyError:
@@ -406,6 +416,11 @@ def safety_check(app_state: AppState) -> bool:
 
 async def execute_action_plan(app_state: AppState, action_plan: dict):
     tasks = []
+    action_chain = action_plan.get("action_chain", [])
+    if not action_chain and action_plan.get("action"):
+        action_chain = [{"name": action_plan.get("action"), "repetitions": 1}]
+    if isinstance(action_chain, dict):
+        action_chain = [action_chain]
 
     # Faces
     if (action_plan.get("face_chain") or action_plan.get("face")) and app_state.faces:
@@ -489,6 +504,11 @@ async def execute_action_plan(app_state: AppState, action_plan: dict):
     if tasks:
         await asyncio.gather(*tasks)
 
+    if action_chain:
+        dispatcher = getattr(app_state, "dispatcher", None)
+        if dispatcher:
+            await dispatcher.execute_action_chain(action_chain)
+
     # Post-Task Reset
     # 1. Center Servos
     if app_state.movement:
@@ -515,7 +535,12 @@ async def set_key_endpoint(payload: SetApiKeyRequest, request: Request):
         
         # Reload config and agent
         config = load_config()
-        request.app.state.ninja.agent = NinjaAgent(config)
+        request.app.state.ninja.agent = NinjaAgent(
+            config,
+            action_library=request.app.state.ninja.action_library,
+        )
+        if request.app.state.ninja.dispatcher:
+            request.app.state.ninja.dispatcher.attach_agent(request.app.state.ninja.agent)
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

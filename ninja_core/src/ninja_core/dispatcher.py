@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Callable, List
+from typing import TYPE_CHECKING, Any, Optional, Callable, Iterable, List
 
 from .contracts import (
     PROTOCOL_VERSION,
+    build_action_save_status_event,
     build_chat_event,
     build_error_event,
     build_execution_log_event,
@@ -13,6 +14,12 @@ from .contracts import (
     build_execution_status_event,
     build_execute_received_event,
     ensure_request_id,
+)
+from .action_library import (
+    ActionLibrary,
+    ActionLibraryError,
+    ActionNameConflictError,
+    ActionValidationError,
 )
 from .safe_executor import SafeExecutor
 from .runtime_pipeline import RuntimePipeline
@@ -56,6 +63,8 @@ class CommandDispatcher:
         )
         self._listeners: List[Callable[[dict], Any]] = []
         self._active_request_id: str | None = None
+        self.action_library = ActionLibrary()
+        self._native_movement_names: set[str] = set()
         try:
             self._loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -90,6 +99,16 @@ class CommandDispatcher:
         """Attach the NinjaAgent for processing chat commands."""
         self.agent = agent
         log.info("NinjaAgent attached to Dispatcher.")
+
+    def attach_action_library(
+        self,
+        action_library: ActionLibrary,
+        native_movement_names: Optional[Iterable[str]] = None,
+    ):
+        """Attach the persistent Blockly action library."""
+        self.action_library = action_library
+        if native_movement_names is not None:
+            self._native_movement_names = {str(name) for name in native_movement_names}
 
     def register_listener(self, callback: Callable[[dict], Any]):
         """Register a callback for broadcasts (e.g., WebSocket send, BLE notify)."""
@@ -142,6 +161,8 @@ class CommandDispatcher:
                 return await self._handle_chat_command(command)
             elif cmd_type == "execute":
                 return await self._handle_execute_command(command)
+            elif cmd_type == "save_action":
+                return await self._handle_save_action_command(command)
             elif cmd_type == "stop": # Shortcut for stopping execution
                  self.safe_executor.stop()
                  if self.runtime_pipeline:
@@ -260,6 +281,135 @@ class CommandDispatcher:
 
         return {"status": "error", "message": f"Unknown HAL action: {action}"}
 
+    async def _handle_save_action_command(self, cmd_data: dict) -> dict:
+        """Persist a complete Blockly action without executing it."""
+        request_id = ensure_request_id(cmd_data, "save-action")
+        manifest = build_execution_manifest(cmd_data.get("manifest"))
+
+        try:
+            record = self.action_library.save_action(
+                name=cmd_data.get("name", ""),
+                code=cmd_data.get("code", ""),
+                workspace_state=cmd_data.get("workspace_state"),
+                manifest=manifest,
+                native_movement_names=self._native_movement_names,
+            )
+        except ActionNameConflictError as exc:
+            event = build_action_save_status_event(
+                request_id,
+                "conflict",
+                str(exc),
+                action_name=str(cmd_data.get("name", "")),
+                code="action_name_conflict",
+            )
+            await self.broadcast(event)
+            return {
+                "status": "error",
+                "error_code": "action_name_conflict",
+                "message": str(exc),
+                "request_id": request_id,
+                "protocol_version": manifest["protocol_version"],
+                "manifest": manifest,
+            }
+        except ActionValidationError as exc:
+            event = build_action_save_status_event(
+                request_id,
+                "error",
+                str(exc),
+                action_name=str(cmd_data.get("name", "")),
+                code="action_validation_failed",
+            )
+            await self.broadcast(event)
+            return {
+                "status": "error",
+                "error_code": "action_validation_failed",
+                "message": str(exc),
+                "request_id": request_id,
+                "protocol_version": manifest["protocol_version"],
+                "manifest": manifest,
+            }
+        except ActionLibraryError as exc:
+            event = build_action_save_status_event(
+                request_id,
+                "error",
+                str(exc),
+                action_name=str(cmd_data.get("name", "")),
+                code="action_save_failed",
+            )
+            await self.broadcast(event)
+            return {
+                "status": "error",
+                "error_code": "action_save_failed",
+                "message": str(exc),
+                "request_id": request_id,
+                "protocol_version": manifest["protocol_version"],
+                "manifest": manifest,
+            }
+        except Exception as exc:
+            event = build_action_save_status_event(
+                request_id,
+                "error",
+                str(exc),
+                action_name=str(cmd_data.get("name", "")),
+                code="action_save_failed",
+            )
+            await self.broadcast(event)
+            return {
+                "status": "error",
+                "error_code": "action_save_failed",
+                "message": str(exc),
+                "request_id": request_id,
+                "protocol_version": manifest["protocol_version"],
+                "manifest": manifest,
+            }
+
+        if self.agent and hasattr(self.agent, "refresh_capabilities"):
+            self.agent.refresh_capabilities()
+
+        event = build_action_save_status_event(
+            request_id,
+            "saved",
+            f"Saved Blockly action '{record['name']}'",
+            action_name=record["name"],
+            action_slug=record["slug"],
+        )
+        await self.broadcast(event)
+        return {
+            "status": "ok",
+            "request_id": request_id,
+            "protocol_version": manifest["protocol_version"],
+            "manifest": manifest,
+            "action_name": record["name"],
+            "action_slug": record["slug"],
+        }
+
+    async def execute_action_chain(
+        self,
+        action_chain: list[dict],
+        *,
+        request_id: str | None = None,
+    ) -> dict:
+        """Replay saved Blockly actions through the normal SafeExecutor pipeline."""
+        resolved_request_id = request_id or ensure_request_id(
+            {"type": "action_replay"},
+            "action-replay",
+        )
+        code = self.action_library.build_replay_code(action_chain)
+        return await self._handle_execute_command(
+            {
+                "type": "execute",
+                "request_id": resolved_request_id,
+                "manifest": {
+                    "generator_version": "saved-blockly-action",
+                    "source": "ninja-action-library",
+                },
+                "workspace_state": None,
+                "code": code,
+                "explain": False,
+                "await_completion": True,
+            }
+        )
+
     def _on_execution_complete(self, request_id: str, result: dict):
         """Callback when SafeExecutor finishes/fails."""
 
@@ -353,6 +503,8 @@ class CommandDispatcher:
 
         code = cmd_data.get("code", "")
         workspace_state = cmd_data.get("workspace_state")
+        explain = cmd_data.get("explain", True)
+        await_completion = bool(cmd_data.get("await_completion"))
 
         # Log the received command
         log.info(f"[EXECUTE] Code received ({len(code)} chars)")
@@ -367,12 +519,29 @@ class CommandDispatcher:
 
         previous_request_id = self._active_request_id
         self._active_request_id = request_id
+
+        completion_future: asyncio.Future | None = None
+        if await_completion:
+            loop = self._loop if self._loop and self._loop.is_running() else asyncio.get_running_loop()
+            completion_future = loop.create_future()
+
+        def handle_execution_complete(execution_result: dict):
+            if completion_future is None:
+                self._on_execution_complete(request_id, execution_result)
+                return
+
+            loop = self._loop if self._loop and self._loop.is_running() else completion_future.get_loop()
+
+            async def process_and_finish():
+                await self._process_execution_result(request_id, execution_result)
+                if not completion_future.done():
+                    completion_future.set_result(execution_result)
+
+            loop.call_soon_threadsafe(lambda: asyncio.create_task(process_and_finish()))
+
         result = self.safe_executor.execute(
             code,
-            on_complete=lambda execution_result: self._on_execution_complete(
-                request_id,
-                execution_result,
-            ),
+            on_complete=handle_execution_complete,
             on_start=self.runtime_pipeline.begin_blockly if self.runtime_pipeline else None,
         )
 
@@ -439,7 +608,7 @@ class CommandDispatcher:
         )
 
         # 2. Trigger Parallel AI Explanation (Non-blocking)
-        if self.agent:
+        if self.agent and explain:
             # Fire and forget explanation task
             asyncio.create_task(self._explain_code_async(request_id, code))
         else:
@@ -452,12 +621,15 @@ class CommandDispatcher:
                 )
             )
 
-        return {
+        response = {
             **result,
             "request_id": request_id,
             "protocol_version": manifest["protocol_version"],
             "manifest": manifest,
         }
+        if completion_future is not None:
+            response["execution_result"] = await completion_future
+        return response
 
     async def _explain_code_async(self, request_id: str, code: str):
         """Helper to run code explanation in background."""

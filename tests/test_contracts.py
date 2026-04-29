@@ -1,6 +1,7 @@
 from ninja_core.contracts import (
     DEFAULT_GENERATOR_VERSION,
     PROTOCOL_VERSION,
+    build_action_save_status_event,
     build_error_event,
     build_execution_log_event,
     build_execution_manifest,
@@ -61,4 +62,24 @@ def test_build_execution_log_event_keeps_request_context():
         "request_id": "req-456",
         "stream": "stderr",
         "content": "Hello from executor",
+    }
+
+
+def test_build_action_save_status_event_includes_saved_action_metadata():
+    event = build_action_save_status_event(
+        "save-123",
+        "saved",
+        "Saved Blockly action",
+        action_name="Wave",
+        action_slug="wave",
+    )
+
+    assert event == {
+        "type": "action_save_status",
+        "protocol_version": PROTOCOL_VERSION,
+        "request_id": "save-123",
+        "status": "saved",
+        "message": "Saved Blockly action",
+        "action_name": "Wave",
+        "action_slug": "wave",
     }

@@ -78,6 +78,7 @@ def chat():
     from .config import load_config
     from .hal import HardwareAbstractionLayer
     from .ninja_agent import NinjaAgent
+    from .action_library import ActionLibrary
     from .facial_expressions import AnimatedFaces
     from .robot_sound import RobotSoundPlayer
     from .perception import DistanceMonitor
@@ -98,7 +99,8 @@ def chat():
 
         try:
             print("Initializing AI Agent...")
-            agent = NinjaAgent(config)
+            action_library = ActionLibrary()
+            agent = NinjaAgent(config, action_library=action_library)
             
             # Initialize Controllers
             faces = AnimatedFaces(hal)

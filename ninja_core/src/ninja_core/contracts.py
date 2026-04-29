@@ -113,3 +113,28 @@ def build_error_event(
     if details:
         event["details"] = dict(details)
     return event
+
+
+def build_action_save_status_event(
+    request_id: str,
+    status: str,
+    message: str,
+    *,
+    action_name: str | None = None,
+    action_slug: str | None = None,
+    code: str | None = None,
+) -> dict[str, Any]:
+    event = {
+        "type": "action_save_status",
+        "protocol_version": PROTOCOL_VERSION,
+        "request_id": request_id,
+        "status": status,
+        "message": message,
+    }
+    if action_name:
+        event["action_name"] = action_name
+    if action_slug:
+        event["action_slug"] = action_slug
+    if code:
+        event["code"] = code
+    return event

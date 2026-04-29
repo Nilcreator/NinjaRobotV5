@@ -53,6 +53,7 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 ### 🧠 Agentic AI
 - **Natural Language Understanding**: Chat with your robot in English, Japanese, or Chinese
 - **Action Planning**: AI automatically translates requests into robot actions
+- **Saved Blockly Actions**: Replay complete Code IDE actions saved over Bluetooth from the robot's local action library
 - **Code Generation**: AI can write Python code to create new robot behaviors
 - **Voice Input**: Speak commands using your device's microphone
 
@@ -111,6 +112,7 @@ All core features have been implemented and verified:
 - ✅ Modular Hardware Abstraction Layer
 - ✅ Dual Connectivity (Wi-Fi + BLE)
 - ✅ Agentic AI with Action Planning
+- ✅ Saved Blockly Action Library for Code IDE uploads
 - ✅ Safe Code Execution Engine
 - ✅ React Web Application
 - ✅ pi0servo V1.0 (velocity-based motion, per-servo speed, easing curves)
@@ -162,6 +164,7 @@ This project is licensed under the **MIT License**.
 ### 🧠 エージェント型AI
 - **自然言語理解**: 英語、日本語、中国語でロボットと会話
 - **アクションプランニング**: AIがリクエストを自動的にロボットのアクションに変換
+- **保存済みBlocklyアクション**: Bluetooth経由で保存したCode IDEの完全な動作をローカルアクションライブラリから再生
 - **コード生成**: AIが新しいロボットの動作を作成するPythonコードを記述
 - **音声入力**: デバイスのマイクを使用してコマンドを話す
 
@@ -220,6 +223,7 @@ uv run ninja_core server
 - ✅ モジュール式ハードウェア抽象化レイヤー
 - ✅ デュアル接続（Wi-Fi + BLE）
 - ✅ アクションプランニング付きエージェント型AI
+- ✅ Code IDEアップロード用の保存済みBlocklyアクションライブラリ
 - ✅ 安全なコード実行エンジン
 - ✅ React Webアプリケーション
 - ✅ pi0servo V1.0（速度ベース制御、サーボ別速度、イージングカーブ）
@@ -271,6 +275,7 @@ uv run ninja_core server
 ### 🧠 代理式AI
 - **自然語言理解**：用英文、日文或中文與機器人對話
 - **動作規劃**：AI自動將請求轉換為機器人動作
+- **已儲存Blockly動作**：可從本機動作庫重播經由藍牙儲存的完整Code IDE動作
 - **程式碼生成**：AI能撰寫Python程式碼來創建新的機器人行為
 - **語音輸入**：使用裝置麥克風說出指令
 
@@ -329,6 +334,7 @@ uv run ninja_core server
 - ✅ 模組化硬體抽象層
 - ✅ 雙重連線（Wi-Fi + BLE）
 - ✅ 具動作規劃的代理式AI
+- ✅ 支援Code IDE上傳的已儲存Blockly動作庫
 - ✅ 安全程式碼執行引擎
 - ✅ React網頁應用程式
 - ✅ pi0servo V1.0（速度控制、獨立伺服速度、緩動曲線）
