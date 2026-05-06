@@ -54,6 +54,7 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 - **Natural Language Understanding**: Chat with your robot in English, Japanese, or Chinese
 - **Action Planning**: AI automatically translates requests into robot actions
 - **Saved Blockly Actions**: Replay complete Code IDE actions saved over Bluetooth from the robot's local action library
+- **Reliable BLE Save Status**: Code IDE saves are confirmed by robot-cached request status, so missed browser notifications do not look like failed uploads
 - **Code Generation**: AI can write Python code to create new robot behaviors
 - **Voice Input**: Speak commands using your device's microphone
 
@@ -67,6 +68,7 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 ### 🔗 Dual Connectivity
 - **Local Wi-Fi**: Direct control via `http://ninjarobot.local:8000`
 - **Bluetooth LE**: Zero-setup mobile app connection
+- **BLE Request Recovery**: Dedicated command-status readback for robust Chrome/Raspberry Pi save confirmations
 - **Remote Access**: ngrok tunnel for telepresence
 
 ### 🛡️ Safety First

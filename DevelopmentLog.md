@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-05-06: BLE Save Status Readback Refinement ✓
+- **Action**: Hardened BLE Save to Robot confirmations so a successful Blockly action save on the Pi no longer appears as `Response timeout for action_save_status` when Chrome misses the notification event.
+- **Implementation**:
+  - **Command response cache**: `NinjaBLEService` now caches final `action_save_status` events by `request_id` for deterministic readback.
+  - **Status characteristic**: Added Command Status characteristic `00000004-710e-4a5b-8d75-3e5b444bc3cf` for browser polling via `get_command_response`.
+  - **Notification sizing**: Outbound BLE notifications now chunk above a conservative 160-byte payload threshold instead of relying on the previous 500-byte single-notification limit.
+  - **Compatibility**: The existing Response characteristic remains the live notification stream for older Code IDE clients.
+- **Validation**: `uv run --with pytest pytest tests` passed (`67 passed`). `uv run --with ruff ruff check ninja_ble/src/ninja_ble/service.py tests/test_ble_service.py tests/test_chunking.py` passed. Repo-wide `uv run --with pytest pytest` and `uv run --with ruff ruff check .` still encounter unrelated pre-existing sibling-package collection/lint issues in `pi0*` test folders.
+- **Files Modified**: `ninja_ble/src/ninja_ble/service.py`, `tests/test_ble_service.py`, `README.md`, `DevelopmentGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-04-30: Saved Action Overwrite And Agent Interruption Refinement ✓
 - **Action**: Refined saved Blockly action collision handling and web-agent interruption behavior for long-running saved actions.
 - **Implementation**:

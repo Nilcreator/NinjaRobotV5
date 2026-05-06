@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import sys
+import time
 from typing import Any
 
 from bless import (
@@ -17,7 +18,6 @@ from ninja_core.config import DEFAULT_BLE_NAME, normalize_ble_name
 from ninja_core.contracts import PROTOCOL_VERSION, ensure_request_id
 from ninja_core.dispatcher import CommandDispatcher
 from .chunking import (
-    CHUNK_SIZE,
     PACKET_HEADER,
     PACKET_DATA,
     PACKET_EOF,
@@ -39,12 +39,17 @@ CHAR_COMMAND_UUID = "00000002-710e-4a5b-8d75-3e5b444bc3cf"
 # Response Characteristic (Notify): For sending JSON updates
 CHAR_RESPONSE_UUID = "00000003-710e-4a5b-8d75-3e5b444bc3cf"
 
+# Command Status Characteristic (Read/Notify): For deterministic request-response recovery
+CHAR_STATUS_UUID = "00000004-710e-4a5b-8d75-3e5b444bc3cf"
+
 BLE_ADVERTISEMENT_PROFILES = ("name_only", "service_only", "connectable_only")
 BLE_START_ATTEMPTS = len(BLE_ADVERTISEMENT_PROFILES)
 BLE_RECOVERY_DELAY_SECONDS = 1.0
 BLE_ADAPTER_POWER_CYCLE_SECONDS = 0.75
 ADVERTISEMENT_ERROR_FRAGMENT = "register advertisement"
 ADVERTISING_NOT_READY_MESSAGE = "BLE advertising did not start"
+COMMAND_RESPONSE_TTL_SECONDS = 300.0
+OUTBOUND_NOTIFY_CHUNK_SIZE = 160
 
 
 class NinjaBLEService:
@@ -66,6 +71,8 @@ class NinjaBLEService:
         self._next_outbound_transfer_id = 1
         self._loop: asyncio.AbstractEventLoop | None = None
         self._save_action_broadcasts: set[str] = set()
+        self._command_responses: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._pending_command_requests: set[str] = set()
 
         # Register self as listener to Dispatcher broadcasts
         self.dispatcher.register_listener(self.on_broadcast)
@@ -164,6 +171,7 @@ class NinjaBLEService:
             if self._handle_service_command(command_data):
                 return
 
+            self._track_pending_command(command_data)
             self._schedule_task(self._handle_dispatcher_command(command_data))
 
         except json.JSONDecodeError:
@@ -181,6 +189,7 @@ class NinjaBLEService:
             if self._handle_service_command(command_data):
                 return
 
+            self._track_pending_command(command_data)
             self._schedule_task(self._handle_dispatcher_command(command_data))
 
         except json.JSONDecodeError:
@@ -199,34 +208,48 @@ class NinjaBLEService:
         if not isinstance(command_data, dict):
             return False
 
-        if command_data.get("type") != "robot_info":
-            return False
+        command_type = command_data.get("type")
 
-        request_id = ensure_request_id(command_data, "robot-info")
-        self._schedule_task(
-            self.on_broadcast(
-                {
-                    "type": "robot_info",
-                    "protocol_version": PROTOCOL_VERSION,
-                    "request_id": request_id,
-                    "name": self.service_name,
-                    "service_name": self.service_name,
-                    "display_name": self.service_name,
-                    "ble_name": self.service_name,
-                }
+        if command_type == "robot_info":
+            request_id = ensure_request_id(command_data, "robot-info")
+            self._schedule_task(
+                self.on_broadcast(
+                    {
+                        "type": "robot_info",
+                        "protocol_version": PROTOCOL_VERSION,
+                        "request_id": request_id,
+                        "name": self.service_name,
+                        "service_name": self.service_name,
+                        "display_name": self.service_name,
+                        "ble_name": self.service_name,
+                    }
+                )
             )
-        )
-        return True
+            return True
+
+        if command_type == "get_command_response":
+            request_id = str(command_data.get("request_id") or "")
+            self._schedule_task(self._publish_cached_command_response(request_id))
+            return True
+
+        return False
+
+    def _track_pending_command(self, command_data: dict[str, Any]):
+        request_id = command_data.get("request_id")
+        if request_id:
+            self._pending_command_requests.add(str(request_id))
 
     async def _handle_dispatcher_command(self, command_data: dict[str, Any]):
         """Run a robot command and provide request/response fallback events."""
+        request_id = command_data.get("request_id")
+        if request_id:
+            self._pending_command_requests.add(str(request_id))
         try:
             result = await self.dispatcher.handle_command("ble", command_data)
             if command_data.get("type") == "save_action":
                 await self._broadcast_save_action_result(result)
         except Exception as exc:
             log.exception("Dispatcher command failed")
-            request_id = command_data.get("request_id")
             if command_data.get("type") == "save_action" and request_id:
                 await self.on_broadcast(
                     {
@@ -238,6 +261,9 @@ class NinjaBLEService:
                         "code": "action_save_failed",
                     }
                 )
+        finally:
+            if request_id:
+                self._pending_command_requests.discard(str(request_id))
 
     async def _broadcast_save_action_result(self, result: dict[str, Any]):
         """Fallback notification for save_action command responses.
@@ -272,6 +298,42 @@ class NinjaBLEService:
             event["overwritten"] = bool(result["overwritten"])
 
         await self.on_broadcast(event)
+
+    def _cache_command_response(self, message: dict[str, Any]):
+        """Store final request responses for readback if BLE notifications are missed."""
+        if message.get("type") != "action_save_status" or not message.get("request_id"):
+            return
+
+        request_id = str(message["request_id"])
+        self._cleanup_command_response_cache()
+        self._command_responses[request_id] = (time.monotonic(), dict(message))
+        self._pending_command_requests.discard(request_id)
+
+    def _cleanup_command_response_cache(self):
+        now = time.monotonic()
+        expired = [
+            request_id
+            for request_id, (created_at, _) in self._command_responses.items()
+            if now - created_at > COMMAND_RESPONSE_TTL_SECONDS
+        ]
+        for request_id in expired:
+            self._command_responses.pop(request_id, None)
+
+    async def _publish_cached_command_response(self, request_id: str):
+        """Write the cached command response to the status characteristic for browser polling."""
+        self._cleanup_command_response_cache()
+        cached = self._command_responses.get(request_id)
+        if cached:
+            message = dict(cached[1])
+        else:
+            message = {
+                "type": "command_response_status",
+                "protocol_version": PROTOCOL_VERSION,
+                "request_id": request_id,
+                "status": "pending" if request_id in self._pending_command_requests else "missing",
+            }
+
+        await self._write_status_value(message)
 
     async def start(self):
         """Start the GATT Server."""
@@ -360,6 +422,18 @@ class NinjaBLEService:
         await self._server.add_new_characteristic(
             SERVICE_UUID,
             CHAR_RESPONSE_UUID,
+            properties=(
+                GATTCharacteristicProperties.read
+                | GATTCharacteristicProperties.notify
+            ),
+            permissions=GATTAttributePermissions.readable,
+            value=bytearray(b"{}"),
+        )
+
+        # Add Command Status Characteristic (Read + optional Notify)
+        await self._server.add_new_characteristic(
+            SERVICE_UUID,
+            CHAR_STATUS_UUID,
             properties=(
                 GATTCharacteristicProperties.read
                 | GATTCharacteristicProperties.notify
@@ -535,6 +609,8 @@ class NinjaBLEService:
         Handle broadcast from Dispatcher (AI Response / Status).
         Encodes JSON -> bytes -> BLE Notify.
         """
+        self._cache_command_response(message)
+
         if not self._running or not self._server:
             return
 
@@ -553,14 +629,18 @@ class NinjaBLEService:
             self._notify_lock = asyncio.Lock()
 
         async with self._notify_lock:
-            if len(payload) <= CHUNK_SIZE:
+            if len(payload) <= OUTBOUND_NOTIFY_CHUNK_SIZE:
                 await self._notify_packet(payload)
                 return
 
             transfer_id = self._allocate_outbound_transfer_id()
-            data_packets = create_data_packets(payload, transfer_id, CHUNK_SIZE)
+            data_packets = create_data_packets(
+                payload,
+                transfer_id,
+                OUTBOUND_NOTIFY_CHUNK_SIZE,
+            )
             packets = [
-                create_header_packet(payload, transfer_id, CHUNK_SIZE),
+                create_header_packet(payload, transfer_id, OUTBOUND_NOTIFY_CHUNK_SIZE),
                 *data_packets,
                 create_eof_packet(transfer_id, len(data_packets)),
             ]
@@ -579,3 +659,16 @@ class NinjaBLEService:
 
         char.value = bytearray(payload)
         self._server.update_value(SERVICE_UUID, CHAR_RESPONSE_UUID)
+
+    async def _write_status_value(self, message: dict[str, Any]):
+        if not self._server:
+            return
+
+        char = self._server.get_characteristic(CHAR_STATUS_UUID)
+        if not char:
+            return
+
+        payload = json.dumps(message, separators=(",", ":")).encode("utf-8")
+        char.value = bytearray(payload)
+        if len(payload) <= OUTBOUND_NOTIFY_CHUNK_SIZE:
+            self._server.update_value(SERVICE_UUID, CHAR_STATUS_UUID)

@@ -146,7 +146,7 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/dispatcher.py` | Adds `save_action` command handling, protected overwrite validation, `action_save_status` events, and saved-action replay through the SafeExecutor |
 | `ninja_core/ninja_agent.py` | Loads saved Blockly action names alongside native config movements and can return `action_chain` plans for AI replay |
 | `ninja_core/web_server.py` | Wires the action library into startup, dispatcher, agent refresh, and cooperative interruption for new chat requests |
-| BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; saved Blockly duplicates can be overwritten only with explicit confirmation, while native movements remain protected |
+| BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; robot-authored save results are cached by `request_id` and exposed through BLE status readback so missed browser notifications do not create false timeouts |
 
 ### Required Setup:
 ```bash
@@ -2487,6 +2487,7 @@ def __init__(
 |---|---|---|---|
 | Command | `00000002-710e-4a5b-8d75-3e5b444bc3cf` | Write, WriteWithoutResponse | Receives JSON commands or transport-v2 chunk packets |
 | Response | `00000003-710e-4a5b-8d75-3e5b444bc3cf` | Read, Notify | Sends JSON responses and chunked runtime feedback |
+| Command Status | `00000004-710e-4a5b-8d75-3e5b444bc3cf` | Read, Notify | Holds the latest cached command response requested by `get_command_response`; used by Chrome/Web Bluetooth clients when a notification is missed |
 
 #### 3.7.3 JSON Protocol
 
@@ -2537,7 +2538,17 @@ def __init__(
 }
 ```
 
-The robot persists this as a complete Blockly action in `ninja_actions/`. If `name` conflicts with a native `config.json` movement, the robot returns `action_save_status` with `status: "conflict"`, `code: "action_name_conflict"`, and `can_overwrite: false`. If `name` conflicts with another saved Blockly action, the event includes `can_overwrite: true`; the Code IDE may ask the user for confirmation and resend `save_action` with `"overwrite": true`.
+The robot persists this as a complete Blockly action in `ninja_actions/`. If `name` conflicts with a native `config.json` movement or another saved Blockly action, the robot returns `action_save_status` with `status: "conflict"` and `code: "action_name_conflict"`. The Code IDE treats the robot as authoritative, keeps the naming dialog open, and prompts the user to enter a different action name or cancel. The lower-level `overwrite` flag remains guarded by `ActionLibrary` for maintenance clients, but native config movements can never be overwritten by saved Blockly actions.
+
+**Command Response Readback (BLE Recovery):**
+```json
+{
+  "type": "get_command_response",
+  "request_id": "save-action-123"
+}
+```
+
+`NinjaBLEService` caches final `action_save_status` events by `request_id` for a short TTL and writes the cached event to the Command Status characteristic when this command is received. If the save is still running, the status characteristic contains `{"type":"command_response_status","status":"pending"}`; if no cached response is known, it contains `status: "missing"`. The Response characteristic remains the live notification/event stream, while Command Status is the deterministic readback path for Chrome/Web Bluetooth clients.
 
 **Stop Command:**
 ```json
@@ -2556,6 +2567,7 @@ The robot persists this as a complete Blockly action in `ninja_actions/`. If `na
 - `execution_status`
 - `execution_log`
 - `action_save_status`
+- `command_response_status` (transport readback only)
 - `chat`
 - `error`
 
@@ -2570,6 +2582,7 @@ class NinjaBLEService:
     async def start(self): ...          # Start GATT server & advertising
     async def stop(self): ...           # Stop server
     async def on_broadcast(self, message: dict): ...  # Send BLE notification
+    async def _publish_cached_command_response(self, request_id: str): ...  # Status readback
 ```
 
 **Usage (from `web_server.py`):**
