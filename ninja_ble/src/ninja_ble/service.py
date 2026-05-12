@@ -546,7 +546,9 @@ class NinjaBLEService:
             def __init__(self, advertising_type, index: int, app):
                 self.path = app.base_path + "/advertisement" + str(index)
                 self._type = advertising_type.value
-                self._service_uuids: list[str] = []
+                self._service_uuids: list[str] = (
+                    [SERVICE_UUID] if include_service_uuid else []
+                )
                 self._local_name = service_name
                 super().__init__(self.interface_name)
 

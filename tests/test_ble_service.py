@@ -687,8 +687,6 @@ def test_compact_advertisement_properties_are_read_only(monkeypatch):
     service_only = service_advertisement(fake_type, 1, fake_app)
     connectable_only = connectable_advertisement(fake_type, 2, fake_app)
 
-    service_only._service_uuids.append(service_module.SERVICE_UUID)
-
     assert name_only.LocalName == custom_name
     assert service_only.ServiceUUIDs == [service_module.SERVICE_UUID]
     assert connectable_only.Type == "peripheral"
