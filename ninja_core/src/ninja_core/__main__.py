@@ -1,6 +1,7 @@
 import click
 
-from .config import import_and_update_config, set_api_key, set_robot_name
+from .config import import_and_update_config, set_api_key, set_robot_name, set_robot_type
+from .init_tool import run_init_tool
 
 from .movement_cli import run_cli as run_movement_cli
 
@@ -17,6 +18,13 @@ def movement_tool():
     """Launch the interactive CLI tool for recording and editing servo movements."""
 
     run_movement_cli()
+
+
+@main.command("init-tool")
+def init_tool():
+    """Launch the guided NinjaRobotV5 setup menu."""
+
+    run_init_tool()
 
 
 @main.group()
@@ -64,6 +72,17 @@ def set_name(name):
     Usage: ninja_core config set-name "Classroom Ninja 1"
     """
     set_robot_name(" ".join(name))
+
+
+@config.command("set-type")
+@click.argument("robot_type")
+def set_type(robot_type):
+    """
+    Set the NinjaRobot type used by Code IDE profile synchronization.
+
+    Usage: ninja_core config set-type humanoid
+    """
+    set_robot_type(robot_type)
 
 
 @main.command("chat")

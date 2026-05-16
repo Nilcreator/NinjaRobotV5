@@ -11,6 +11,17 @@ import pytest
 from ninja_ble.chunking import ChunkReassembler
 
 
+def decode_ble_json_updates(updates):
+    reassembler = ChunkReassembler()
+    for packet in updates:
+        if packet.startswith(b"{"):
+            return json.loads(packet.decode("utf-8"))
+        complete, payload = reassembler.process_packet(packet)
+        if complete:
+            return json.loads(payload.decode("utf-8"))
+    return None
+
+
 def test_ble_service_chunks_large_broadcasts(monkeypatch):
     custom_name = "Classroom Ninja 1"
 
@@ -205,6 +216,19 @@ def test_ble_service_answers_robot_info_from_configured_name(monkeypatch):
     service = service_module.NinjaBLEService(
         dispatcher,
         service_name=custom_name,
+        robot_profile={
+            "robot_type": "humanoid",
+            "robot_type_label": "Humanoid",
+            "api_keys": {"gemini": "SECRET"},
+            "hardware_configuration": {
+                "servos": {
+                    "gpio_pins": [12, 13],
+                    "calibration": {
+                        "12": {"center_pulse": 1500},
+                    },
+                },
+            },
+        },
     )
     service._running = True
     service._server = FakeBlessServer(name=custom_name)
@@ -242,6 +266,156 @@ def test_ble_service_answers_robot_info_from_configured_name(monkeypatch):
     assert message["request_id"] == "robot-info-1"
     assert message["service_name"] == custom_name
     assert message["name"] == custom_name
+    assert message["robot_type"] == "humanoid"
+    assert message["hardware_configuration"]["servos"]["gpio_pins"] == [12, 13]
+    assert "api_keys" not in message
+
+
+def test_ble_service_robot_info_falls_back_when_profile_provider_fails(monkeypatch):
+    class FakeBlessServer:
+        def __init__(self, name=None):
+            self.name = name
+            self._characteristics = {
+                "00000003-710e-4a5b-8d75-3e5b444bc3cf": types.SimpleNamespace(value=bytearray()),
+                "00000004-710e-4a5b-8d75-3e5b444bc3cf": types.SimpleNamespace(value=bytearray()),
+            }
+            self.updates = []
+
+        def get_characteristic(self, uuid):
+            return self._characteristics.get(uuid)
+
+        def update_value(self, service_uuid, characteristic_uuid):
+            char = self._characteristics[characteristic_uuid]
+            self.updates.append(bytes(char.value))
+
+    bless_stub = types.SimpleNamespace(
+        BlessServer=FakeBlessServer,
+        BlessGATTCharacteristic=object,
+        GATTCharacteristicProperties=types.SimpleNamespace(
+            write=1,
+            write_without_response=2,
+            read=4,
+            notify=8,
+        ),
+        GATTAttributePermissions=types.SimpleNamespace(
+            writeable=1,
+            readable=2,
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "bless", bless_stub)
+    sys.modules.pop("ninja_ble.service", None)
+    service_module = importlib.import_module("ninja_ble.service")
+
+    class FakeDispatcher:
+        def register_listener(self, listener):
+            self.listener = listener
+
+    def failing_provider():
+        raise RuntimeError("profile unavailable")
+
+    service = service_module.NinjaBLEService(
+        FakeDispatcher(),
+        service_name="Fallback Ninja",
+        robot_info_provider=failing_provider,
+    )
+    service._running = True
+    service._server = FakeBlessServer()
+
+    async def dispatch_robot_info():
+        service._handle_legacy_json(
+            json.dumps({"type": "robot_info", "request_id": "robot-info-fallback"}).encode("utf-8")
+        )
+        for _ in range(20):
+            await asyncio.sleep(0)
+
+    asyncio.run(dispatch_robot_info())
+
+    message = decode_ble_json_updates(service._server.updates)
+    assert message["type"] == "robot_info"
+    assert message["service_name"] == "Fallback Ninja"
+    assert message["profile_error"] == "RuntimeError"
+
+
+def test_ble_service_chunks_robot_info_profile(monkeypatch):
+    class FakeBlessServer:
+        def __init__(self, name=None):
+            self.name = name
+            self._characteristics = {
+                "00000003-710e-4a5b-8d75-3e5b444bc3cf": types.SimpleNamespace(value=bytearray()),
+                "00000004-710e-4a5b-8d75-3e5b444bc3cf": types.SimpleNamespace(value=bytearray()),
+            }
+            self.updates = []
+
+        def get_characteristic(self, uuid):
+            return self._characteristics.get(uuid)
+
+        def update_value(self, service_uuid, characteristic_uuid):
+            char = self._characteristics[characteristic_uuid]
+            self.updates.append(bytes(char.value))
+
+    bless_stub = types.SimpleNamespace(
+        BlessServer=FakeBlessServer,
+        BlessGATTCharacteristic=object,
+        GATTCharacteristicProperties=types.SimpleNamespace(
+            write=1,
+            write_without_response=2,
+            read=4,
+            notify=8,
+        ),
+        GATTAttributePermissions=types.SimpleNamespace(
+            writeable=1,
+            readable=2,
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "bless", bless_stub)
+    sys.modules.pop("ninja_ble.service", None)
+    service_module = importlib.import_module("ninja_ble.service")
+
+    class FakeDispatcher:
+        def register_listener(self, listener):
+            self.listener = listener
+
+    calibration = {
+        str(pin): {
+            "min_pulse": 500,
+            "center_pulse": 1500,
+            "max_pulse": 2500,
+            "angle_range": 180,
+            "speed": 80,
+        }
+        for pin in range(2, 28)
+    }
+    service = service_module.NinjaBLEService(
+        FakeDispatcher(),
+        service_name="Profile Ninja",
+        robot_profile={
+            "robot_type": "spider",
+            "hardware_configuration": {
+                "servos": {
+                    "gpio_pins": list(range(2, 28)),
+                    "calibration": calibration,
+                },
+            },
+        },
+    )
+    service._running = True
+    service._server = FakeBlessServer()
+
+    async def dispatch_robot_info():
+        service._handle_legacy_json(
+            json.dumps({"type": "robot_info", "request_id": "robot-info-large"}).encode("utf-8")
+        )
+        for _ in range(100):
+            await asyncio.sleep(0)
+
+    asyncio.run(dispatch_robot_info())
+
+    assert len(service._server.updates) > 1
+    message = decode_ble_json_updates(service._server.updates)
+    assert message is not None
+    assert message["type"] == "robot_info"
+    assert message["robot_type"] == "spider"
+    assert message["hardware_configuration"]["servos"]["gpio_pins"] == list(range(2, 28))
 
 
 def test_ble_service_reads_cached_command_response(monkeypatch):

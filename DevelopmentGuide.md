@@ -148,6 +148,14 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/web_server.py` | Wires the action library into startup, dispatcher, agent refresh, and cooperative interruption for new chat requests |
 | BLE contract | Code IDE `Save to Robot` uploads complete generated Python plus Blockly workspace metadata; robot-authored save results are cached by `request_id` and exposed through BLE status readback so missed browser notifications do not create false timeouts |
 
+### Key Changes (V5.2.11 - Guided Initialization and Robot Profile Sync):
+| Component | Change |
+|---|---|
+| `ninja_core/config.py` | Adds `robot_type`, robot type validation, sanitized hardware profile serialization, and `hardware_configuration.servos.gpio_pins` for Code IDE synchronization |
+| `ninja_core/init_tool.py` | **NEW** - Provides `uv run ninja_core init-tool`, a guided setup menu for Gemini key, ngrok token, robot name, robot type, hardware import, profile display, and server start |
+| `ninja_ble/service.py` | Extends the `robot_info` response with robot type and sanitized hardware configuration while preserving name-only fallback behavior |
+| `NinjaRoboticPlatform Code IDE` | Uses received servo GPIO settings to switch Blockly servo pin fields from numeric fallback mode to profile-backed dropdown mode |
+
 ### Required Setup:
 ```bash
 uv run pi0buzzer init 17
@@ -1540,6 +1548,7 @@ class NinjaConfig(BaseModel):
     buzzer: BuzzerConfig = Field(default_factory=BuzzerConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     bluetooth: BluetoothConfig = Field(default_factory=BluetoothConfig)
+    robot_type: str = "tire"  # tire, humanoid, or spider
     sensors: SensorConfig = Field(default_factory=SensorConfig)
     movements: Dict[str, list] = Field(default_factory=dict)
     api_keys: Dict[str, str] = Field(default_factory=dict)
@@ -1556,6 +1565,9 @@ class NinjaConfig(BaseModel):
 **`normalize_ble_name(name: str) -> str`**
 - Trims repeated whitespace and validates the BLE advertising name fits within 29 UTF-8 bytes
 
+**`normalize_robot_type(robot_type: str | None) -> str`**
+- Validates and normalizes `tire`, `humanoid`, or `spider`
+
 **`import_and_update_config() -> None`**
 - Imports `servo.json` and `buzzer.json` into main `config.json`
 - Applies default servo calibration if `servo.json` not found
@@ -1567,17 +1579,26 @@ class NinjaConfig(BaseModel):
 - Saves a new Bluetooth discovery name under `config.json["bluetooth"]["name"]`
 - Takes effect the next time `ninja_core server` (and its BLE service) starts
 
+**`set_robot_type(robot_type: str, path: Path = Path("config.json")) -> str`**
+- Saves the configured NinjaRobot type for BLE `robot_info` synchronization
+
+**`build_robot_profile(config: NinjaConfig) -> dict`**
+- Returns a sanitized profile with robot type, BLE name aliases, and hardware configuration
+- Excludes `api_keys`, ngrok tokens, and other secret fields before BLE transfer
+
 **Usage:**
 ```python
-from ninja_core.config import load_config, set_api_key, set_robot_name
+from ninja_core.config import load_config, set_api_key, set_robot_name, set_robot_type
 
 config = load_config()
 print(config.servos.calibration)
 print(config.bluetooth.name)
+print(config.robot_type)
 print(config.api_keys.get("gemini"))
 
 set_api_key("gemini", "AIzaSy...")
 set_robot_name("Desk Robot A")
+set_robot_type("humanoid")
 ```
 
 ---
@@ -2227,6 +2248,10 @@ uv run ninja_core server
 - Interactive TUI for recording and editing movement sequences
 - **Example:** `uv run ninja_core movement-tool`
 
+**`init-tool`**
+- Guided setup menu for Gemini key, ngrok token, robot name, robot type, hardware import, sanitized hardware profile display, and server startup
+- **Example:** `uv run ninja_core init-tool`
+
 **`config import-all`**
 - Imports `servo.json` and `buzzer.json` into `config.json`
 - **Example:** `uv run ninja_core config import-all`
@@ -2239,6 +2264,10 @@ uv run ninja_core server
 - Sets the Bluetooth discovery name stored in `config.json`
 - **Example:** `uv run ninja_core config set-name "Classroom Ninja 1"`
 - **Note:** Restart `uv run ninja_core server` after changing the name so BLE advertising reloads it
+
+**`config set-type <robot_type>`**
+- Sets the NinjaRobot type sent to the Code IDE (`tire`, `humanoid`, or `spider`)
+- **Example:** `uv run ninja_core config set-type spider`
 
 ---
 
@@ -2578,7 +2607,7 @@ The robot persists this as a complete Blockly action in `ninja_actions/`. If `na
 **`NinjaBLEService`** (`service.py`)
 ```python
 class NinjaBLEService:
-    def __init__(self, dispatcher: CommandDispatcher, service_name: str = "NinjaRobot"): ...
+    def __init__(self, dispatcher: CommandDispatcher, service_name: str = "NinjaRobot", robot_profile: dict | None = None): ...
     async def start(self): ...          # Start GATT server & advertising
     async def stop(self): ...           # Stop server
     async def on_broadcast(self, message: dict): ...  # Send BLE notification
@@ -2588,12 +2617,36 @@ class NinjaBLEService:
 **Usage (from `web_server.py`):**
 ```python
 from ninja_ble.service import NinjaBLEService
+from ninja_core.config import build_robot_profile
 from ninja_core.dispatcher import CommandDispatcher
 
 dispatcher = CommandDispatcher(hal)
-ble_service = NinjaBLEService(dispatcher, service_name=config.bluetooth.name)
+ble_service = NinjaBLEService(
+    dispatcher,
+    service_name=config.bluetooth.name,
+    robot_profile=build_robot_profile(config),
+)
 asyncio.create_task(ble_service.start())
 ```
+
+**`robot_info` Profile Event:**
+```json
+{
+  "type": "robot_info",
+  "service_name": "Classroom Ninja 1",
+  "robot_type": "humanoid",
+  "robot_type_label": "Humanoid",
+  "hardware_configuration": {
+    "servos": {
+      "gpio_pins": [12, 13, 18],
+      "pins": {"left": 12},
+      "calibration": {"12": {"center_pulse": 1500}}
+    }
+  }
+}
+```
+
+`robot_info` is handled inside `NinjaBLEService` and does not enter the dispatcher or HAL command path. If profile serialization fails, the service still returns the existing name-only payload with a non-secret `profile_error`.
 
 #### 3.7.5 Dependencies
 

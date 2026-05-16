@@ -729,6 +729,27 @@ Configure the AI agent with your API key (replace `YOUR_API_KEY` with the actual
 uv run ninja_core config set-key gemini YOUR_API_KEY
 ```
 
+### Step 7.5A: Guided NinjaRobot Initialization Tool
+
+For classroom setup, you can use the guided initializer instead of running each configuration command separately:
+
+```bash
+uv run ninja_core init-tool
+```
+
+The menu provides these actions:
+
+1. Set Gemini API Key
+2. Set ngrok Token
+3. Rename the Ninja Robot
+4. Select NinjaRobot Type (`Tire`, `Humanoid`, or `Spider`)
+5. Import All Hardware Configuration
+6. Show Existing Hardware Configuration
+7. Start NinjaRobot Server
+8. Exit
+
+The "Show Existing Hardware Configuration" option prints the same sanitized robot profile sent to the Code IDE over Bluetooth. It includes `robot_type` and `hardware_configuration.servos.gpio_pins`, but never prints Gemini API keys or ngrok tokens.
+
 ### Step 7.6: Import All Hardware Configurations
 
 Now that all components are initialized and tested, import their configurations into the main `config.json`:
@@ -768,6 +789,18 @@ Guidelines:
 - Restart `uv run ninja_core server` (or reboot the Raspberry Pi) after changing the name so the new Bluetooth name is advertised.
 
 When you scan from the NinjaRoboticPlatform Code IDE or nRF Connect, look for the new name instead of the default `NinjaRobot`.
+
+### Step 7.8: Select NinjaRobot Type
+
+Select the robot type so the Code IDE can tailor Blockly synchronization after Bluetooth connection:
+
+```bash
+uv run ninja_core config set-type tire
+uv run ninja_core config set-type humanoid
+uv run ninja_core config set-type spider
+```
+
+Only one type is active at a time. The guided initializer's "Select NinjaRobot Type" option calls the same setting. Restart `uv run ninja_core server` after changing the type so the next `robot_info` profile contains the updated value.
 
 #### Troubleshooting Bluetooth Rename and Discovery
 

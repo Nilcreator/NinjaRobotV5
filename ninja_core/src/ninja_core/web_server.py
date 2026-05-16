@@ -19,9 +19,10 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from pydantic import BaseModel
-from pyngrok import ngrok, conf
+from pyngrok import ngrok
 
-from .config import load_config, set_api_key
+from .config import build_robot_profile, load_config, set_api_key
+from .ngrok_config import has_ngrok_auth_token, set_ngrok_auth_token
 from .action_library import ActionLibrary
 from .hal import HardwareAbstractionLayer
 from .ninja_agent import NinjaAgent, MissingAPIKeyError
@@ -148,6 +149,7 @@ async def lifespan(app: FastAPI):
         app.state.ninja.ble = NinjaBLEService(
             dispatcher,
             service_name=config.bluetooth.name,
+            robot_profile=build_robot_profile(config),
         )
         await asyncio.wait_for(app.state.ninja.ble.start(), timeout=30.0)
         if app.state.ninja.ble.is_running:
@@ -987,25 +989,7 @@ def run_server(autostart: bool = False):
         sys.exit(1)
     
     # Check for existing token
-    token_exists = False
-    if conf.get_default().auth_token:
-        token_exists = True
-    else:
-        # Check common config paths
-        paths = [
-            os.path.join(os.path.expanduser("~"), ".ngrok2", "ngrok.yml"),
-            os.path.join(os.path.expanduser("~"), "Library", "Application Support", "ngrok", "ngrok.yml"),
-            os.path.join(os.path.expanduser("~"), ".config", "ngrok", "ngrok.yml")
-        ]
-        for p in paths:
-            if os.path.exists(p):
-                try:
-                    with open(p, 'r') as f:
-                        if "authtoken" in f.read():
-                            token_exists = True
-                            break
-                except Exception:
-                    pass
+    token_exists = has_ngrok_auth_token()
 
     print("Checking ngrok configuration...")
     
@@ -1034,7 +1018,7 @@ def run_server(autostart: bool = False):
 
         if token:
             print("Setting ngrok authtoken...")
-            ngrok.set_auth_token(token)
+            set_ngrok_auth_token(token)
     
     # --- Set up emergency cleanup signal handler ---
     def emergency_cleanup():

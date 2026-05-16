@@ -7,13 +7,22 @@ and provides functions to load, save, and manage the config file.
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
 
 DEFAULT_BLE_NAME = "NinjaRobot"
 MAX_BLE_NAME_BYTES = 29
+ROBOT_TYPE_OPTIONS = ("tire", "humanoid", "spider")
+ROBOT_TYPE_LABELS = {
+    "tire": "Tire",
+    "humanoid": "Humanoid",
+    "spider": "Spider",
+}
+DEFAULT_ROBOT_TYPE = "tire"
+ROBOT_PROFILE_VERSION = "ninja-robot-profile-v1"
+MAX_BCM_GPIO_PIN = 27
 
 
 def normalize_ble_name(name: str) -> str:
@@ -29,6 +38,20 @@ def normalize_ble_name(name: str) -> str:
         )
 
     return normalized
+
+
+def normalize_robot_type(robot_type: str | None) -> str:
+    """Normalize and validate the robot type stored in config.json."""
+    normalized = (robot_type or DEFAULT_ROBOT_TYPE).strip().lower()
+    if normalized not in ROBOT_TYPE_OPTIONS:
+        options = ", ".join(ROBOT_TYPE_OPTIONS)
+        raise ValueError(f"Robot type must be one of: {options}.")
+    return normalized
+
+
+def get_robot_type_options() -> tuple[tuple[str, str], ...]:
+    """Return supported robot types as (value, label) pairs."""
+    return tuple((value, ROBOT_TYPE_LABELS[value]) for value in ROBOT_TYPE_OPTIONS)
 
 
 # --- Data Models for Configuration ---
@@ -103,6 +126,10 @@ class NinjaConfig(BaseModel):
     buzzer: BuzzerConfig = Field(default_factory=BuzzerConfig)
     display: DisplayConfig = Field(default_factory=DisplayConfig)
     bluetooth: BluetoothConfig = Field(default_factory=BluetoothConfig)
+    robot_type: str = Field(
+        default=DEFAULT_ROBOT_TYPE,
+        description="Canonical NinjaRobot type: tire, humanoid, or spider.",
+    )
     sensors: SensorConfig = Field(default_factory=SensorConfig)
     movements: Dict[str, list] = Field(
         default_factory=dict, description="Named servo movement sequences."
@@ -110,6 +137,11 @@ class NinjaConfig(BaseModel):
     api_keys: Dict[str, str] = Field(
         default_factory=dict, description="API keys for services like Google Gemini."
     )
+
+    @field_validator("robot_type")
+    @classmethod
+    def validate_robot_type(cls, value: str) -> str:
+        return normalize_robot_type(value)
 
 
 # --- Configuration Management Functions ---
@@ -121,6 +153,71 @@ def save_config(config: NinjaConfig, path: Path = CONFIG_FILE_PATH):
     """Saves the configuration object to a JSON file."""
     with open(path, "w") as f:
         json.dump(config.model_dump(), f, indent=4)
+
+
+def _normalize_gpio_pin(value: Any) -> int | None:
+    try:
+        pin = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    if pin < 0 or pin > MAX_BCM_GPIO_PIN:
+        return None
+    return pin
+
+
+def _model_dump_public(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump()
+    return value
+
+
+def build_hardware_configuration(config: NinjaConfig) -> dict[str, Any]:
+    """Build a non-secret hardware configuration snapshot for IDE clients."""
+    servo_pin_values = [
+        _normalize_gpio_pin(pin)
+        for pin in config.servos.pins.values()
+    ]
+    servo_calibration_pins = [
+        _normalize_gpio_pin(pin)
+        for pin in config.servos.calibration.keys()
+    ]
+    gpio_pins = sorted(
+        {
+            pin
+            for pin in [*servo_pin_values, *servo_calibration_pins]
+            if pin is not None
+        }
+    )
+
+    return {
+        "servos": {
+            "gpio_pins": gpio_pins,
+            "pins": dict(config.servos.pins),
+            "calibration": {
+                str(pin): _model_dump_public(calibration)
+                for pin, calibration in config.servos.calibration.items()
+            },
+        },
+        "buzzer": _model_dump_public(config.buzzer),
+        "display": _model_dump_public(config.display),
+        "sensors": _model_dump_public(config.sensors),
+    }
+
+
+def build_robot_profile(config: NinjaConfig) -> dict[str, Any]:
+    """Build the sanitized robot profile shared over BLE/web status."""
+    robot_type = normalize_robot_type(config.robot_type)
+    return {
+        "robot_profile_version": ROBOT_PROFILE_VERSION,
+        "name": config.bluetooth.name,
+        "service_name": config.bluetooth.name,
+        "display_name": config.bluetooth.name,
+        "ble_name": config.bluetooth.name,
+        "robot_type": robot_type,
+        "robot_type_label": ROBOT_TYPE_LABELS[robot_type],
+        "hardware_configuration": build_hardware_configuration(config),
+    }
 
 
 def load_config(path: Path = CONFIG_FILE_PATH) -> NinjaConfig:
@@ -138,6 +235,16 @@ def load_config(path: Path = CONFIG_FILE_PATH) -> NinjaConfig:
     with open(path, "r") as f:
         data = json.load(f)
         return NinjaConfig.model_validate(data)
+
+
+def set_robot_type(robot_type: str, path: Path = CONFIG_FILE_PATH) -> str:
+    """Persist the configured NinjaRobot type."""
+    normalized = normalize_robot_type(robot_type)
+    config = load_config(path)
+    config.robot_type = normalized
+    save_config(config, path)
+    print(f"NinjaRobot type set to {ROBOT_TYPE_LABELS[normalized]} ({normalized}).")
+    return normalized
 
 
 def import_and_update_config():

@@ -5,6 +5,7 @@ import json
 import logging
 import sys
 import time
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from bless import (
@@ -50,6 +51,24 @@ ADVERTISEMENT_ERROR_FRAGMENT = "register advertisement"
 ADVERTISING_NOT_READY_MESSAGE = "BLE advertising did not start"
 COMMAND_RESPONSE_TTL_SECONDS = 300.0
 OUTBOUND_NOTIFY_CHUNK_SIZE = 160
+ROBOT_PROFILE_SECRET_KEYS = {
+    "api_key",
+    "api_keys",
+    "auth_token",
+    "ngrok_token",
+    "password",
+    "secret",
+    "token",
+}
+ROBOT_INFO_ALIAS_KEYS = {
+    "type",
+    "protocol_version",
+    "request_id",
+    "name",
+    "service_name",
+    "display_name",
+    "ble_name",
+}
 
 
 class NinjaBLEService:
@@ -59,9 +78,13 @@ class NinjaBLEService:
         self,
         dispatcher: CommandDispatcher,
         service_name: str = SERVICE_NAME,
+        robot_profile: Mapping[str, Any] | None = None,
+        robot_info_provider: Callable[[], Mapping[str, Any] | None] | None = None,
     ):
         self.dispatcher = dispatcher
         self.service_name = normalize_ble_name(service_name)
+        self._robot_profile = dict(robot_profile or {})
+        self._robot_info_provider = robot_info_provider
         self._running = False
         self._server: BlessServer | None = None
 
@@ -212,19 +235,7 @@ class NinjaBLEService:
 
         if command_type == "robot_info":
             request_id = ensure_request_id(command_data, "robot-info")
-            self._schedule_task(
-                self.on_broadcast(
-                    {
-                        "type": "robot_info",
-                        "protocol_version": PROTOCOL_VERSION,
-                        "request_id": request_id,
-                        "name": self.service_name,
-                        "service_name": self.service_name,
-                        "display_name": self.service_name,
-                        "ble_name": self.service_name,
-                    }
-                )
-            )
+            self._schedule_task(self.on_broadcast(self._build_robot_info(request_id)))
             return True
 
         if command_type == "get_command_response":
@@ -233,6 +244,50 @@ class NinjaBLEService:
             return True
 
         return False
+
+    def _build_robot_info(self, request_id: str) -> dict[str, Any]:
+        """Build a backward-compatible, non-secret robot_info event."""
+        message: dict[str, Any] = {
+            "type": "robot_info",
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": request_id,
+            "name": self.service_name,
+            "service_name": self.service_name,
+            "display_name": self.service_name,
+            "ble_name": self.service_name,
+        }
+
+        try:
+            profile = (
+                self._robot_info_provider()
+                if self._robot_info_provider is not None
+                else self._robot_profile
+            )
+            if profile:
+                safe_profile = self._strip_profile_secrets(dict(profile))
+                message.update(
+                    {
+                        key: value
+                        for key, value in safe_profile.items()
+                        if key not in ROBOT_INFO_ALIAS_KEYS
+                    }
+                )
+        except Exception as exc:
+            log.exception("Failed to build robot_info profile")
+            message["profile_error"] = exc.__class__.__name__
+
+        return message
+
+    def _strip_profile_secrets(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: self._strip_profile_secrets(item)
+                for key, item in value.items()
+                if str(key).lower() not in ROBOT_PROFILE_SECRET_KEYS
+            }
+        if isinstance(value, list):
+            return [self._strip_profile_secrets(item) for item in value]
+        return value
 
     def _track_pending_command(self, command_data: dict[str, Any]):
         request_id = command_data.get("request_id")

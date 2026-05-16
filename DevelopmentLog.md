@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-05-16: Guided Initialization And Robot Profile Sync ✓
+- **Action**: Added the NinjaRobotV5 guided initialization flow and BLE robot profile synchronization for the NinjaRoboticPlatform Code IDE.
+- **Details**:
+  - **Config model**: Added `robot_type` (`tire`, `humanoid`, `spider`), validation helpers, sanitized hardware profile serialization, and explicit `hardware_configuration.servos.gpio_pins`.
+  - **Interactive setup**: Added `uv run ninja_core init-tool` with menu actions for Gemini API key, ngrok token, robot rename, robot type, hardware import, sanitized config display, server start, and exit.
+  - **BLE profile**: Extended `NinjaBLEService` `robot_info` responses with robot type and sanitized hardware configuration while preserving name-only fallback behavior for older IDEs and profile serialization failures.
+  - **ngrok setup**: Extracted lightweight ngrok token helpers so token setup can run without initializing the web server or robot hardware.
+- **Validation**: `PYTHONDONTWRITEBYTECODE=1 uv run --with ruff ruff check ninja_core/src ninja_ble/src tests` passed. `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=ninja_ble/src:ninja_core/src:ninja_utils/src:pi0buzzer/src:pi0disp/src:pi0servo/src uv run --with pytest --with pillow python -m pytest tests` passed (`76 passed`).
+- **Files Modified**: `ninja_core/src/ninja_core/config.py`, `ninja_core/src/ninja_core/init_tool.py`, `ninja_core/src/ninja_core/ngrok_config.py`, `ninja_core/src/ninja_core/__main__.py`, `ninja_core/src/ninja_core/web_server.py`, `ninja_ble/src/ninja_ble/service.py`, `tests/test_config.py`, `tests/test_init_tool.py`, `tests/test_ble_service.py`, `DevelopmentGuide.md`, `InstallationGuide.md`, `DevelopmentLog.md`.
+
 ## 2026-05-06: BLE Save Status Readback Refinement ✓
 - **Action**: Hardened BLE Save to Robot confirmations so a successful Blockly action save on the Pi no longer appears as `Response timeout for action_save_status` when Chrome misses the notification event.
 - **Implementation**:
