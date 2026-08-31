@@ -1,0 +1,245 @@
+# Ninja Core
+
+This package contains the main application logic for NinjaRobot V5. It integrates all the individual hardware libraries (`pi0servo`, `pi0buzzer`, etc.) into a cohesive system managed by a central configuration and a Hardware Abstraction Layer (HAL).
+
+## Key Components
+
+- **`hal.py` (Hardware Abstraction Layer):** Initializes and provides a single access point for all hardware drivers.
+- **`config.py` (Configuration Manager):** Manages all robot settings from a central `config.json` file.
+- **`dispatcher.py` (Command Dispatcher):** Central router for BLE and Web commands. Bridges all input sources.
+- **`safe_executor.py` (Safe Execution - Phase 4):** Sandboxed environment for running user/AI-generated Python code safely. Blocks dangerous imports.
+- **`ninja_coder.py` (AI Code Agent - Phase 4):** Gemini-powered agent for code generation, translation, and debugging.
+- **`api_wrappers.py` (Robot API - Phase 4):** High-level wrappers (`RobotWrapper`, `BuzzerWrapper`, `DisplayWrapper`, `DistanceWrapper`) exposed as `robot` in the executor.
+- **`movement_controller.py` (Motion System):** Executes complex, multi-servo movement sequences.
+- **`facial_expressions.py`, `robot_sound.py`, `perception.py`:** High-level controllers for expressions, sounds, and sensing.
+- **`web_server.py` (FastAPI Server):** Web interface with WebSocket support for real-time events (Phase 4: `/ws/events` added).
+
+---
+
+## V5 Changes
+
+> [!IMPORTANT]
+> As of V5, the HAL uses **dynamic driver loading** via `importlib` and validates drivers against ABCs.
+
+### Key Changes:
+- **Dynamic Loading**: Drivers are loaded from a registry, not hardcoded imports.
+- **ABC Validation**: All drivers implement `Sensor` or `Actuator` interfaces.
+- **Config Import**: Run `uv run ninja_core config import` to merge `servo.json` and `buzzer.json` into `config.json`.
+
+### Driver Registry:
+```python
+DRIVER_REGISTRY = {
+    "servos": {"module": "pi0servo.core.servo_group", "class": "ServoGroup"},  # V5.2.1
+    "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
+    "display": {"module": "pi0disp.disp.st7789v", "class": "ST7789V"},
+    "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},
+}
+```
+
+---
+
+## The Motion System (`movement_controller.py`)
+
+The Motion System is responsible for all servo-based movements. It is composed of two main parts: the runtime `MovementController` class and the interactive `movement-tool` CLI.
+
+### `MovementController` Class
+
+This class is the runtime engine for executing pre-defined motion sequences.
+- It is initialized with the HAL and `NinjaConfig` objects, removing the need for direct hardware or file system access.
+- Its primary method, `execute_movement(movement_name)`, plays back a named sequence from the configuration.
+- It uses **position-aware easing** for fluid multi-step motions:
+  - **First step:** `ease_in_cubic` (accelerate only)
+  - **Middle steps:** `linear` (constant velocity through waypoints)
+  - **Last step:** `ease_out_cubic` (decelerate to stop)
+- This eliminates the stop-start pattern between steps, creating smooth momentum-preserving motion.
+
+### `movement-tool` CLI
+
+This is an interactive, command-line tool for developers to **calibrate, create, edit, and test** all servo-related functions. You can launch it by running `uv run ninja_core movement-tool` from the project root.
+
+The tool presents a main menu with the following options:
+
+- **1. Calibrate a Servo:** Launches the `pi0servo` calibration tool for a selected servo. This allows you to define the min, center, and max pulse widths. The new calibration is automatically imported into the application's main configuration when the tool is running.
+- **2. Record new movement:** Starts the interactive recorder to create a new, named motion sequence step-by-step.
+- **3. Modify existing movement:** Provides a menu to interactively edit, insert, or delete steps within a saved movement.
+- **4. Execute a movement:** Plays back a saved movement, with options for looping.
+- **5. Clear movement:** Deletes a saved movement from the configuration.
+- **6. Exit:** Closes the tool and safely shuts down the hardware, saving all changes to `config.json`.
+
+#### In-Depth Guide: Recording a New Movement
+
+This feature allows you to define a sequence of positions for your servos, which are then saved as a single, named movement (e.g., "wave", "nod").
+
+##### Command Input Rules
+
+When recording, you define each step using a special command syntax:
+
+| Rule                | Description                                                                                                                            | Example                |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| **Basic Format**    | A GPIO pin number and an angle, separated by a colon. Angles range from -90 to 90.                                                     | `17:45`                |
+| **Angle Keywords**  | Use keywords for common angles: `C` for Center (0°), `M` for Minimum (-90°), and `X` for Maximum (90°).                                  | `17:C`                 |
+| **Chaining**        | Multiple servo movements in the same step are chained together with a `/`.                                                              | `17:45/22:-30`         |
+| **Speed Prefix**    | Set the speed for a step with a prefix: `S_` (Slow), `M_` (Medium), or `F_` (Fast). Medium is the default.                               | `S_17:90/22:90`        |
+| **Auto-Completion** | **(Crucial Rule)** If a servo isn't specified in a command, it automatically holds its position from the *previous* step. This is the key to creating smooth, continuous motions. | If step 1 is `17:45` and step 2 is `22:30`, servo 17 remains at 45° during step 2. |
+
+---
+
+## Testing the Core Components
+
+This guide assumes you are in the root directory of the `NinjaRobotV4` project and have already installed all dependencies.
+
+### Prerequisites
+
+1.  **pigpio Daemon:** Before running any test, ensure the `pigpio` service is running.
+    ```bash
+    sudo pigpiod
+    ```
+2.  **Initial Configuration:** If you have not yet created the master `config.json`, run the import command at least once.
+    ```bash
+    uv run ninja_core config import-all
+    ```
+
+### Step 1: Calibrate and Test the Motion System
+
+This workflow demonstrates the seamless integration of the calibration and movement tools.
+
+1.  **Launch the Movement Tool:**
+    ```bash
+    uv run ninja_core movement-tool
+    ```
+
+2.  **Calibrate a Servo:**
+    - Select option **1** to "Calibrate a Servo."
+    - Choose the servo pin you wish to calibrate from the list.
+    - The `pi0servo` calibration interface will launch. Follow the on-screen instructions (`h` for help) to set the Min, Center, and Max positions.
+    - Press `q` to quit the calibration tool.
+    - The `movement-tool` will automatically import the new settings and re-initialize the hardware.
+
+3.  **Record a Movement:**
+    - Select option **2** to "Record new movement."
+    - Create a simple movement (e.g., `17:45`, confirm, then `17:C`, finish) and name it `test_wave`.
+
+4.  **Execute the Movement:**
+    - Select option **4** to "Execute a movement."
+    - Choose the `test_wave` movement and loop it once.
+    - **Expected Result:** The servo will smoothly move to its 45-degree position and back, respecting the calibration you just set.
+
+5.  **Exit:** Select option **6** to exit. All your new calibration and movement data will be saved to `config.json`.
+
+### Step 2: Test Other Core Components
+
+You can test other hardware functionalities using the pre-made test scripts in the project root:
+
+- **Test HAL (Servos and Buzzer):**
+  ```bash
+  uv run python test_hal.py
+  ```
+- **Test Display System:**
+  ```bash
+  uv run python test_facial_expressions.py
+  ```
+- **Test Sound System:**
+  ```bash
+  uv run python test_robot_sound.py
+  ```
+- **Test Perception System:**
+  ```bash
+-   **Test HAL (Servos and Buzzer):**
+    ```bash
+    uv run python test_hal.py
+    ```
+-   **Test Display System:**
+    ```bash
+    uv run python test_facial_expressions.py
+    ```
+-   **Test Sound System:**
+    ```bash
+    uv run python test_robot_sound.py
+    ```
+-   **Test Perception System:**
+    ```bash
+    uv run python test_perception.py
+    ```
+
+This confirms that all `ninja_core` systems are successfully communicating with and controlling the hardware.
+
+### Step 3: Test the AI Agent
+
+The AI Agent allows you to control the robot using natural language.
+
+#### 3.1. Setup Google Gemini API Key
+
+1.  **Create an API Key:**
+    -   Go to [Google AI Studio](https://aistudio.google.com/).
+    -   Click on "Get API key" -> "Create API key".
+    -   Copy the generated key.
+
+2.  **Set the Key in NinjaRobot:**
+    ```bash
+    uv run ninja_core config set-key gemini YOUR_ACTUAL_API_KEY_HERE
+    ```
+
+#### 3.2. Setup ngrok (For Remote Access)
+
+To access the web server from outside your local network, you need an ngrok account.
+
+1.  **Create an Account:**
+    -   Go to [ngrok.com](https://ngrok.com/) and sign up for a free account.
+
+2.  **Get Your Authtoken:**
+    -   Go to your [ngrok Dashboard](https://dashboard.ngrok.com/get-started/your-authtoken).
+    -   Copy your Authtoken.
+
+3.  **Configure NinjaRobot:**
+    -   When you run `uv run ninja_core server` for the first time, you will be prompted to enter this token.
+    -   `uv run ninja_core server` - Start the web interface (interactive mode)
+    -   `uv run ninja_core server --autostart` - Start in non-interactive mode (for systemd)
+    -   Alternatively, you can set it manually via the ngrok CLI if installed, but the server prompt is the easiest method.
+
+#### 3.3. Run the Interactive Chat
+    This command initializes the robot and the AI agent, allowing you to type commands.
+    ```bash
+    uv run ninja_core chat
+    ```
+
+#### 3.4. Test Capabilities
+    -   **Nuance:** Type "I am feeling joyful." -> Robot should show a happy face.
+    -   **Multilingual:** Type "こんにちは" (Konnichiwa). -> Robot should reply in Japanese.
+    -   **Search:** Type "What is the weather in Tokyo?" -> Robot should search and answer.
+    -   **Auto-Emotion:** Type "Tell me a joke." -> Robot should speak (show speaking face) while answering.
+    -   **Movement:** Type "Do a wave." (if you recorded a 'wave' movement). -> Robot should execute the movement.
+
+### Step 4: Test Web Server & Remote Access
+
+The Web Server provides a user-friendly interface for controlling the robot from any device on the network or over the internet.
+
+1.  **Start the Server:**
+    ```bash
+    uv run ninja_core server
+    ```
+    - The robot will initialize all hardware.
+    - It will attempt to start an `ngrok` tunnel automatically.
+    - **Check the Display:** The robot's LCD screen should display a **QR Code**.
+
+2.  **Connect to the Interface:**
+    - **Option A (Mobile/Remote):** Scan the QR code on the robot's screen with your phone.
+    - **Option B (Local Network):** Open a browser on your computer and go to `http://<robot-ip>:8000` (The IP is printed in the terminal).
+
+3.  **Test Web Features:**
+    - **AI Chat & Voice Input:**
+        - **Text Chat:** Type a message in the input box and click **Send**.
+        - **Voice Input:** Select your language (English, 日本語, 繁體中文, 简体中文), click the  **`ninja_agent.py`** - AI Agent
+  - Google Gemini integration for NLP
+  - Semantic understanding and intent mapping
+  - Auto-emotion generation
+  - Action chaining (Movement, Faces, Sounds)
+  - Multilingual support (EN/JP/ZH-TW/ZH-CN)he robot will detect the selected language and respond in the same language (including distinguishing between Traditional and Simplified Chinese).
+    - **Servo Movements:** Select a movement from the dropdown and click **Execute**.
+    - **Facial Expressions:** Select an expression and click **Show**.
+    - **Sounds:** Select an emotion sound and click **Play**.
+    - **Distance Sensor**: Verify that the distance reading updates in real-time (every ~200ms).
+    - **System Controls**: Use the **Power Off Robot** button to safely shut down the Raspberry Pi.
+
+4.  **Test Obstacle Avoidance (Safety):**
+    - While a movement is executing (e.g., a long sequence), place your hand in front of the sensor (< 50mm).
+    - **Expected Result:** The robot should **immediately stop**, display a "scary" face, play a warning sound, and the web interface should show an error or stop notification.

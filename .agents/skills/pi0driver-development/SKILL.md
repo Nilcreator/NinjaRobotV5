@@ -28,18 +28,20 @@ This skill is the development guide for these libraries as standalone packages a
 - Do not move to the next phase until the current phase passes the quality gate.
 - After each hardware-facing phase, produce a manual Raspberry Pi Zero 2W validation gate.
 - If the task is a small documentation-only or metadata-only cleanup with no behavior change, a brief inline plan is enough and a formal approval gate is not required.
+- Use `robot-wiki-query` before auditing a driver. Record the relevant entity, architecture, hardware, calibration, and known-failure pages, then verify their claims against current code.
 
 ## Required context to load first
 
-Before planning substantial work, review:
+Before planning substantial work, review these repository-relative files:
 
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/AGENT.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/DevelopmentGuide.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/README.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/DevelopmentLog.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/InstallationGuide.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/pyproject.toml`
-- `README.md` in the developing pi0* package folder, for example `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/pi0servo/README.md`
+- `AGENTS.md`
+- `DevelopmentGuide.md`
+- `README.md`
+- `DevelopmentLog.md`
+- `InstallationGuide.md`
+- `pyproject.toml`
+- `README.md` and `pyproject.toml` in the target `pi0*` package
+- relevant pages and registered sources returned by `robot-wiki-query`
 
 ## Required tool order
 
@@ -302,12 +304,13 @@ If implementation changes code, the task is not complete until documentation is 
 
 Required files:
 
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/DevelopmentGuide.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/README.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/DevelopmentLog.md`
-- `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/InstallationGuide.md`
-- `AGENT.md` if the workflow itself changed
-- `README.md` in the developing pi0* package folder, for example `/Users/nilcreator/Desktop/0_Projects/Nilcreation/NinjaRobot/CodePlatform/NinjaRobotV5/pi0servo/README.md`
+- `DevelopmentGuide.md`
+- `README.md`
+- `DevelopmentLog.md`
+- `InstallationGuide.md`
+- `AGENTS.md` and relevant skills if the workflow itself changed
+- `README.md` in the target `pi0*` package
+- the affected wiki source snapshots/pages through `robot-wiki-maintain`
 
 Update expectations:
 
@@ -339,3 +342,4 @@ At handoff, summarize in plain English that even non-developers can understand:
 - what docs were updated
 - remaining risk
 - recommended next step
+- wiki evidence used, mirror status, and any pending reviewed wiki plan

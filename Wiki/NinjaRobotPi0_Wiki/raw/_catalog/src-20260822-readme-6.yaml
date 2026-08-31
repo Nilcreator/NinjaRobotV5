@@ -1,0 +1,16 @@
+id: src-20260822-readme-6
+path: raw/articles/pi0disp/README.md
+media_type: text/markdown
+kind: text
+title: Readme
+added_at: '2026-08-22T14:19:41Z'
+content_hash: sha256:2fe0452ebd0ffac5fad08cfc6c0452dd65acdc62f318b71d7050e123bb347682
+state: ingested
+original_uri: urn:llmwiki:source:src-20260822-readme-6
+source_version: null
+retrieved_at: null
+normalized_at: '2026-08-22T14:19:51Z'
+normalizer: llmwiki-text/0.2
+error: null
+ingested_at: '2026-08-23T01:01:38Z'
+last_plan: plan-20260823-semantic-reviews

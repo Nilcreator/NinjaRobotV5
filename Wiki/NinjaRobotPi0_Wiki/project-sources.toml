@@ -1,0 +1,61 @@
+version = 1
+
+[[sources]]
+id = "src-20260822-readme"
+project_path = "README.md"
+wiki_path = "raw/articles/README.md"
+
+[[sources]]
+id = "src-20260822-developmentguide"
+project_path = "DevelopmentGuide.md"
+wiki_path = "raw/articles/DevelopmentGuide.md"
+
+[[sources]]
+id = "src-20260822-developmentlog"
+project_path = "DevelopmentLog.md"
+wiki_path = "raw/notes/DevelopmentLog.md"
+
+[[sources]]
+id = "src-20260822-installationguide"
+project_path = "InstallationGuide.md"
+wiki_path = "raw/articles/InstallationGuide.md"
+
+[[sources]]
+id = "src-20260822-projectupgradeplan"
+project_path = "ProjectUpgradePlan.md"
+wiki_path = "raw/articles/ProjectUpgradePlan.md"
+
+[[sources]]
+id = "src-20260822-readme-2"
+project_path = "ninja_ble/README.md"
+wiki_path = "raw/articles/ninja_ble/README.md"
+
+[[sources]]
+id = "src-20260822-readme-3"
+project_path = "ninja_core/README.md"
+wiki_path = "raw/articles/ninja_core/README.md"
+
+[[sources]]
+id = "src-20260822-readme-4"
+project_path = "ninja_utils/README.md"
+wiki_path = "raw/articles/ninja_utils/README.md"
+
+[[sources]]
+id = "src-20260822-readme-5"
+project_path = "pi0buzzer/README.md"
+wiki_path = "raw/articles/pi0buzzer/README.md"
+
+[[sources]]
+id = "src-20260822-readme-6"
+project_path = "pi0disp/README.md"
+wiki_path = "raw/articles/pi0disp/README.md"
+
+[[sources]]
+id = "src-20260822-readme-7"
+project_path = "pi0servo/README.md"
+wiki_path = "raw/articles/pi0servo/README.md"
+
+[[sources]]
+id = "src-20260822-readme-8"
+project_path = "pi0vl53l0x/README.md"
+wiki_path = "raw/articles/pi0vl53l0x/README.md"

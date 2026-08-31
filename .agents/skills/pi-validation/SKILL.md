@@ -18,6 +18,7 @@ Capture these first:
 - which checks are still planned but not yet run
 - any safety or power risks
 - any rollback or recovery steps already known
+- the version-current wiki pages and registered sources used for wiring, limits, calibration, and safety expectations
 
 ## Output format
 Produce a validation plan with these sections:
@@ -35,6 +36,7 @@ Produce a validation plan with these sections:
 11. Rollback steps
 
 ## Rules
+- Use `robot-wiki-query` before proposing hardware steps. Compare the wiki with current code/configuration and call out stale or conflicting evidence.
 - Separate non-moving tests from actuator-moving tests.
 - Call out any command that may energize hardware or move an actuator.
 - Prefer short, copy-paste-ready commands.

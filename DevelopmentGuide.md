@@ -1,7 +1,7 @@
 # NinjaRobot V5 Development Guide
 
 **Version:** 5.2.10
-**Last Updated:** 2026-04-29
+**Last Updated:** 2026-09-01
 **Target Audience:** Experienced Developers
 
 This guide provides a comprehensive technical reference for the NinjaRobot V5 project. It serves as the source of truth for understanding the project architecture, library APIs, and development workflows.
@@ -182,6 +182,7 @@ uv run ninja_core config import
 5. [Testing & Debugging](#5-testing--debugging)
 6. [Contributing Guidelines](#6-contributing-guidelines)
 7. [UI/UX Design Guidelines](#7-uiux-design-guidelines)
+8. [AI-Assisted Development and Local Wiki](#8-ai-assisted-development-and-local-wiki)
 
 ---
 
@@ -201,7 +202,7 @@ NinjaRobotV5/
 ├── README.md                   # Project introduction
 ├── InstallationGuide.md        # End-user installation guide
 ├── DevelopmentGuide.md         # This document
-├── DevelopmentPlan.md          # V5 roadmap and architecture
+├── ProjectUpgradePlan.md       # V5 roadmap and architecture
 ├── DevelopmentLog.md           # Development history
 │
 ├── ninja_utils/                # Shared utilities library
@@ -2965,6 +2966,49 @@ The interface is designed to feel premium, futuristic, and highly responsive. It
 *   **Type**: SVG Icons.
 *   **Style**: Minimalist, Filled or Stroked.
 *   **Usage**: Mic icon, Power icon, Status dot.
+
+---
+
+## 8. AI-Assisted Development and Local Wiki
+
+All supported AI coding tools must follow [`AGENTS.md`](AGENTS.md). The canonical local knowledge base is [`Wiki/NinjaRobotPi0_Wiki`](Wiki/NinjaRobotPi0_Wiki/README.md).
+
+### 8.1 Tool adapters
+
+| Tool | Project instruction entry | Reusable workflow discovery |
+|---|---|---|
+| OpenAI Codex | `AGENTS.md` | `.agents/skills/` |
+| Claude Code | `CLAUDE.md` | `.claude/skills/` wrappers to `.agents/skills/` |
+| Google Antigravity | `GEMINI.md` and `.agents/rules/` | `.agents/skills/` and `.agents/workflows/` |
+| Cursor | `AGENTS.md` and `.cursor/rules/` | `.agents/skills/` |
+
+The adapters only route each tool to the same maintained instructions. They must not become separate copies of the development policy.
+
+### 8.2 Retrieval before development
+
+Use the `robot-wiki-query` skill before substantial planning, diagnosis, implementation, or review involving architecture, APIs, hardware, protocols, deployment, calibration, or known problems. The workflow must:
+
+1. check whether project-owned source snapshots have drifted;
+2. search the wiki and inspect page/source status;
+3. cite relevant local pages and registered sources;
+4. verify current software behavior against code and tests;
+5. report stale, conflicting, missing, or unreviewed evidence.
+
+Wiki retrieval is read-only and never authorizes GPIO, actuator, power, or other hardware operations.
+
+### 8.3 Wiki maintenance after changes
+
+Project documents registered as wiki evidence are mapped in `Wiki/NinjaRobotPi0_Wiki/project-sources.toml`. After a feature or document update, run:
+
+```bash
+python3 .agents/skills/robot-wiki-maintain/scripts/wiki_source_sync.py --check
+```
+
+Review every mismatch. After the canonical project document is fact-checked, use `robot-wiki-maintain` to synchronize the selected source, normalize it, prepare a source-hashed wiki change plan, and show the plan diff. Semantic wiki changes require explicit approval before apply.
+
+After an approved apply, review affected sourced pages and run normal wiki lint. Use strict lint for stable or release-quality pages. Report any deferred source drift, approval, semantic review, or Raspberry Pi validation honestly.
+
+The complete integration rationale and rollout checklist are in [`WikiIntegrationWorkflowPlan.md`](WikiIntegrationWorkflowPlan.md).
 
 ---
 

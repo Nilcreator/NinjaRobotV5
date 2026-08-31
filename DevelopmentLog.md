@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-09-01: Cross-Tool Local Wiki Development Workflow ✓
+- **Action**: Integrated `Wiki/NinjaRobotPi0_Wiki` into the NinjaRobotV5 AI-assisted development workflow without changing robot runtime behavior.
+- **Details**:
+  - Added canonical `AGENTS.md` instructions with evidence retrieval, conflict handling, physical safety, documentation, validation, and wiki-maintenance gates; retained `AGENT.md` as a legacy pointer.
+  - Added Claude Code, Google Antigravity, and Cursor adapters that route to the same canonical policy.
+  - Added portable `robot-wiki-query` and `robot-wiki-maintain` skills, Claude wrappers, and Antigravity workflows.
+  - Added `project-sources.toml` and a deterministic source-mirror checker so project document drift is visible before wiki knowledge is updated.
+  - Refined the driver, documentation, and Raspberry Pi validation skills to use wiki evidence and report maintenance state.
+  - Added `WikiIntegrationWorkflowPlan.md` and documented the workflow in `README.md`, `DevelopmentGuide.md`, and the embedded wiki README/AGENTS files.
+- **Why**: Give Codex, Claude Code, Google Antigravity, and Cursor the same local source of truth and prevent stale or conflicting documents from being silently copied into future robot work.
+- **Validation**: Documentation/skill validation, source-mirror checks, wiki lint/tests, and parent Git inclusion checks are recorded in the task handoff. No Raspberry Pi validation was required because no robot code, configuration, deployment, or hardware behavior changed.
+- **Files Modified**: `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `GEMINI.md`, `.agents/`, `.claude/`, `.cursor/`, `README.md`, `DevelopmentGuide.md`, `DevelopmentLog.md`, `WikiIntegrationWorkflowPlan.md`, and workflow files under `Wiki/NinjaRobotPi0_Wiki/`.
+
 ## 2026-05-16: Guided Initialization And Robot Profile Sync ✓
 - **Action**: Added the NinjaRobotV5 guided initialization flow and BLE robot profile synchronization for the NinjaRoboticPlatform Code IDE.
 - **Details**:

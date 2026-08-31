@@ -1,0 +1,16 @@
+id: src-20260822-developmentguide
+path: raw/articles/DevelopmentGuide.md
+media_type: text/markdown
+kind: text
+title: Developmentguide
+added_at: '2026-08-22T14:19:40Z'
+content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+state: ingested
+original_uri: urn:llmwiki:source:src-20260822-developmentguide
+source_version: null
+retrieved_at: null
+normalized_at: '2026-08-22T14:19:50Z'
+normalizer: llmwiki-text/0.2
+error: null
+ingested_at: '2026-08-23T01:01:38Z'
+last_plan: plan-20260823-semantic-reviews

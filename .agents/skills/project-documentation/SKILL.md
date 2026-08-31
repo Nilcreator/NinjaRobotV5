@@ -26,6 +26,8 @@ Before editing docs, verify important claims against:
 
 Do not copy stale claims from one document into another.
 
+Before editing project documentation, use `robot-wiki-query` for the affected topic and compare its evidence with current code. The wiki is a knowledge layer, not a substitute for code-backed fact checking.
+
 ## Documentation rules
 ### README.md
 Ensure it contains:
@@ -75,6 +77,15 @@ Ensure the affected package README reflects:
 ## Completion rule
 If code changed and docs were not reviewed, the task is not complete.
 If docs changed, they are not complete until they have been fact-checked against the code.
+If a mapped project document changed, the task is not complete until `robot-wiki-maintain` has checked the project/wiki source mirror and all remaining drift or pending wiki plans are reported.
+
+Run the mirror gate after the final documentation edit:
+
+```bash
+python3 .agents/skills/robot-wiki-maintain/scripts/wiki_source_sync.py --check
+```
+
+Do not hand-edit the mirrored copies under `Wiki/NinjaRobotPi0_Wiki/raw/` and do not auto-apply semantic wiki changes.
 
 ## Tone and style
 - Always provide clear step-by-step instructions for setup, testing, and validation.

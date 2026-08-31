@@ -102,8 +102,11 @@ Then open `http://ninjarobot.local:8000` in your browser!
 |----------|-------------|
 | [Installation Guide](InstallationGuide.md) | Hardware setup and software installation |
 | [Development Guide](DevelopmentGuide.md) | API reference and architecture overview |
-| [Development Plan](DevelopmentPlan.md) | Project roadmap and phase details |
+| [Project Upgrade Plan](ProjectUpgradePlan.md) | Project roadmap and phase details |
 | [Development Log](DevelopmentLog.md) | Change history and version notes |
+| [AI Development Protocol](AGENTS.md) | Cross-tool development, safety, validation, and wiki rules |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | Local, source-traceable knowledge base for AI-assisted development |
+| [Wiki Integration Workflow](WikiIntegrationWorkflowPlan.md) | Integration design, maintenance gates, and rollout checks |
 
 ## 📊 Current Status
 
@@ -213,8 +216,11 @@ uv run ninja_core server
 |-------------|------|
 | [インストールガイド](InstallationGuide.md) | ハードウェアセットアップとソフトウェアインストール |
 | [開発ガイド](DevelopmentGuide.md) | APIリファレンスとアーキテクチャ概要 |
-| [開発計画](DevelopmentPlan.md) | プロジェクトロードマップとフェーズ詳細 |
+| [プロジェクトアップグレード計画](ProjectUpgradePlan.md) | プロジェクトロードマップとフェーズ詳細 |
 | [開発ログ](DevelopmentLog.md) | 変更履歴とバージョンノート |
+| [AI開発プロトコル](AGENTS.md) | AIツール共通の開発、安全、検証、Wiki運用ルール |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | AI支援開発向けの出典追跡可能なローカル知識ベース |
+| [Wiki統合ワークフロー](WikiIntegrationWorkflowPlan.md) | 統合設計、保守ゲート、導入確認 |
 
 ## 📊 現在のステータス
 
@@ -324,8 +330,11 @@ uv run ninja_core server
 |------|------|
 | [安裝指南](InstallationGuide.md) | 硬體設定與軟體安裝 |
 | [開發指南](DevelopmentGuide.md) | API參考與架構概述 |
-| [開發計畫](DevelopmentPlan.md) | 專案路線圖與階段詳情 |
+| [專案升級計畫](ProjectUpgradePlan.md) | 專案路線圖與階段詳情 |
 | [開發日誌](DevelopmentLog.md) | 變更歷史與版本說明 |
+| [AI 開發協定](AGENTS.md) | 跨工具開發、安全、驗證與 Wiki 維護規則 |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | 供 AI 輔助開發使用、可追溯來源的本機知識庫 |
+| [Wiki 整合工作流程](WikiIntegrationWorkflowPlan.md) | 整合設計、維護閘門與導入檢查 |
 
 ## 📊 目前狀態
 

@@ -1,0 +1,16 @@
+id: src-20260822-readme-2
+path: raw/articles/ninja_ble/README.md
+media_type: text/markdown
+kind: text
+title: Readme
+added_at: '2026-08-22T14:19:41Z'
+content_hash: sha256:76bbd36ab8a5d9d81b4e73fd2e3910e4c8a9b79c82e7558e94044e6c81871910
+state: ingested
+original_uri: urn:llmwiki:source:src-20260822-readme-2
+source_version: null
+retrieved_at: null
+normalized_at: '2026-08-22T14:19:50Z'
+normalizer: llmwiki-text/0.2
+error: null
+ingested_at: '2026-08-23T01:01:38Z'
+last_plan: plan-20260823-semantic-reviews
