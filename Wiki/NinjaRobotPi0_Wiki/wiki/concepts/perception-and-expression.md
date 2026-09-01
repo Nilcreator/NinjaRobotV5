@@ -23,12 +23,12 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:c839c89de3a7a5926ab094464a885463a2e9ab2a4f665537e3c3d6f6cf329870
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:be0b0a4fec178421bbf8bbdeb4dfc8640ff7f33cb64d2e0ed8308e78c1492be7
   result: passed
   checks:
     source_support: passed
@@ -37,8 +37,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Sensor polling loop, display facial expressions, and emotion audio melodies match
-    hardware driver documentation.
+  - Driver concurrency and expression behavior are supported; bandwidth and responsiveness claims remain
+    attributed to documentation rather than physical benchmarks.
 ---
 
 # Perception and Expression Systems
@@ -57,7 +57,7 @@ Distance sensing uses the VL53L0X Time-of-Flight sensor over I2C:[^src-20260822-
 
 The visual expression engine renders expressive eyes and faces onto the 240×320 IPS display:[^src-20260822-readme-6] [^src-20260822-developmentguide]
 
-* **Smart Delta Rendering**: `pi0disp` calculates bounding boxes of modified pixels via `PIL.ImageChops.difference()`, transmitting only changed areas over SPI (~90% bandwidth reduction for animations).[^src-20260822-readme-6]
+* **Smart Delta Rendering**: `pi0disp` calculates bounding boxes of modified pixels via `PIL.ImageChops.difference()`, transmitting only changed areas over SPI; the source documentation reports approximately 90% bandwidth reduction for animations.[^src-20260822-readme-6]
 * **Thread-Safe SPI Lock**: Protects display transfers against concurrent access by web server status threads and facial animation loops.[^src-20260822-readme-6]
 * **Expression Library**: Pre-rendered and dynamic animations including `happy`, `sad`, `angry`, `confusing`, `cry`, `embarrassing`, `idle`, `laughing`, `scary`, `shy`, `sleepy`, `speaking`, and `surprising`.[^src-20260822-readme-6] [^src-20260822-developmentguide]
 
@@ -65,7 +65,7 @@ The visual expression engine renders expressive eyes and faces onto the 240×320
 
 Audio is generated using a passive buzzer driven by hardware PWM on GPIO 17:[^src-20260822-readme-5]
 
-* **Non-Blocking Queue Worker**: Sound sequences are processed in a dedicated background worker thread, ensuring sound playback never blocks asyncio loops or robot movement.[^src-20260822-readme-5]
+* **Non-Blocking Queue Worker**: Sound sequences are processed in a dedicated background worker thread, keeping queued playback work off the calling thread.[^src-20260822-readme-5]
 * **Musical Notes**: 35 standard note frequencies across 5 octaves (C3–B7).[^src-20260822-readme-5]
 * **14 Emotion Sound Effects**: Acoustic signatures mapped to matching facial expressions.[^src-20260822-readme-5]
 * **Built-in Song Catalog**: Melodies including `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, and `head_shoulders_knees_and_toes`.[^src-20260822-developmentguide]

@@ -11,20 +11,20 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme-3
   resource: urn:llmwiki:source:src-20260822-readme-3
   title: ninja_core Readme
-  content_hash: sha256:4c4bc38f4de4851f444770bd63e6214e5d04a4ee12d30f0d8b0b2a5b5a453471
+  content_hash: sha256:c13dcf9055a532fefb03664983e9b5bafcb384e7ff16b65feca801cdbff23ba5
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:a8308bec8e2ac26334ebb3d1150a96762e4e7e9ca089daea76592cc23071f084
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:acafa42cc4007d9aa0793e2c288764fd5bf6a19e4ad16ab13480bfb76900bdeb
   result: passed
   checks:
     source_support: passed
@@ -33,12 +33,13 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - RestrictedPython sandbox AST limits and dual runtime architecture verified.
+  - Restricted execution and runtime ownership claims are supported; cancellation is explicitly cooperative
+    and non-cooperative loops remain a documented limitation.
 ---
 
 # Safe Code Execution and Blockly Runtime
 
-NinjaRobot V5 enables students and researchers to execute generated Python scripts and Blockly visual code directly on the robot safely.[^src-20260822-readme-3] [^src-20260822-developmentguide]
+NinjaRobot V5 enables students and researchers to execute generated Python scripts and Blockly visual code through a restricted on-robot execution path.[^src-20260822-readme-3] [^src-20260822-developmentguide]
 
 ## Sandboxed Python Execution Engine (`SafeExecutor`)
 
@@ -46,7 +47,10 @@ NinjaRobot V5 enables students and researchers to execute generated Python scrip
 
 * **AST Preflight Compilation**: Code is compiled and checked for dangerous imports (`os`, `sys`, `subprocess`, `shutil`) before starting the worker thread.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
 * **Syntax Error Isolation**: Syntax and compilation errors return structured diagnostic events (`line`, `offset`, `text`) without triggering hardware cleanup or stopping native face animations.[^src-20260822-developmentlog]
-* **Cooperative Cancellation**: Loops periodically check `check_stop()`, allowing users to halt execution instantly via the web UI or BLE `stop` command.[^src-20260822-developmentlog]
+* **Cooperative Cancellation**: Generated loops periodically call `check_stop()`, allowing web UI or BLE `stop` commands to request a halt.[^src-20260822-developmentlog]
+
+> [!IMPORTANT]
+> Cancellation is cooperative rather than a forced thread kill. Python loops that never call `check_stop()` may require the Stop Robot path or a server restart.[^src-20260822-developmentguide]
 
 ## Dual Pipeline & Ownership Management (`RuntimePipeline`)
 

@@ -15,16 +15,16 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:4b514a9787d8ff7810885aa227f5b14f660831051507610ed953859ffb5ee284
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:5e1e701b2500a758b7fecc03f8071d38848d2cf1d936f7845363f5561cca17fa
   result: passed
   checks:
     source_support: passed
@@ -33,8 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Bless GATT server architecture, UUID definitions, and status readback characteristics
-    verified against package documentation.
+  - GATT, chunking, notification, and dispatcher integration claims align with the cited BLE and core
+    documentation.
 ---
 
 # ninja_ble Package

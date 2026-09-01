@@ -11,16 +11,16 @@ sources:
 - id: src-20260822-readme
   resource: urn:llmwiki:source:src-20260822-readme
   title: NinjaRobot V5 Readme
-  content_hash: sha256:7bbec02c276f0be133fbba91a5fed327c96bd6b30ff6e010dcd9c6376ab210cf
+  content_hash: sha256:747c8c2e1e67d24b5d6f6b9c797a6eb7ec7b92b1ce4368623cc9b77b62c442a4
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:18871d15150a009f10c69d2cdf702a85a85d34f6ed8b15ac13fb2dd8d073a47f
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:4852441f395e00f9a56afc151756097124ba9069429582f80374b1ca150a3d28
   result: passed
   checks:
     source_support: passed
@@ -29,14 +29,13 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Hardware and software architecture claims match documented V5 specifications.
-  - Describes platform design and specifications rather than independent runtime bench
-    test measurements.
+  - The overview accurately summarizes the current documented architecture and capabilities after removing
+    promotional and unverified performance wording.
 ---
 
 # NinjaRobot V5 Platform Overview
 
-**NinjaRobot V5** is an advanced, modular AI robot platform designed for research and STEAM education, powered by the Raspberry Pi Zero 2W.[^src-20260822-readme] It integrates cutting-edge Agentic AI powered by Google Gemini with a mobile-first web interface, dual connectivity (Wi-Fi and Bluetooth Low Energy), and rebuilt non-blocking hardware drivers.[^src-20260822-readme] [^src-20260822-developmentguide]
+**NinjaRobot V5** is an advanced, modular AI robot platform designed for research and STEAM education, powered by the Raspberry Pi Zero 2W.[^src-20260822-readme] It integrates a Google Gemini agent with a mobile-first web interface, dual connectivity (Wi-Fi and Bluetooth Low Energy), and rebuilt non-blocking hardware drivers.[^src-20260822-readme] [^src-20260822-developmentguide]
 
 ## Hardware Specifications
 
@@ -44,7 +43,7 @@ semantic_review:
 |-----------|---------------|---------|
 | **Brain / SBC** | Raspberry Pi Zero 2W | Quad-core ARM Cortex-A53 @ 1.0 GHz, 512MB RAM [^src-20260822-readme] |
 | **Display** | 2.0" / 2.8" ST7789V IPS LCD | 240×320 pixels, SPI interface, PWM brightness control [^src-20260822-readme] [^src-20260822-developmentguide] |
-| **Distance Sensor** | VL53L0X Time-of-Flight | Up to 2m range, I2C interface, millimetric accuracy [^src-20260822-readme] |
+| **Distance Sensor** | VL53L0X Time-of-Flight | Up to 2m documented range, I2C interface, distance readings in millimetres [^src-20260822-readme] |
 | **Sound / Audio** | Passive Buzzer | GPIO 17, 35 musical notes (C3–B7), 14 emotion sounds [^src-20260822-readme] |
 | **Actuators** | 8× SG90 / MG90S Servos | GPIO 20–27, velocity-based physics control [^src-20260822-readme] |
 | **Connectivity** | Wi-Fi & Bluetooth | Wi-Fi 802.11n (2.4GHz), BLE 4.2 GATT Server [^src-20260822-readme] |
@@ -57,7 +56,7 @@ The NinjaRobot software stack is organized as a layered monorepo with 7 independ
 * **[Motion System & Easing](concepts/motion-system-and-easing.md)**: Velocity-based servo control and position-aware cubic easing curves.[^src-20260822-developmentguide]
 * **[Dual Connectivity & Protocols](concepts/dual-connectivity-and-protocols.md)**: Centralized command dispatching across BLE and Web interfaces with chunked transport.[^src-20260822-developmentguide]
 * **[Safe Execution & Blockly Runtime](concepts/safe-execution-and-blockly-runtime.md)**: Sandboxed code execution engine and dual runtime pipeline.[^src-20260822-developmentguide]
-* **[Action Library & AI Agent](concepts/action-library-and-ai-agent.md)**: Google Gemini integration and persistent Blockly action library.[^src-20260822-developmentguide]
+* **[Action Library & AI Agent](concepts/action-library-and-ai-agent.md)**: Validated user-selected Gemini models, bounded Gemini 3 compatibility, and a persistent Blockly action library.[^src-20260822-readme] [^src-20260822-developmentguide]
 * **[Perception & Expression](concepts/perception-and-expression.md)**: Distance monitoring, animated facial expressions, and emotion audio queues.[^src-20260822-developmentguide]
 
 ## Component Packages

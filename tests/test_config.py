@@ -4,11 +4,13 @@ import pytest
 
 from ninja_core.config import (
     DEFAULT_BLE_NAME,
+    DEFAULT_GEMINI_MODEL,
     DEFAULT_ROBOT_TYPE,
     MAX_BLE_NAME_BYTES,
     build_hardware_configuration,
     build_robot_profile,
     load_config,
+    set_gemini_configuration,
     set_robot_name,
     set_robot_type,
 )
@@ -21,6 +23,32 @@ def test_load_config_defaults_bluetooth_name(tmp_path):
 
     assert config.bluetooth.name == DEFAULT_BLE_NAME
     assert config.robot_type == DEFAULT_ROBOT_TYPE
+    assert config.gemini.model == DEFAULT_GEMINI_MODEL
+
+
+def test_set_gemini_configuration_persists_key_and_normalized_model(tmp_path, capsys):
+    config_path = tmp_path / "config.json"
+
+    selected = set_gemini_configuration(
+        "  secret-key  ",
+        "models/gemini-selected",
+        path=config_path,
+    )
+
+    config = load_config(config_path)
+    assert selected == "gemini-selected"
+    assert config.api_keys["gemini"] == "secret-key"
+    assert config.gemini.model == "gemini-selected"
+    assert "secret-key" not in capsys.readouterr().out
+
+
+def test_set_gemini_configuration_rejects_blank_key_without_creating_config(tmp_path):
+    config_path = tmp_path / "config.json"
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        set_gemini_configuration("   ", "gemini-selected", path=config_path)
+
+    assert config_path.exists() is False
 
 
 def test_set_robot_name_persists_normalized_name(tmp_path, capsys):
@@ -75,6 +103,7 @@ def test_build_hardware_configuration_redacts_keys_and_lists_servo_pins(tmp_path
         "99": {"min_pulse": 600, "center_pulse": 1500, "max_pulse": 2400},
     }
     config.api_keys["gemini"] = "SECRET"
+    config.gemini.model = "gemini-selected"
 
     hardware = build_hardware_configuration(config)
 
@@ -95,4 +124,5 @@ def test_build_robot_profile_includes_robot_type_and_no_secrets(tmp_path):
     assert profile["robot_type_label"] == "Spider"
     assert profile["service_name"] == DEFAULT_BLE_NAME
     assert "api_keys" not in profile
+    assert "gemini" not in profile
     assert "api_keys" not in profile["hardware_configuration"]

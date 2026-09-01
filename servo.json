@@ -1,0 +1,74 @@
+{
+  "20": {
+    "pulse_min": 1060,
+    "pulse_max": 1920,
+    "pulse_center": 1500,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 50
+  },
+  "21": {
+    "pulse_min": 1100,
+    "pulse_max": 1960,
+    "pulse_center": 1480,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 50
+  },
+  "22": {
+    "pulse_min": 660,
+    "pulse_max": 2300,
+    "pulse_center": 1620,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 50
+  },
+  "23": {
+    "pulse_min": 780,
+    "pulse_max": 2340,
+    "pulse_center": 1480,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 50
+  },
+  "24": {
+    "pulse_min": 500,
+    "pulse_max": 2400,
+    "pulse_center": 1500,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 30
+  },
+  "25": {
+    "pulse_min": 600,
+    "pulse_max": 2500,
+    "pulse_center": 1500,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 30
+  },
+  "26": {
+    "pulse_min": 700,
+    "pulse_max": 1900,
+    "pulse_center": 1500,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 30
+  },
+  "27": {
+    "pulse_min": 1100,
+    "pulse_max": 2300,
+    "pulse_center": 1500,
+    "angle_min": -90.0,
+    "angle_max": 90.0,
+    "angle_center": 0.0,
+    "speed": 30
+  }
+}

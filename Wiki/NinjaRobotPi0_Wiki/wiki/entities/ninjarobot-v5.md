@@ -11,20 +11,20 @@ sources:
 - id: src-20260822-readme
   resource: urn:llmwiki:source:src-20260822-readme
   title: NinjaRobot V5 Readme
-  content_hash: sha256:7bbec02c276f0be133fbba91a5fed327c96bd6b30ff6e010dcd9c6376ab210cf
+  content_hash: sha256:747c8c2e1e67d24b5d6f6b9c797a6eb7ec7b92b1ce4368623cc9b77b62c442a4
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-installationguide
   resource: urn:llmwiki:source:src-20260822-installationguide
   title: NinjaRobot V5 Installation Guide
-  content_hash: sha256:0d1f5247e341259bd895e884f9e95c25bfa2ad083368dee35096b8ca1a12d163
+  content_hash: sha256:f1b95c621b3a1c6cfe77f2a1c3923a40314783c02fdde83f0cb4bbc881ae13a4
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:d31466a22441988f5ba298d311c6ed12d5627f1fbd3916f8a9ccab68fdaa2f55
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:bc99f19ebc0a284733d79c783d26ffec23e9abf73355e4fb671b29ee11ffd27a
   result: passed
   checks:
     source_support: passed
@@ -33,8 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Top-level platform specifications, hardware BOM, and integration architecture
-    verified.
+  - Platform scope, package composition, setup, and hardware summary are supported by current project
+    documentation; no physical validation is implied.
 ---
 
 # NinjaRobot V5 Entity
@@ -76,7 +76,7 @@ Raspberry Pi Zero 2W GPIO Pinout (40-Pin Header)
 
 ## Safety & Graceful Shutdown
 
-* **Emergency Halt**: Instantly stops all PWM pulse trains and resets servo targets.[^src-20260822-readme]
+* **Emergency Halt**: Requests immediate cancellation of active servo motion and resets servo targets.[^src-20260822-readme] [^src-20260822-developmentguide]
 * **Graceful Shutdown Sequence**:
   1. Displays `sleepy` face and plays `sleepy` sound in parallel.[^src-20260822-readme] [^src-20260822-developmentguide]
   2. Moves servos to the pre-configured `Poweroff` rest position.[^src-20260822-developmentguide]

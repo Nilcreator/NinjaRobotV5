@@ -15,12 +15,12 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:4d011c1a93e4a868bfd036f7193de8c832477a8af9b48b4671b54d3040745698
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:6fc0a6be8a9675ed9c0477af3c5ffa902c65110e7414eccc541fdc4118675ee3
   result: passed
   checks:
     source_support: passed
@@ -29,8 +29,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - ST7789V display driver, SPI transactions, delta rendering, and PWM backlight control
-    verified.
+  - Display API, configuration, locking, and rendering claims are supported; performance language remains
+    documentation-attributed.
 ---
 
 # pi0disp Package
@@ -39,7 +39,7 @@ semantic_review:
 
 ## Core Features
 
-* **Smart Delta Rendering**: Computes bounding boxes of modified pixels via `RegionOptimizer` and `PIL.ImageChops.difference()`, transmitting only dirty regions (~90% bandwidth savings for face animations).[^src-20260822-readme-6]
+* **Smart Delta Rendering**: Computes bounding boxes of modified pixels via `RegionOptimizer` and `PIL.ImageChops.difference()`, transmitting only dirty regions; the source documentation reports approximately 90% bandwidth savings for face animations.[^src-20260822-readme-6]
 * **Thread-Safe SPI Locking**: All SPI bus transactions are guarded by `threading.Lock()` for concurrent safety across web and animation threads.[^src-20260822-readme-6]
 * **PWM Backlight Control**: Smooth brightness adjustment (0–100%) via hardware/software PWM.[^src-20260822-readme-6]
 * **TextTicker**: Scrolling marquee text with bundled multilingual Noto fonts (English, Japanese, Traditional Chinese).[^src-20260822-readme-6]

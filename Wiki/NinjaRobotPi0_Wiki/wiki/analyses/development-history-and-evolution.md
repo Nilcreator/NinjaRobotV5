@@ -11,16 +11,16 @@ sources:
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:415e5c7d786603893b9ed1210a3a93bba6855db4a5280596f69fcfd5900680a6
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:fe12f64eb117c5716c70ea1b8923ee9727f8bfa902254c218d1c2d4c1ac31bce
   result: passed
   checks:
     source_support: passed
@@ -29,7 +29,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Chronological evolution and milestones align with DevelopmentLog.md and DevelopmentGuide.md.
+  - Chronology and milestones are materially supported by the current Development Log and Development
+    Guide; entries report documented validation rather than new hardware testing.
 ---
 
 # Development History and Evolution
@@ -58,6 +59,8 @@ The NinjaRobot project evolved from a monolithic educational robot into the modu
 * **V5.2.9 (BLE Robot Naming)**: Added persistent `bluetooth.name` configuration and custom BlueZ advertisement naming.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
 * **V5.2.10 (Saved Action Library)**: Implemented `ActionLibrary` for on-robot storage of Code IDE Blockly programs with AI agent replay.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
 * **V5.2.11 (Guided Setup & Profile Sync)**: Added `init-tool` CLI and synchronized `robot_info` (robot type, servo pin mappings) over BLE with Code IDE.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
+* **V5.2.12 (Gemini Model Selection)**: Replaced the fixed agent model setup with API-key-specific catalog discovery, interactive selection, and backward-compatible `gemini.model` configuration.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
+* **V5.2.13 (Gemini 3 Runtime Compatibility)**: Added selection-time generation validation, low-thinking REST generation for Gemini 3, bounded runtime requests, and model-specific diagnostics.[^src-20260822-developmentguide] [^src-20260822-developmentlog]
 * **2026-05-17 (Code IDE Assistant Compatibility)**: Audited and synchronized documentation ensuring AI assistant provider keys and comments maintain client-server boundary security.[^src-20260822-developmentlog]
 
 [^src-20260822-developmentlog]: NinjaRobot V5 Development Log.

@@ -11,11 +11,11 @@ sources:
 - id: src-20260822-installationguide
   resource: urn:llmwiki:source:src-20260822-installationguide
   title: NinjaRobot V5 Installation Guide
-  content_hash: sha256:0d1f5247e341259bd895e884f9e95c25bfa2ad083368dee35096b8ca1a12d163
+  content_hash: sha256:f1b95c621b3a1c6cfe77f2a1c3923a40314783c02fdde83f0cb4bbc881ae13a4
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme-7
   resource: urn:llmwiki:source:src-20260822-readme-7
   title: pi0servo Readme
@@ -34,9 +34,9 @@ sources:
   content_hash: sha256:6d02713847e83b720c6093afade910a3989dc1e8d8b48d889d61c1e381b7b680
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:4ae96f3a22a4e4c9e1479a762756e0dc6bc34394a24c0f7582ba044b92072884
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:414a1145403ad3d437a3205f69920564cacf5be11f06eaabfac1e8a1e34824fd
   result: passed
   checks:
     source_support: passed
@@ -45,22 +45,25 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Interactive TUIs, calibration procedures, and zero-point alignment guides verified.
+  - Tool workflows and calibration steps are supported by current guides; commands are documentation only
+    and were not executed against hardware.
 ---
 
 # Hardware Calibration and Testing Tools Reference
 
-Every subsystem in NinjaRobot V5 includes dedicated interactive terminal tools (TUIs) for calibration, verification, and diagnostics without writing custom scripts.[^src-20260822-installationguide] [^src-20260822-developmentguide]
+The documented NinjaRobot V5 hardware subsystems provide interactive terminal tools (TUIs) for calibration, verification, or diagnostics without requiring custom scripts.[^src-20260822-installationguide] [^src-20260822-developmentguide]
 
 ## Guided System Setup (`uv run ninja_core init-tool`)
 
 The `init-tool` provides a guided top-level menu for end-to-end setup:[^src-20260822-developmentguide]
-1. Set Google Gemini API key.[^src-20260822-developmentguide]
+1. Set the Google Gemini API key and select a model after catalog discovery and a bounded generation check.[^src-20260822-developmentguide]
 2. Set ngrok authtoken for remote access.[^src-20260822-developmentguide]
 3. Configure custom Bluetooth robot name.[^src-20260822-developmentguide]
 4. Select robot type (`tire`, `humanoid`, `spider`).[^src-20260822-developmentguide]
 5. Import subsystem hardware configurations.[^src-20260822-developmentguide]
 6. Launch web and BLE server.[^src-20260822-developmentguide]
+
+Gemini model validation can take up to 60 seconds for a thinking model. Discovery, validation, or cancellation failures leave the previous Gemini configuration unchanged.[^src-20260822-developmentguide]
 
 ## Servo Calibration (`uv run pi0servo servo-tool`)
 

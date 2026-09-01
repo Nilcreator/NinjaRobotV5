@@ -15,12 +15,12 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:28e1f811fff7d77a34a3e2d65bff290c5d04972699c37480e0326c65b69986c2
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:600c6efd521843feabc09da35b1da62809d35c3a3a3cd98fded1c072dad66725
   result: passed
   checks:
     source_support: passed
@@ -29,7 +29,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Shared ABCs, sensor/actuator contracts, and logging utilities verified.
+  - Shared logging, interface, and service-management claims use the current service_manager.py path;
+    the older package README is treated as legacy context.
 ---
 
 # ninja_utils Package
@@ -41,7 +42,7 @@ semantic_review:
 * **`interfaces.py`**: Defines the `Actuator` and `Sensor` Abstract Base Classes (ABCs) and the `DistanceData` dataclass.[^src-20260822-readme-4] [^src-20260822-developmentguide]
 * **`my_logger.py`**: Centralized, formatted logging system for console and file output.[^src-20260822-readme-4]
 * **`keyboard.py`**: Non-blocking single-keypress terminal input helper for interactive TUIs.[^src-20260822-readme-4]
-* **`startup.py`**: Manages Linux systemd service configuration for autostarting the robot on boot.[^src-20260822-readme-4]
+* **`service_manager.py`**: Manages Linux systemd service configuration for autostarting the robot on boot.[^src-20260822-developmentguide]
 
 ## CLI Commands
 

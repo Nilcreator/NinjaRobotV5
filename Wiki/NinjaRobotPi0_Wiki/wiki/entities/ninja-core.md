@@ -11,20 +11,20 @@ sources:
 - id: src-20260822-readme-3
   resource: urn:llmwiki:source:src-20260822-readme-3
   title: ninja_core Readme
-  content_hash: sha256:4c4bc38f4de4851f444770bd63e6214e5d04a4ee12d30f0d8b0b2a5b5a453471
+  content_hash: sha256:c13dcf9055a532fefb03664983e9b5bafcb384e7ff16b65feca801cdbff23ba5
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:6c85635c8626eaa05ba90b8d1639365cdfff5e03e7bb10f55d7f233a3834004b
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:e2e7988a4be337247684bd1c51c4dddc394e02003ceb9857c06c38c488198b5b
   result: passed
   checks:
     source_support: passed
@@ -33,7 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Application server endpoints, motion dispatcher, and HAL lifecycle verified.
+  - Core orchestration, configuration, web, AI, and runtime responsibilities align with current project
+    documentation, including selected Gemini model behavior.
 ---
 
 # ninja_core Package
@@ -45,16 +46,18 @@ semantic_review:
 | Module | Purpose |
 |--------|---------|
 | **`hal.py`** | Hardware Abstraction Layer with dynamic driver loading via `DRIVER_REGISTRY`.[^src-20260822-readme-3] |
-| **`config.py`** | `NinjaConfig` manager for master `config.json`, robot naming, and robot types.[^src-20260822-readme-3] [^src-20260822-developmentlog] |
+| **`config.py`** | `NinjaConfig` manager for master `config.json`, robot naming, robot types, Gemini keys, and the selected agent model.[^src-20260822-readme-3] [^src-20260822-developmentguide] [^src-20260822-developmentlog] |
 | **`dispatcher.py`** | `CommandDispatcher` central message router bridging Web, BLE, and AI inputs.[^src-20260822-readme-3] [^src-20260822-developmentguide] |
 | **`safe_executor.py`** | Sandboxed Python code executor with AST import filters and syntax preflight.[^src-20260822-readme-3] [^src-20260822-developmentlog] |
 | **`runtime_pipeline.py`** | Coordinator managing native robot idle state vs uploaded Blockly execution ownership.[^src-20260822-developmentlog] |
 | **`action_library.py`** | Storage and retrieval engine for saved Blockly actions in `ninja_actions/*.json`.[^src-20260822-developmentlog] |
 | **`api_wrappers.py`** | High-level `RobotWrapper`, `ServoArrayWrapper`, `DisplayWrapper`, `BuzzerWrapper`, and `DistanceWrapper`.[^src-20260822-readme-3] [^src-20260822-developmentlog] |
-| **`ninja_agent.py`** | Gemini AI integration for natural language understanding and multi-modal action planning.[^src-20260822-readme-3] [^src-20260822-developmentguide] |
+| **`gemini_models.py`** | Paginated API-key-specific Gemini model discovery filtered to `generateContent` models.[^src-20260822-developmentguide] [^src-20260822-developmentlog] |
+| **`gemini_runtime.py`** | Bounded Gemini 3 REST generation with low thinking, safe errors, and non-blocking thread offload.[^src-20260822-developmentguide] [^src-20260822-developmentlog] |
+| **`ninja_agent.py`** | Gemini AI integration using the configured model for natural language understanding and multi-modal action planning.[^src-20260822-readme-3] [^src-20260822-developmentguide] |
 | **`movement_controller.py`** | Motion sequence playback engine with position-aware cubic easing.[^src-20260822-readme-3] [^src-20260822-developmentguide] |
 | **`web_server.py`** | FastAPI web server serving REST endpoints, WebSockets (`/ws/events`), and SPA static assets.[^src-20260822-readme-3] [^src-20260822-developmentguide] |
-| **`init_tool.py`** | Interactive terminal setup wizard for API keys, tokens, robot naming, and hardware import.[^src-20260822-developmentlog] |
+| **`init_tool.py`** | Interactive setup wizard for validated Gemini key/model selection, tokens, robot naming, robot type, and hardware import.[^src-20260822-developmentguide] [^src-20260822-developmentlog] |
 
 ## CLI Entrypoints
 

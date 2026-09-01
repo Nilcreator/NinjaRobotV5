@@ -11,16 +11,16 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme
   resource: urn:llmwiki:source:src-20260822-readme
   title: NinjaRobot V5 Readme
-  content_hash: sha256:7bbec02c276f0be133fbba91a5fed327c96bd6b30ff6e010dcd9c6376ab210cf
+  content_hash: sha256:747c8c2e1e67d24b5d6f6b9c797a6eb7ec7b92b1ce4368623cc9b77b62c442a4
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:6f5282685551970e01428fe266d1100f3abf69da0abbbb627003822d86ab964d
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:93971670e3c9c58a8565c4860632c11ef5e0ec689f677fe9f3280cf0f41c6b19
   result: passed
   checks:
     source_support: passed
@@ -29,8 +29,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - React 18 frontend architecture, Vite build pipeline, and multilingual i18n support
-    verified.
+  - React/Vite, web transport, telemetry, and multilingual UI claims are supported without claiming complete
+    translation coverage.
 ---
 
 # ninja_webapp Package
@@ -41,7 +41,7 @@ semantic_review:
 
 * **Framework**: React 18 + Vite.[^src-20260822-developmentguide]
 * **Styling**: Vanilla CSS with curated responsive tokens and modern micro-animations.[^src-20260822-developmentguide]
-* **Internationalization**: `react-i18next` with full translations for English (`en`), Japanese (`ja`), Traditional Chinese (`zh-tw`), and Simplified Chinese (`zh-cn`).[^src-20260822-readme] [^src-20260822-developmentguide]
+* **Internationalization**: `react-i18next` translations for English (`en`), Japanese (`ja`), Traditional Chinese (`zh-tw`), and Simplified Chinese (`zh-cn`).[^src-20260822-readme] [^src-20260822-developmentguide]
 * **Real-Time Communication**: WebSocket connection (`/ws/events`) streaming distance telemetry, execution logs, and robot status.[^src-20260822-developmentguide]
 
 ## Application Pages

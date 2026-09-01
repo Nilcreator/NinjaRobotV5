@@ -43,7 +43,7 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 | Layer | Technology |
 |-------|------------|
 | **Backend** | FastAPI + Uvicorn |
-| **AI Agent** | Google Gemini (gemini-3-flash-preview) |
+| **AI Agent** | Google Gemini (user-selected available model) |
 | **Frontend** | React 18 + Vite + react-i18next |
 | **BLE Service** | bless (GATT Server) |
 | **Hardware Control** | pigpio + Custom Drivers |
@@ -52,6 +52,8 @@ Unlike traditional educational robots, NinjaRobot features an **Agentic AI** pow
 
 ### 🧠 Agentic AI
 - **Natural Language Understanding**: Chat with your robot in English, Japanese, or Chinese
+- **Validated Model Selection**: Discover models available to your Gemini API key and save a model only after a bounded generation check succeeds
+- **Gemini 3 Compatibility**: Use low-thinking REST generation with a 60-second bound when the legacy Python SDK cannot express current Gemini 3 thinking controls
 - **Action Planning**: AI automatically translates requests into robot actions
 - **Saved Blockly Actions**: Replay complete Code IDE actions saved over Bluetooth from the robot's local action library
 - **Reliable BLE Save Status**: Code IDE saves are confirmed by robot-cached request status, so missed browser notifications do not look like failed uploads
@@ -90,11 +92,17 @@ uv pip install -e .
 # Build the web interface
 cd ninja_webapp && npm install && npm run build && cd ..
 
+# Configure the Gemini key and select a validated model
+# Option 1 hides the API key while you enter it.
+uv run ninja_core init-tool
+
 # Start the robot
 uv run ninja_core server
 ```
 
 Then open `http://ninjarobot.local:8000` in your browser!
+
+During Gemini setup, NinjaRobot retrieves the models available to the supplied key and runs a minimal generation request before saving the key/model pair. Thinking-model validation can take up to 60 seconds. If lookup, validation, or selection fails, the previous Gemini configuration remains unchanged. The server console reports the configured model and returns a visible timeout instead of waiting indefinitely.
 
 ## 📚 Documentation
 
@@ -102,8 +110,11 @@ Then open `http://ninjarobot.local:8000` in your browser!
 |----------|-------------|
 | [Installation Guide](InstallationGuide.md) | Hardware setup and software installation |
 | [Development Guide](DevelopmentGuide.md) | API reference and architecture overview |
-| [Development Plan](DevelopmentPlan.md) | Project roadmap and phase details |
+| [Project Upgrade Plan](ProjectUpgradePlan.md) | Project roadmap and phase details |
 | [Development Log](DevelopmentLog.md) | Change history and version notes |
+| [AI Development Protocol](AGENTS.md) | Cross-tool development, safety, validation, and wiki rules |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | Local, source-traceable knowledge base for AI-assisted development |
+| [Wiki Integration Workflow](WikiIntegrationWorkflowPlan.md) | Integration design, maintenance gates, and rollout checks |
 
 ## 📊 Current Status
 
@@ -156,7 +167,7 @@ This project is licensed under the **MIT License**.
 | レイヤー | 技術 |
 |---------|------|
 | **バックエンド** | FastAPI + Uvicorn |
-| **AIエージェント** | Google Gemini（gemini-3-flash-preview） |
+| **AIエージェント** | Google Gemini（利用可能なモデルをユーザーが選択） |
 | **フロントエンド** | React 18 + Vite + react-i18next |
 | **BLEサービス** | bless（GATTサーバー） |
 | **ハードウェア制御** | pigpio + カスタムドライバー |
@@ -165,6 +176,8 @@ This project is licensed under the **MIT License**.
 
 ### 🧠 エージェント型AI
 - **自然言語理解**: 英語、日本語、中国語でロボットと会話
+- **検証付きモデル選択**: Gemini APIキーで利用可能なモデルを取得し、時間制限付き生成テストに成功したモデルだけを保存
+- **Gemini 3互換性**: 従来のPython SDKで現在の思考制御を指定できない場合、低思考レベルと60秒の上限を設定したREST生成を使用
 - **アクションプランニング**: AIがリクエストを自動的にロボットのアクションに変換
 - **保存済みBlocklyアクション**: Bluetooth経由で保存したCode IDEの完全な動作をローカルアクションライブラリから再生
 - **コード生成**: AIが新しいロボットの動作を作成するPythonコードを記述
@@ -201,11 +214,17 @@ uv pip install -e .
 # Webインターフェースをビルド
 cd ninja_webapp && npm install && npm run build && cd ..
 
+# Gemini APIキーを設定し、検証済みモデルを選択
+# オプション1では入力中のAPIキーが非表示になります。
+uv run ninja_core init-tool
+
 # ロボットを起動
 uv run ninja_core server
 ```
 
 ブラウザで `http://ninjarobot.local:8000` を開いてください！
+
+Geminiの設定時、NinjaRobotは入力したキーで利用可能なモデルを取得し、キーとモデルを保存する前に最小生成テストを実行します。思考モデルの検証には最大60秒かかる場合があります。取得、検証、または選択に失敗した場合、以前のGemini設定は変更されません。サーバーコンソールには設定中のモデルが表示され、無期限に待機する代わりに明確なタイムアウトが返されます。
 
 ## 📚 ドキュメント
 
@@ -213,8 +232,11 @@ uv run ninja_core server
 |-------------|------|
 | [インストールガイド](InstallationGuide.md) | ハードウェアセットアップとソフトウェアインストール |
 | [開発ガイド](DevelopmentGuide.md) | APIリファレンスとアーキテクチャ概要 |
-| [開発計画](DevelopmentPlan.md) | プロジェクトロードマップとフェーズ詳細 |
+| [プロジェクトアップグレード計画](ProjectUpgradePlan.md) | プロジェクトロードマップとフェーズ詳細 |
 | [開発ログ](DevelopmentLog.md) | 変更履歴とバージョンノート |
+| [AI開発プロトコル](AGENTS.md) | AIツール共通の開発、安全、検証、Wiki運用ルール |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | AI支援開発向けの出典追跡可能なローカル知識ベース |
+| [Wiki統合ワークフロー](WikiIntegrationWorkflowPlan.md) | 統合設計、保守ゲート、導入確認 |
 
 ## 📊 現在のステータス
 
@@ -267,7 +289,7 @@ uv run ninja_core server
 | 層級 | 技術 |
 |------|------|
 | **後端** | FastAPI + Uvicorn |
-| **AI代理** | Google Gemini（gemini-3-flash-preview） |
+| **AI代理** | Google Gemini（由使用者選擇可用模型） |
 | **前端** | React 18 + Vite + react-i18next |
 | **BLE服務** | bless（GATT伺服器） |
 | **硬體控制** | pigpio + 自訂驅動程式 |
@@ -276,6 +298,8 @@ uv run ninja_core server
 
 ### 🧠 代理式AI
 - **自然語言理解**：用英文、日文或中文與機器人對話
+- **經驗證的模型選擇**：取得Gemini API金鑰可用的模型，並只在有時限的生成測試成功後儲存模型
+- **Gemini 3相容性**：當舊版Python SDK無法設定目前的Gemini 3思考控制時，使用低思考等級與60秒上限的REST生成
 - **動作規劃**：AI自動將請求轉換為機器人動作
 - **已儲存Blockly動作**：可從本機動作庫重播經由藍牙儲存的完整Code IDE動作
 - **程式碼生成**：AI能撰寫Python程式碼來創建新的機器人行為
@@ -312,11 +336,17 @@ uv pip install -e .
 # 建置網頁介面
 cd ninja_webapp && npm install && npm run build && cd ..
 
+# 設定Gemini API金鑰並選擇經驗證的模型
+# 選項1會在輸入時隱藏API金鑰。
+uv run ninja_core init-tool
+
 # 啟動機器人
 uv run ninja_core server
 ```
 
 然後在瀏覽器開啟 `http://ninjarobot.local:8000`！
+
+設定Gemini時，NinjaRobot會取得此金鑰可用的模型，並在儲存金鑰與模型前執行最小生成測試。思考模型的驗證最多可能需要60秒。若取得、驗證或選擇失敗，先前的Gemini設定不會被變更。伺服器主控台會顯示目前設定的模型，並在逾時時回傳明確錯誤，而不是無限等待。
 
 ## 📚 文件
 
@@ -324,8 +354,11 @@ uv run ninja_core server
 |------|------|
 | [安裝指南](InstallationGuide.md) | 硬體設定與軟體安裝 |
 | [開發指南](DevelopmentGuide.md) | API參考與架構概述 |
-| [開發計畫](DevelopmentPlan.md) | 專案路線圖與階段詳情 |
+| [專案升級計畫](ProjectUpgradePlan.md) | 專案路線圖與階段詳情 |
 | [開發日誌](DevelopmentLog.md) | 變更歷史與版本說明 |
+| [AI 開發協定](AGENTS.md) | 跨工具開發、安全、驗證與 Wiki 維護規則 |
+| [NinjaRobotPi0 Wiki](Wiki/NinjaRobotPi0_Wiki/README.md) | 供 AI 輔助開發使用、可追溯來源的本機知識庫 |
+| [Wiki 整合工作流程](WikiIntegrationWorkflowPlan.md) | 整合設計、維護閘門與導入檢查 |
 
 ## 📊 目前狀態
 

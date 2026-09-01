@@ -1,6 +1,6 @@
 # NinjaRobot V5 Development Guide
 
-**Version:** 5.2.10
+**Version:** 5.2.13
 **Last Updated:** 2026-09-01
 **Target Audience:** Experienced Developers
 
@@ -155,6 +155,31 @@ This guide provides a comprehensive technical reference for the NinjaRobot V5 pr
 | `ninja_core/init_tool.py` | **NEW** - Provides `uv run ninja_core init-tool`, a guided setup menu for Gemini key, ngrok token, robot name, robot type, hardware import, profile display, and server start |
 | `ninja_ble/service.py` | Extends the `robot_info` response with robot type and sanitized hardware configuration while preserving name-only fallback behavior |
 | `NinjaRoboticPlatform Code IDE` | Uses received servo GPIO settings to switch Blockly servo pin fields from numeric fallback mode to profile-backed dropdown mode |
+
+### Key Changes (V5.2.12 - Gemini Model Selection):
+| Component | Change |
+|---|---|
+| `ninja_core/gemini_models.py` | **NEW** - Retrieves the API-key-specific Gemini model catalog from Google, follows pagination, and filters for Gemini models that support `generateContent` |
+| `ninja_core/config.py` | Adds backward-compatible `gemini.model` configuration; legacy files default to `gemini-3-flash-preview` |
+| `ninja_core/init_tool.py` | Extends Gemini key setup with an interactive model selection step and saves the key/model only after discovery and selection succeed |
+| `ninja_core/ninja_agent.py` | Uses the selected model for initial agent creation and capability refresh without changing prompts or action processing |
+| Compatibility | Non-Gemini `config set-key` behavior, the existing web key endpoint, BLE profiles, hardware configuration, and robot runtime contracts remain unchanged |
+
+### Key Changes (V5.2.13 - Gemini 3 Runtime Compatibility):
+| Component | Change |
+|---|---|
+| `ninja_core/gemini_runtime.py` | **NEW** - Provides bounded REST generation for Gemini 3 models with `thinkingLevel=low`, explicit output limits, safe errors, and blocking network work moved off the asyncio event loop |
+| `ninja_core/init_tool.py` | Validates the selected model with a minimal generation request before saving the new key/model pair |
+| `ninja_core/ninja_agent.py` | Uses the compatibility path for Gemini 3 text, audio, and code operations; older models retain the legacy SDK path with an explicit request timeout |
+| Runtime diagnostics | Chat and server startup identify the configured model, and failed requests return a visible model-specific response while keeping API keys out of logs |
+
+### Code IDE Assistant Compatibility (2026-05-17):
+| Area | Contract |
+|---|---|
+| Robot profile use | The Ninja Code Assistant may read `robot_info` as context for future Tire/Humanoid/Spider Blockly rules, but `robot_info` remains a read-only BLE service command. |
+| Runtime safety | Assistant comments and explanations are browser-side Python comments only; they must not change `execute`, `save_action`, `stop`, or runtime pipeline behavior. |
+| API key privacy | User BYO AI provider keys are handled by the browser Code IDE session and must not be stored in NinjaRobotV5 config, action records, or BLE payloads. |
+| Generated code compatibility | Blockly-generated Python still targets the existing GPIO-first wrapper APIs such as `robot.servos.move_pin()` and `robot.servos.move_pins()`. |
 
 ### Required Setup:
 ```bash
@@ -317,6 +342,7 @@ NinjaRobotV5/
         ├── config.py           # Centralized configuration
         ├── hal.py              # Hardware Abstraction Layer (dynamic loading)
         ├── dispatcher.py       # Command router (V5 Phase 2)
+        ├── gemini_models.py    # Gemini model catalog discovery
         ├── ninja_agent.py      # AI agent (Gemini)
         ├── movement_controller.py  # Motion system
         ├── movement_cli.py     # Movement recording tool
@@ -395,6 +421,19 @@ uv pip install -e ./ninja_core
 ```
 
 ### 2.3 Development Tools
+
+Install the reproducible project development tools declared in the root
+`dependency-groups.dev` section before running tests or lint checks:
+
+```bash
+uv sync --group dev
+```
+
+**Testing:**
+```bash
+uv run pytest
+uv run pytest tests/test_gemini_models.py tests/test_config.py tests/test_init_tool.py tests/test_ninja_agent_model.py -q
+```
 
 **Linting:**
 ```bash
@@ -1542,6 +1581,12 @@ class BluetoothConfig(BaseModel):
     name: str = "NinjaRobot"
 ```
 
+**`GeminiConfig`** (Pydantic BaseModel)
+```python
+class GeminiConfig(BaseModel):
+    model: str = "gemini-3-flash-preview"
+```
+
 **`NinjaConfig`** (Pydantic BaseModel)
 ```python
 class NinjaConfig(BaseModel):
@@ -1553,6 +1598,7 @@ class NinjaConfig(BaseModel):
     sensors: SensorConfig = Field(default_factory=SensorConfig)
     movements: Dict[str, list] = Field(default_factory=dict)
     api_keys: Dict[str, str] = Field(default_factory=dict)
+    gemini: GeminiConfig = Field(default_factory=GeminiConfig)
 ```
 
 ##### Functions
@@ -1574,7 +1620,11 @@ class NinjaConfig(BaseModel):
 - Applies default servo calibration if `servo.json` not found
 
 **`set_api_key(service: str, key: str) -> None`**
-- Sets an API key (e.g., "gemini") and saves config
+- Sets a generic service API key and saves config
+
+**`set_gemini_configuration(api_key: str, model_name: str, path: Path = Path("config.json")) -> str`**
+- Saves the validated Gemini key and selected model together after discovery, selection, and a minimal generation probe succeed
+- Strips a leading `models/` resource prefix before persistence
 
 **`set_robot_name(name: str, path: Path = Path("config.json")) -> str`**
 - Saves a new Bluetooth discovery name under `config.json["bluetooth"]["name"]`
@@ -1589,15 +1639,23 @@ class NinjaConfig(BaseModel):
 
 **Usage:**
 ```python
-from ninja_core.config import load_config, set_api_key, set_robot_name, set_robot_type
+from ninja_core.config import (
+    load_config,
+    set_api_key,
+    set_gemini_configuration,
+    set_robot_name,
+    set_robot_type,
+)
 
 config = load_config()
 print(config.servos.calibration)
 print(config.bluetooth.name)
 print(config.robot_type)
 print(config.api_keys.get("gemini"))
+print(config.gemini.model)
 
 set_api_key("gemini", "AIzaSy...")
+set_gemini_configuration("AIzaSy...", "gemini-3-flash-preview")
 set_robot_name("Desk Robot A")
 set_robot_type("humanoid")
 ```
@@ -1746,6 +1804,7 @@ def __init__(self, config: NinjaConfig, action_library: ActionLibrary | None = N
 
 **Attributes:**
 - `api_key` (str): Gemini API key
+- `model_name` (str): Selected `config.gemini.model` value
 - `action_library` (ActionLibrary | None): Optional persistent Blockly action library
 - `robot_capabilities` (dict): Available native movements, saved Blockly actions, faces, sounds
 - `system_prompt` (str): AI instruction prompt
@@ -1765,7 +1824,7 @@ def __init__(self, config: NinjaConfig, action_library: ActionLibrary | None = N
 
 **`async process_command(user_input: str) -> dict`**
 - Main method to process text commands
-- Uses **Gemini 3.0 Flash** to interpret intent.
+- Uses the configured Gemini model to interpret intent.
 - **Parameters:**
   - `user_input` (str): User's message
 - **Returns:** Dict with keys:
@@ -2250,7 +2309,7 @@ uv run ninja_core server
 - **Example:** `uv run ninja_core movement-tool`
 
 **`init-tool`**
-- Guided setup menu for Gemini key, ngrok token, robot name, robot type, hardware import, sanitized hardware profile display, and server startup
+- Guided setup menu for Gemini key/model, ngrok token, robot name, robot type, hardware import, sanitized hardware profile display, and server startup
 - **Example:** `uv run ninja_core init-tool`
 
 **`config import-all`**
@@ -2258,7 +2317,7 @@ uv run ninja_core server
 - **Example:** `uv run ninja_core config import-all`
 
 **`config set-key <service> <key>`**
-- Sets an API key
+- Sets an API key. For the exact service name `gemini`, Google is queried and the user must select an eligible `generateContent` model before either value is saved. Other services keep the generic immediate-save behavior.
 - **Example:** `uv run ninja_core config set-key gemini AIzaSy...`
 
 **`config set-name <name>`**
@@ -2678,7 +2737,7 @@ asyncio.create_task(ble_service.start())
 - **Location:** Project root
 - **Format:** JSON
 - **Managed by:** `ninja_core.config`
-- **Contains:** All hardware settings, BLE name, movements, API keys
+- **Contains:** All hardware settings, BLE name, movements, API keys, and the selected Gemini model
 
 **`servo.json`** (Servo Calibration)
 - **Location:** Project root or `pi0servo/`
@@ -2701,10 +2760,11 @@ asyncio.create_task(ble_service.start())
    uv run ninja_core config import-all
    ```
 
-2. **Set API Key:**
+2. **Set Gemini API Key and Model:**
    ```bash
    uv run ninja_core config set-key gemini YOUR_KEY
    ```
+   The command retrieves the available model catalog from Google, displays Gemini models that support `generateContent`, prompts for one model, and runs a bounded minimal generation probe before saving. Thinking-model validation can take up to 60 seconds. If discovery, validation, or selection fails, the previous configuration is left unchanged.
 
 3. **Optional: Set BLE Name**
    ```bash
@@ -2751,6 +2811,9 @@ asyncio.create_task(ble_service.start())
     },
     "api_keys": {
         "gemini": "AIzaSy..."
+    },
+    "gemini": {
+        "model": "gemini-3-flash-preview"
     }
 }
 ```
@@ -3048,6 +3111,14 @@ The complete integration rationale and rollout checklist are in [`WikiIntegratio
 
 **Issue:** Distance sensor returns 8190  
 **Solution:** Check I2C wiring and run `sudo i2cdetect -y 1`
+
+**Issue:** Gemini model lookup fails during key setup
+
+**Solution:** Check internet access and API-key permissions, then rerun `uv run ninja_core config set-key gemini YOUR_KEY`. A failed lookup does not replace the existing Gemini key or model.
+
+**Issue:** Chat remains on “thinking” or the agent returns no answer after selecting a Gemini 3 model
+
+**Solution:** Confirm the server console names the expected model. Gemini 3 models use the bounded REST compatibility path with low thinking because the installed `google-generativeai` SDK cannot express current thinking controls. Rerun `uv run ninja_core config set-key gemini YOUR_KEY`; the selected model must now complete a validation request before it is saved. Runtime failures identify the model and failure category in the console without logging the API key.
 
 ---
 

@@ -23,6 +23,7 @@ ROBOT_TYPE_LABELS = {
 DEFAULT_ROBOT_TYPE = "tire"
 ROBOT_PROFILE_VERSION = "ninja-robot-profile-v1"
 MAX_BCM_GPIO_PIN = 27
+DEFAULT_GEMINI_MODEL = "gemini-3-flash-preview"
 
 
 def normalize_ble_name(name: str) -> str:
@@ -52,6 +53,16 @@ def normalize_robot_type(robot_type: str | None) -> str:
 def get_robot_type_options() -> tuple[tuple[str, str], ...]:
     """Return supported robot types as (value, label) pairs."""
     return tuple((value, ROBOT_TYPE_LABELS[value]) for value in ROBOT_TYPE_OPTIONS)
+
+
+def normalize_gemini_model_name(model_name: str) -> str:
+    """Normalize a Gemini model identifier for runtime use."""
+    normalized = model_name.strip()
+    if normalized.startswith("models/"):
+        normalized = normalized.removeprefix("models/")
+    if not normalized:
+        raise ValueError("Gemini model name cannot be empty.")
+    return normalized
 
 
 # --- Data Models for Configuration ---
@@ -119,6 +130,20 @@ class BluetoothConfig(BaseModel):
         return normalize_ble_name(value)
 
 
+class GeminiConfig(BaseModel):
+    """Configuration for the Gemini-powered NinjaRobot agent."""
+
+    model: str = Field(
+        default=DEFAULT_GEMINI_MODEL,
+        description="Gemini model identifier used for NinjaRobot agent operations.",
+    )
+
+    @field_validator("model")
+    @classmethod
+    def validate_model(cls, value: str) -> str:
+        return normalize_gemini_model_name(value)
+
+
 class NinjaConfig(BaseModel):
     """The root configuration model for the entire robot."""
 
@@ -137,6 +162,7 @@ class NinjaConfig(BaseModel):
     api_keys: Dict[str, str] = Field(
         default_factory=dict, description="API keys for services like Google Gemini."
     )
+    gemini: GeminiConfig = Field(default_factory=GeminiConfig)
 
     @field_validator("robot_type")
     @classmethod
@@ -390,6 +416,25 @@ def set_api_key(service: str, key: str):
     config.api_keys[service] = key
     save_config(config)
     print(f"API key for '{service}' has been saved.")
+
+
+def set_gemini_configuration(
+    api_key: str,
+    model_name: str,
+    path: Path = CONFIG_FILE_PATH,
+) -> str:
+    """Persist a validated Gemini API key and selected model in one config save."""
+    normalized_key = api_key.strip()
+    if not normalized_key:
+        raise ValueError("Gemini API key cannot be empty.")
+    normalized_model = normalize_gemini_model_name(model_name)
+
+    config = load_config(path)
+    config.api_keys["gemini"] = normalized_key
+    config.gemini.model = normalized_model
+    save_config(config, path)
+    print(f"Gemini API key and model '{normalized_model}' have been saved.")
+    return normalized_model
 
 
 def set_robot_name(name: str, path: Path = CONFIG_FILE_PATH) -> str:

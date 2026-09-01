@@ -721,13 +721,15 @@ uv run pi0servo move 20 45
 uv run pi0servo move 20 -- -45
 ```
 
-### Step 7.5: Set Gemini API Key
+### Step 7.5: Set Gemini API Key and Model
 
 Configure the AI agent with your API key (replace `YOUR_API_KEY` with the actual key from Step 5.1):
 
 ```bash
 uv run ninja_core config set-key gemini YOUR_API_KEY
 ```
+
+NinjaRobot then retrieves the models available to this key from Google. Select one of the numbered Gemini models shown. Only models that support agent content generation are listed. NinjaRobot runs a bounded minimal generation request and saves the key/model pair only if the selected model responds. Validation can take up to 60 seconds for a thinking model. A network error, rejected key, non-responsive model, or cancelled prompt leaves the previous configuration unchanged. Gemini 3 models may take several seconds because they use thinking; NinjaRobot requests the supported low thinking level and reports a visible timeout instead of waiting indefinitely.
 
 ### Step 7.5A: Guided NinjaRobot Initialization Tool
 
@@ -739,7 +741,7 @@ uv run ninja_core init-tool
 
 The menu provides these actions:
 
-1. Set Gemini API Key
+1. Set Gemini API Key and Model
 2. Set ngrok Token
 3. Rename the Ninja Robot
 4. Select NinjaRobot Type (`Tire`, `Humanoid`, or `Spider`)
@@ -1605,13 +1607,25 @@ uv run pi0servo move 20 45
 uv run pi0servo move 20 -- -45
 ```
 
-### ステップ7.5: Gemini API キーの設定
+### ステップ7.5: Gemini API キーとモデルの設定
 
 API キーで AI エージェントを設定（`YOUR_API_KEY` を実際のキーに置き換えてください）：
 
 ```bash
 uv run ninja_core config set-key gemini YOUR_API_KEY
 ```
+
+NinjaRobot は、このキーで利用できるモデルを Google から取得します。表示された番号付きの Gemini モデルから 1 つを選択してください。エージェントのコンテンツ生成に対応するモデルのみが表示されます。選択したモデルに対して時間制限付きの最小生成テストを実行し、応答した場合だけキーとモデルを一緒に保存します。思考モデルの検証には最大 60 秒かかる場合があります。ネットワークエラー、拒否されたキー、応答しないモデル、または選択のキャンセルが発生した場合、以前の設定は変更されません。Gemini 3 は思考処理のため数秒かかる場合があります。NinjaRobot は対応する低思考レベルを指定し、無期限に待たず明確なタイムアウトを返します。
+
+### ステップ7.5A: NinjaRobot ガイド付き初期化ツール
+
+教室でのセットアップでは、各設定コマンドを個別に実行する代わりに、ガイド付き初期化ツールを使用できます：
+
+```bash
+uv run ninja_core init-tool
+```
+
+メニューの「Set Gemini API Key and Model」では、API キーを非表示で入力し、同じモデル選択フローを実行します。
 
 ### ステップ7.6: すべてのハードウェア設定をインポート
 
@@ -2446,13 +2460,25 @@ uv run pi0servo move 20 45
 uv run pi0servo move 20 -- -45
 ```
 
-### 步驟 7.5：設定 Gemini API 金鑰
+### 步驟 7.5：設定 Gemini API 金鑰與模型
 
 使用您的 API 金鑰設定 AI 代理（將 `YOUR_API_KEY` 替換為步驟 5.1 中取得的實際金鑰）：
 
 ```bash
 uv run ninja_core config set-key gemini YOUR_API_KEY
 ```
+
+NinjaRobot 接著會向 Google 取得此金鑰可用的模型。請從顯示的編號 Gemini 模型中選擇一個。清單只會顯示支援代理內容生成的模型。NinjaRobot 會對所選模型執行有時限的最小生成測試，只有模型成功回應時才會一起儲存金鑰與模型；思考模型的驗證最多可能需要 60 秒。若發生網路錯誤、金鑰遭拒、模型無回應或取消選擇，先前的設定不會被變更。Gemini 3 因思考處理可能需要數秒；NinjaRobot 會使用其支援的低思考等級，並在逾時時顯示明確錯誤，而不是無限等待。
+
+### 步驟 7.5A：NinjaRobot 引導式初始化工具
+
+在教室設定時，可以使用引導式初始化工具，取代逐一執行各設定命令：
+
+```bash
+uv run ninja_core init-tool
+```
+
+選單中的「Set Gemini API Key and Model」會隱藏輸入的 API 金鑰，並執行相同的模型選擇流程。
 
 ### 步驟 7.6：匯入所有硬體設定
 

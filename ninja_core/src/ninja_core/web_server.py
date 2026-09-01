@@ -182,7 +182,10 @@ async def lifespan(app: FastAPI):
             action_library=app.state.ninja.action_library,
         )
         dispatcher.attach_agent(app.state.ninja.agent)
-        print("Ninja AI Agent initialized and attached to Dispatcher.")
+        print(
+            "Ninja AI Agent initialized and attached to Dispatcher "
+            f"with model '{app.state.ninja.agent.model_name}'."
+        )
     except MissingAPIKeyError:
         print("WARNING: Gemini API Key not found. AI Agent will be disabled.")
         print("Run 'ninja_core config set-key gemini <KEY>' or use the web interface to set it.")

@@ -15,20 +15,20 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme
   resource: urn:llmwiki:source:src-20260822-readme
   title: NinjaRobot V5 Readme
-  content_hash: sha256:7bbec02c276f0be133fbba91a5fed327c96bd6b30ff6e010dcd9c6376ab210cf
+  content_hash: sha256:747c8c2e1e67d24b5d6f6b9c797a6eb7ec7b92b1ce4368623cc9b77b62c442a4
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:8c520cb1f87d476b76ee6a01f9eda7ff50ed3bacbd5c0fc8def734a00dadc548
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:0f71db1dd9e5371fee11024d21b928273700aa4ca37710b29419ec3a2d041bac
   result: passed
   checks:
     source_support: passed
@@ -37,8 +37,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - BLE GATT server characteristics, chunked protocol framing, and Wi-Fi REST/WebSocket
-    architecture verified.
+  - Transport, dispatcher, BLE chunking, CRC, and fallback claims are supported; CRC is described as integrity
+    checking rather than lossless delivery.
 ---
 
 # Dual Connectivity and Communication Protocols
@@ -82,7 +82,7 @@ The BLE peripheral is implemented using `bless` with BlueZ on Linux:[^src-202608
 
 ## Binary Chunking Protocol
 
-For payloads exceeding BLE MTU limits (e.g. Blockly code uploads >160 bytes), a binary chunking protocol ensures lossless transfer:[^src-20260822-readme-2] [^src-20260822-developmentlog]
+For payloads exceeding BLE MTU limits (e.g. Blockly code uploads >160 bytes), a binary chunking protocol provides sequence tracking and CRC32 integrity checking:[^src-20260822-readme-2] [^src-20260822-developmentlog]
 
 | Packet Type | Magic Byte | Format |
 |-------------|------------|--------|

@@ -1,5 +1,56 @@
 # Development Log
 
+## 2026-09-01: Gemini 3.7 Flash No-Response Diagnosis And Runtime Fix ✓
+- **Action**: Diagnosed and fixed the apparent no-response behavior after selecting `gemini-3.7-flash`.
+- **Root Cause**:
+  - `config.json` correctly contained `gemini-3.7-flash`, and the API key was present.
+  - Google listed version `3.7-flash-08-2026` with `generateContent`, but a minimal request through the installed deprecated `google-generativeai 0.8.5` SDK timed out. The same key and network returned `200 OK` from `gemini-3-flash-preview`.
+  - A direct REST request to Gemini 3.7 Flash succeeded with `thinkingLevel=low`. The installed legacy SDK has no thinking-configuration type, so its default Gemini 3 request could remain pending long enough to appear silent.
+  - The project had no durable application log file. Direct chat errors were printed only to its console, and no `ninjarobot` systemd journal entries were available in the inspected environment.
+- **Fix**:
+  - Added `gemini_runtime.py`, which provides bounded, key-redacted REST generation for Gemini 3 models, applies the supported low thinking level, caps output, and moves blocking URL work to `asyncio.to_thread`.
+  - Preserved the legacy SDK path for older Gemini models while adding an explicit request timeout.
+  - Routed text chat, audio, code generation, explanation, and analysis through the appropriate bounded path without changing action-plan parsing or hardware execution.
+  - Added a minimal generation probe before a selected model is persisted. Discovery, validation, timeout, or cancellation failures leave the previous key/model bytes unchanged.
+  - Added model-specific startup and error diagnostics without logging API-key values.
+- **Validation**:
+  - Focused Gemini/config/init/agent tests passed (`39 passed`), Ruff passed, and all affected Python modules compiled.
+  - The full root test suite passed (`104 passed`; 31 existing third-party DBus deprecation warnings), `git diff --check` passed, and the `ninja_core` source/wheel build included both Gemini modules. The build reported only the existing setuptools license-table deprecation warning.
+  - A hardware-free live `NinjaAgent.process_command()` request using the saved `gemini-3.7-flash` model returned `READY` with a valid action plan. The full project prompt took approximately 35 seconds, confirming the model works but remains slower than the legacy default.
+  - A subsequent 30-second validation probe timed out because Gemini 3.7 latency varied between calls, so the selection probe was aligned with the bounded 60-second runtime limit to avoid rejecting a working but slow model.
+  - Earlier isolation checks showed Gemini 3.7 Flash timing out without thinking controls, succeeding with low thinking, and the legacy default returning `200 OK` using the same key/network.
+  - No Raspberry Pi hardware, GPIO, servo, display, buzzer, or sensor validation was performed.
+- **Files Modified**: `ninja_core/src/ninja_core/gemini_runtime.py`, `ninja_core/src/ninja_core/init_tool.py`, `ninja_core/src/ninja_core/__main__.py`, `ninja_core/src/ninja_core/ninja_agent.py`, `ninja_core/src/ninja_core/web_server.py`, `tests/test_gemini_runtime.py`, `tests/test_init_tool.py`, `tests/test_ninja_agent_model.py`, `DevelopmentGuide.md`, `InstallationGuide.md`, `ninja_core/README.md`, and `DevelopmentLog.md`.
+
+## 2026-09-01: Gemini API Key Validation And Model Selection ✓
+- **Action**: Replaced the fixed Gemini model setup path with API-key-specific model discovery and interactive selection for `uv run ninja_core config set-key gemini ...` and the guided `init-tool`.
+- **Details**:
+  - Added paginated Google Gemini model discovery over the official models REST endpoint, with `generateContent` filtering, deterministic ordering, finite timeouts, safe error messages, and no API key in request URLs or displayed errors.
+  - Added backward-compatible `gemini.model` configuration. Existing files without this section retain the previous `gemini-3-flash-preview` behavior until setup is rerun.
+  - Saved the Gemini key and selected model together only after successful discovery and selection; invalid keys, network failures, empty results, and cancellation leave the previous configuration unchanged.
+  - Updated `NinjaAgent` initial creation and capability refresh to use the configured model while leaving prompts, chat/audio/code processing, action plans, BLE, web, and hardware behavior unchanged.
+  - Preserved generic immediate-save behavior for non-Gemini `config set-key` services and preserved the existing web API key endpoint contract.
+- **Validation**:
+  - `PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m pytest tests -q` passed (`96 passed`; third-party `dbus_next` deprecation warnings only).
+  - Standalone regression suites passed for `pi0buzzer` (`65 passed`), `pi0disp` (`57 passed`), and `pi0servo` (`82 passed`). The unrelated `pi0vl53l0x` suite produced 53 passing test progress markers but did not exit during teardown and was interrupted; no VL53L0X code changed.
+  - `.venv/bin/ruff check ninja_core/src tests`, focused Ruff format checks for the new module/tests, and `git diff --check` passed.
+  - A network smoke check using an intentionally invalid placeholder key reached Google's models endpoint and returned the expected redacted invalid-key error. No configured/local API key was used.
+  - A single repository-wide pytest collection remains unsupported because package-local `tests` modules collide and the wiki package is not installed in the root environment; suites were therefore run from their owning package contexts.
+  - No Raspberry Pi Zero 2W or robot hardware validation was performed. The configuration-only Pi smoke test remains pending and must not start the server or energize hardware.
+  - Wiki source mirrors were synchronized for `src-20260822-developmentguide`, `src-20260822-developmentlog`, and `src-20260822-readme-3`. Source normalization, semantic plan generation, and wiki lint remain pending because the installed `uv` is older than the wiki's required version and the root environment lacks the wiki's `rich` dependency. Pre-existing README and Installation Guide mirror drift remains deliberately unsynchronized.
+- **Files Modified**: `ninja_core/src/ninja_core/gemini_models.py`, `ninja_core/src/ninja_core/config.py`, `ninja_core/src/ninja_core/init_tool.py`, `ninja_core/src/ninja_core/__main__.py`, `ninja_core/src/ninja_core/ninja_agent.py`, `tests/test_gemini_models.py`, `tests/test_ninja_agent_model.py`, `tests/test_config.py`, `tests/test_init_tool.py`, `README.md`, `ninja_core/README.md`, `DevelopmentGuide.md`, `InstallationGuide.md`, `DevelopmentLog.md`, and the deterministically synchronized wiki source snapshots/catalog records for the three source IDs above.
+
+## 2026-09-01: Developer Quality Tooling And Codex MCP Setup ✓
+- **Action**: Added reproducible Python quality tools and prepared the local Codex CLI with semantic code-navigation and current-library documentation MCP servers without changing robot runtime behavior.
+- **Details**:
+  - Added `pytest` and `ruff` to the root `dependency-groups.dev` lock-backed development environment.
+  - Installed and initialized Serena 1.7.0 with its LSP backend; Serena migrated `.serena/project.yml` to its current schema while retaining Python analysis and project-root indexing.
+  - Registered Serena with Codex's `codex` context and current-directory project activation, and registered Context7 through its maintained npm MCP package.
+  - Added explicit MCP startup timeouts in the user-level Codex configuration because Serena's cold startup exceeds Codex's default ten-second window on this machine.
+- **Why**: Make the upcoming Gemini configuration work testable and lintable from the repository environment, while giving Codex symbol-aware repository navigation and current third-party library documentation.
+- **Validation**: `uv run pytest tests/test_config.py tests/test_init_tool.py -q` passed (`11 passed`); focused `uv run ruff check` passed. Direct MCP JSON-RPC initialization and `tools/list` probes passed for Serena (`23` tools) and Context7 (`resolve-library-id`, `query-docs`). No Raspberry Pi or robot hardware validation was required or performed because this change only affects developer tooling.
+- **Files Modified**: `pyproject.toml`, `uv.lock`, `.serena/project.yml`, `DevelopmentGuide.md`, and `DevelopmentLog.md`. User-level installations/configuration were also updated under the uv tool directory, `~/.serena/`, and `~/.codex/config.toml`.
+
 ## 2026-09-01: Cross-Tool Local Wiki Development Workflow ✓
 - **Action**: Integrated `Wiki/NinjaRobotPi0_Wiki` into the NinjaRobotV5 AI-assisted development workflow without changing robot runtime behavior.
 - **Details**:
@@ -12,6 +63,16 @@
 - **Why**: Give Codex, Claude Code, Google Antigravity, and Cursor the same local source of truth and prevent stale or conflicting documents from being silently copied into future robot work.
 - **Validation**: Documentation/skill validation, source-mirror checks, wiki lint/tests, and parent Git inclusion checks are recorded in the task handoff. No Raspberry Pi validation was required because no robot code, configuration, deployment, or hardware behavior changed.
 - **Files Modified**: `AGENTS.md`, `AGENT.md`, `CLAUDE.md`, `GEMINI.md`, `.agents/`, `.claude/`, `.cursor/`, `README.md`, `DevelopmentGuide.md`, `DevelopmentLog.md`, `WikiIntegrationWorkflowPlan.md`, and workflow files under `Wiki/NinjaRobotPi0_Wiki/`.
+
+## 2026-05-17: Code IDE Assistant Compatibility Note ✓
+- **Action**: Synchronized NinjaRobotV5 documentation with the browser-side Ninja Code Assistant enhancement.
+- **Details**:
+  - Confirmed no NinjaRobotV5 runtime code change was required for the first assistant enhancement phase.
+  - Documented that browser-side assistant comments/explanations must not alter `execute`, `save_action`, `stop`, or runtime pipeline behavior.
+  - Reaffirmed that BYO AI provider API keys are not robot configuration and must not be stored in `config.json`, saved action records, or BLE payloads.
+  - Reaffirmed that future Tire/Humanoid/Spider-specific assistant generation should use `robot_info` only as read-only profile context unless a later robot-side contract explicitly changes this.
+- **Validation**: Paired platform validation passed in `NinjaRoboticPlatform` with `npm run lint`, `npm run test` (`92 passed`), `npm run build`, and browser smoke checks. RobotV5 code was not modified in this phase.
+- **Files Modified**: `DevelopmentGuide.md`, `DevelopmentLog.md`, `InstallationGuide.md`.
 
 ## 2026-05-16: Guided Initialization And Robot Profile Sync ✓
 - **Action**: Added the NinjaRobotV5 guided initialization flow and BLE robot profile synchronization for the NinjaRoboticPlatform Code IDE.

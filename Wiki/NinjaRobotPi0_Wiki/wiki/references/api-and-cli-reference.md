@@ -11,7 +11,7 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme-2
   resource: urn:llmwiki:source:src-20260822-readme-2
   title: ninja_ble Readme
@@ -19,7 +19,7 @@ sources:
 - id: src-20260822-readme-3
   resource: urn:llmwiki:source:src-20260822-readme-3
   title: ninja_core Readme
-  content_hash: sha256:4c4bc38f4de4851f444770bd63e6214e5d04a4ee12d30f0d8b0b2a5b5a453471
+  content_hash: sha256:c13dcf9055a532fefb03664983e9b5bafcb384e7ff16b65feca801cdbff23ba5
 - id: src-20260822-readme-5
   resource: urn:llmwiki:source:src-20260822-readme-5
   title: pi0buzzer Readme
@@ -38,9 +38,9 @@ sources:
   content_hash: sha256:6d02713847e83b720c6093afade910a3989dc1e8d8b48d889d61c1e381b7b680
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:4b40690af4d22be81e9c99c7287b3dd4ab20fcfd19ccf2ab3b329ae83881190e
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:d0c36f254f4b1075e1acdb63c85426932885884de684d9720f3824c8eb03edf1
   result: passed
   checks:
     source_support: passed
@@ -49,8 +49,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - REST endpoints, CLI commands, and Python API method signatures verified against
-    DevelopmentGuide.md.
+  - Listed APIs, endpoints, and CLI commands are supported; stop behavior is explicitly identified as
+    cooperative.
 ---
 
 # API and CLI Reference
@@ -78,7 +78,7 @@ This document provides a consolidated reference for all Python APIs, scriptable 
 |----------|--------|------------------|-------------|
 | `/api/chat` | `POST` | `{"message": "...", "language": "en"}` | AI conversational agent endpoint.[^src-20260822-developmentguide] [^src-20260822-readme-3] |
 | `/api/code/execute` | `POST` | `{"code": "..."}` | Submit Python script for sandboxed execution.[^src-20260822-developmentguide] [^src-20260822-readme-3] |
-| `/api/code/stop` | `POST` | None | Halts active script execution immediately.[^src-20260822-developmentguide] [^src-20260822-readme-3] |
+| `/api/code/stop` | `POST` | None | Requests cooperative cancellation of the active script; non-cooperative loops may require the Stop Robot path or server restart.[^src-20260822-developmentguide] |
 | `/api/system/shutdown` | `POST` | None | Triggers graceful shutdown animation and OS poweroff.[^src-20260822-developmentguide] [^src-20260822-readme-3] |
 | `/ble/status` | `GET` | None | Returns active Bluetooth service status and name.[^src-20260822-developmentguide] [^src-20260822-readme-2] |
 | `/ws/events` | `WebSocket` | None | Real-time event stream (distance, logs, status).[^src-20260822-developmentguide] [^src-20260822-readme-3] |
@@ -92,7 +92,8 @@ uv run ninja_core chat                    # Terminal AI chat
 uv run ninja_core movement-tool           # Servo tool
 uv run ninja_core init-tool               # Guided setup wizard
 uv run ninja_core config set-name "<n>"   # Set Bluetooth name
-uv run ninja_core config set-key <k> <v>  # Set API keys
+uv run ninja_core config set-key gemini <key>  # Discover, validate, and save model
+uv run ninja_core config set-key <k> <v>       # Generic non-Gemini key save
 
 # pi0servo
 uv run pi0servo calib <pin>               # Calibrate servo pin

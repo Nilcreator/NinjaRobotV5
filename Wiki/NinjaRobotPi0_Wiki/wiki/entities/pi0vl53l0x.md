@@ -15,16 +15,16 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-developmentlog
   resource: urn:llmwiki:source:src-20260822-developmentlog
   title: NinjaRobot V5 Development Log
-  content_hash: sha256:8d069ece52a85c0abb5cb6f5de64857f76353d9040315629dceb9e30cf3caa33
+  content_hash: sha256:503fe3ddfad6f04902d9b3a707a8be9d9da7c24eb9eae5b1dc5ea739225c5bc3
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:e0c8401178caba4506e72cf50e77179812a259296a0baa480f21a06b10e667a3
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:80bed65c4203b3b7fd5f5a841b449ba31e14a58046d965b26dc00e21a4289783
   result: passed
   checks:
     source_support: passed
@@ -33,8 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - VL53L0X ToF rangefinder driver, I2C register configuration, and thread-safe reading
-    loops verified.
+  - Sensor APIs, transaction locking, recovery, calibration, and fallback behavior are supported; no live
+    I2C or ranging validation was performed.
 ---
 
 # pi0vl53l0x Package
@@ -50,7 +50,7 @@ semantic_review:
 
 ## Key Classes & Modules
 
-* **`VL53L0X` (`pi0vl53l0x.core.sensor`)**: Main sensor driver implementing `Sensor` ABC.[^src-20260822-readme-8]
+* **`VL53L0X` (`pi0vl53l0x.core.sensor`)**: Main sensor driver providing sensor-compatible initialization, data, and cleanup methods.[^src-20260822-readme-8] [^src-20260822-developmentguide]
 * **`I2CBus` (`pi0vl53l0x.core.i2c`)**: Thread-safe I2C bus wrapper with retry and error handling.[^src-20260822-readme-8]
 * **`registers.py`**: Semantic register constants (~60 registers) for full hardware control.[^src-20260822-readme-8]
 * **`ConfigManager` (`pi0vl53l0x.config.config_manager`)**: Manages `vl53l0x.json` offset calibration data.[^src-20260822-readme-8]

@@ -15,16 +15,16 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-projectupgradeplan
   resource: urn:llmwiki:source:src-20260822-projectupgradeplan
   title: NinjaRobot V5 Project Upgrade Plan
   content_hash: sha256:e4c2e08c7e62522fe2d289456b9f7d27db2058691e93e0bc8bb72d72d5498c59
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:0f052997cc223bd060e27ebe72e1627fa0ca2816acc17e487e7917cef94befa6
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:8509f2a434766ef804ccbfd121c948caf2c45cb61e561ab84fbb2d06e1c5e5af
   result: passed
   checks:
     source_support: passed
@@ -33,8 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - 8-channel servo driver, angle-to-pulse width mapping, and easing velocity calculations
-    verified.
+  - Servo APIs, calibration, easing, and abort behavior are supported using the current multi_servos.py
+    module path; no energized-servo validation was performed.
 ---
 
 # pi0servo Package
@@ -43,14 +43,14 @@ semantic_review:
 
 ## Core Features
 
-* **Velocity-Based Calculations**: Physics-based angular displacement per 10ms step (100Hz update rate) eliminates timing jitter.[^src-20260822-readme-7]
+* **Velocity-Based Calculations**: Angular displacement is calculated per 10ms step (100Hz update rate), reducing dependence on arbitrary fixed delays.[^src-20260822-readme-7]
 * **Cubic Easing**: Default `ease_in_out_cubic` provides smooth S-curve acceleration and deceleration.[^src-20260822-readme-7]
 * **Per-Servo Speed Limits**: Configurable in `servo.json` (0–100%) to prevent mechanical overshoot and gear wear.[^src-20260822-readme-7]
-* **Abort Mechanism**: Immediate thread-safe cancellation of active movements via `ServoGroup.abort()`.[^src-20260822-readme-7]
+* **Abort Mechanism**: Thread-safe cancellation signaling for active movements via `ServoGroup.abort()`.[^src-20260822-readme-7]
 
 ## Key Classes & Modules
 
-* **`ServoGroup` (`pi0servo.core.servo_group`)**: Multi-channel servo controller implementing `Actuator` ABC.[^src-20260822-readme-7] [^src-20260822-developmentguide]
+* **`ServoGroup` (`pi0servo.core.multi_servos`)**: Multi-channel controller used by the HAL and providing actuator-compatible lifecycle methods.[^src-20260822-developmentguide]
 * **`Servo` (`pi0servo.core.servo`)**: Individual servo channel model with angle-to-pulse interpolation.[^src-20260822-projectupgradeplan]
 * **`ConfigManager` (`pi0servo.config.config_manager`)**: Manages `servo.json` calibration profiles.[^src-20260822-readme-7]
 

@@ -83,3 +83,9 @@ packages = [
     "pi0servo/src/pi0servo",
     "ninja_core/src/ninja_core",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.14.6",
+]

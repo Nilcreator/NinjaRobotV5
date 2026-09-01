@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import logging
@@ -10,6 +11,11 @@ from .config import NinjaConfig
 from .action_library import ActionLibrary
 from .facial_expressions import AnimatedFaces
 from .robot_sound import RobotSoundPlayer
+from .gemini_runtime import (
+    DEFAULT_GENERATION_TIMEOUT_SECONDS,
+    generate_content_text,
+    requires_thinking_compatibility,
+)
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +42,10 @@ class NinjaAgent:
             )
 
         genai.configure(api_key=self.api_key)
+        self.model_name = config.gemini.model
+        self._uses_thinking_compatibility = requires_thinking_compatibility(
+            self.model_name
+        )
 
         self.robot_capabilities = self._load_robot_capabilities(config)
         self.system_prompt = self._create_system_prompt()
@@ -59,11 +69,79 @@ class NinjaAgent:
             ]
         )
 
-        self.model = genai.GenerativeModel(
-            model_name="gemini-3-flash-preview", 
+        self.model = self._create_model()
+
+    def _create_model(self):
+        """Create the configured Gemini model with the existing agent settings."""
+        return genai.GenerativeModel(
+            model_name=self.model_name,
             generation_config=GenerationConfig(temperature=0.7),
             system_instruction=self.system_prompt,
         )
+
+    @staticmethod
+    def _convert_rest_parts(content: str | list) -> list[dict]:
+        """Convert existing SDK-style text/audio parts to Gemini REST JSON."""
+        source_parts = [content] if isinstance(content, str) else content
+        rest_parts = []
+        for part in source_parts:
+            if isinstance(part, str):
+                rest_parts.append({"text": part})
+                continue
+            if not isinstance(part, dict):
+                raise ValueError("Unsupported Gemini request content.")
+            if isinstance(part.get("text"), str):
+                rest_parts.append({"text": part["text"]})
+                continue
+            mime_type = part.get("mime_type")
+            data = part.get("data")
+            if isinstance(mime_type, str) and isinstance(data, bytes):
+                rest_parts.append(
+                    {
+                        "inlineData": {
+                            "mimeType": mime_type,
+                            "data": base64.b64encode(data).decode("ascii"),
+                        }
+                    }
+                )
+                continue
+            raise ValueError("Unsupported Gemini request content.")
+        return rest_parts
+
+    async def _send_text_command(self, user_input: str) -> str:
+        """Send one command while preserving the existing stateless chat behavior."""
+        if self._uses_thinking_compatibility:
+            return await generate_content_text(
+                self.api_key,
+                self.model_name,
+                [{"text": user_input}],
+                system_instruction=self.system_prompt,
+            )
+
+        chat = self.model.start_chat()
+        response = await chat.send_message_async(
+            user_input,
+            request_options={"timeout": DEFAULT_GENERATION_TIMEOUT_SECONDS},
+        )
+        return response.text
+
+    async def _generate_content(self, content: str | list, *, temperature: float) -> str:
+        """Generate text with a bounded legacy or Gemini 3-compatible request."""
+        if self._uses_thinking_compatibility:
+            return await generate_content_text(
+                self.api_key,
+                self.model_name,
+                self._convert_rest_parts(content),
+                system_instruction=self.system_prompt,
+                temperature=temperature,
+            )
+
+        response = await self.model.generate_content_async(
+            content,
+            generation_config=GenerationConfig(temperature=temperature),
+            request_options={"timeout": DEFAULT_GENERATION_TIMEOUT_SECONDS},
+        )
+        return response.text
 
     def _load_robot_capabilities(self, config: NinjaConfig) -> Dict[str, List[str]]:
         """Loads available movements, faces, and sounds from config and classes."""
@@ -77,11 +155,7 @@ class NinjaAgent:
         """Refresh saved Blockly action names without restarting the server."""
         self.robot_capabilities = self._load_robot_capabilities(self.config)
         self.system_prompt = self._create_system_prompt()
-        self.model = genai.GenerativeModel(
-            model_name="gemini-3-flash-preview",
-            generation_config=GenerationConfig(temperature=0.7),
-            system_instruction=self.system_prompt,
-        )
+        self.model = self._create_model()
 
     def _create_system_prompt(self) -> str:
         """Creates the system prompt with nuance, multilingual, and personality instructions."""
@@ -141,14 +215,13 @@ Example Interactions:
         """Processes a text-based user command."""
         log_messages = []
         try:
-            chat = self.model.start_chat()
-            response = await chat.send_message_async(user_input)
+            response_text = await self._send_text_command(user_input)
             
             # Built-in search is handled automatically by the model/API.
             # No manual function call handling needed for google_search_retrieval in standard mode.
             
             # Parse the final response
-            cleaned_response_text = response.text.strip()
+            cleaned_response_text = response_text.strip()
 
             # Attempt to extract JSON
             json_start = cleaned_response_text.find("{")
@@ -195,13 +268,17 @@ Example Interactions:
             }
 
         except Exception as e:
-            import traceback
-            error_message = f"Error processing command: {e}"
-            print(error_message)
-            traceback.print_exc() # Print full stack trace to console
+            error_message = (
+                f"Gemini model '{self.model_name}' failed during command processing "
+                f"({type(e).__name__}): {e}"
+            )
+            log.exception(error_message)
             return {
                 "action_plan": {},
-                "response": "I'm sorry, something went wrong (Available on Server Console).",
+                "response": (
+                    f"The configured Gemini model '{self.model_name}' did not respond. "
+                    "Please check the server console or select another model."
+                ),
                 "log": error_message,
             }
 
@@ -223,10 +300,12 @@ Example Interactions:
 
             prompt = "Transcribe this audio. Respond to the user's command in the same language they spoke. If they ask a question, answer it. If they give a command, generate a JSON action plan."
 
-            response = await self.model.generate_content_async([prompt, audio_part])
+            response_text = await self._generate_content(
+                [prompt, audio_part], temperature=0.7
+            )
 
             # Reuse the parsing logic (simplified here, ideally shared)
-            cleaned_response_text = response.text.strip()
+            cleaned_response_text = response_text.strip()
             json_start = cleaned_response_text.find("{")
             json_end = cleaned_response_text.rfind("}") + 1
 
@@ -285,11 +364,8 @@ Code:
 """
         try:
             # Override temp for precision
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=GenerationConfig(temperature=0.1)
-            )
-            return response.text.strip()
+            response_text = await self._generate_content(prompt, temperature=0.1)
+            return response_text.strip()
         except Exception as e:
             log.error(f"Error explaining code: {e}")
             return f"Unable to explain code: {e}"
@@ -302,11 +378,8 @@ Code:
 Use ONLY the documented API (robot.servo, robot.buzzer, etc). Return ONLY the Python code."""
         
         try:
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=GenerationConfig(temperature=0.1)
-            )
-            text = response.text.strip()
+            response_text = await self._generate_content(prompt, temperature=0.1)
+            text = response_text.strip()
             return self._extract_code(text)
         except Exception as e:
             log.error(f"Code generation error: {e}")
@@ -324,11 +397,8 @@ Explain WHY it failed and fix the code in a single concise paragraph.
 Then provide the corrected code block.
 """
         try:
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=GenerationConfig(temperature=0.1)
-            )
-            return response.text.strip()
+            response_text = await self._generate_content(prompt, temperature=0.1)
+            return response_text.strip()
         except Exception as e:
             log.error(f"Error analysis failed: {e}")
             return f"Error analyzing failure: {e}"
@@ -343,11 +413,8 @@ Code:
 {code}
 ```"""
         try:
-            response = await self.model.generate_content_async(
-                prompt,
-                generation_config=GenerationConfig(temperature=0.1)
-            )
-            return response.text.strip()
+            response_text = await self._generate_content(prompt, temperature=0.1)
+            return response_text.strip()
         except Exception as e:
             log.error(f"Code analysis error: {e}")
             return f"Error analyzing code: {e}"

@@ -15,12 +15,12 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:f92a230a44bfbb0f4e158d2c3b066d534bd21d0e2ff7d503731c47920fceef56
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:a3c69490eb2e14be65edbd612e031769e172a4b410d3177197222be79033b821
   result: passed
   checks:
     source_support: passed
@@ -29,8 +29,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Non-blocking audio queue, note frequencies, and emotion tunes verified against
-    driver documentation.
+  - Queue-based playback, configuration, APIs, and CLI claims are supported; non-blocking language is
+    scoped to caller-facing queue submission.
 ---
 
 # pi0buzzer Package
@@ -39,7 +39,7 @@ semantic_review:
 
 ## Core Features
 
-* **Non-Blocking Architecture**: Sound playback commands are placed into a thread-safe queue processed by a background worker thread, ensuring the main application and asyncio loops never block.[^src-20260822-readme-5]
+* **Non-Blocking Architecture**: Sound playback commands are placed into a thread-safe queue processed by a background worker thread, so queued playback does not run on the calling thread.[^src-20260822-readme-5]
 * **Musical Scale**: 35 predefined note frequencies across 5 octaves (C3–B7).[^src-20260822-readme-5]
 * **14 Emotion Sounds**: Acoustic signatures for `happy`, `sad`, `exciting`, `angry`, `confusing`, `cry`, `embarrassing`, `idle`, `laughing`, `scary`, `shy`, `sleepy`, `speaking`, and `surprising`.[^src-20260822-readme-5]
 * **Built-in Melodies**: `happy_birthday`, `jingle_bells`, `twinkle_twinkle_little_star`, and `head_shoulders_knees_and_toes`.[^src-20260822-developmentguide]

@@ -11,20 +11,20 @@ sources:
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 - id: src-20260822-readme-3
   resource: urn:llmwiki:source:src-20260822-readme-3
   title: ninja_core Readme
-  content_hash: sha256:4c4bc38f4de4851f444770bd63e6214e5d04a4ee12d30f0d8b0b2a5b5a453471
+  content_hash: sha256:c13dcf9055a532fefb03664983e9b5bafcb384e7ff16b65feca801cdbff23ba5
 - id: src-20260822-readme-4
   resource: urn:llmwiki:source:src-20260822-readme-4
   title: ninja_utils Readme
   content_hash: sha256:c8224fa991d7331e188187187def4af8e454464a762d05f7ad91fba5e7104cde
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:1c490a883d46f7d389df626901055cb8083d5156d7b312932111fd897c40821d
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:5d5815c2233f1432eda7de12b7765195c0889c25d9939480ef88bc0763a62ed0
   result: passed
   checks:
     source_support: passed
@@ -33,8 +33,8 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - Modular HAL, abstract base classes, and singleton driver registry verified against
-    ninja_utils and ninja_core documentation.
+  - Current Development Guide and implementation-aligned documentation resolve legacy package README conflicts
+    in favor of multi_servos.py and the current Sensor lifecycle contract.
 ---
 
 # Architecture and Hardware Abstraction Layer
@@ -62,16 +62,16 @@ NinjaRobotV5/
 
 ## Abstract Base Classes (`ninja_utils.interfaces`)
 
-Standardized interfaces enforce consistency across all hardware drivers:[^src-20260822-readme-4] [^src-20260822-developmentguide]
+The shared interfaces define the expected sensor and actuator contracts; individual drivers can satisfy those contracts directly or through compatibility behavior.[^src-20260822-developmentguide]
 
 * **`Actuator`**: Defines standard lifecycle methods for output devices:
-  * `initialize()`: Sets up hardware pins and starts background worker threads.[^src-20260822-readme-4]
+  * `initialize()`: Establishes the hardware connection and prepares a safe default state.[^src-20260822-developmentguide]
   * `execute(command: dict)`: Executes a structured command dictionary (e.g. `{"angles": [...]}` or `{"image": img}`).[^src-20260822-readme-4]
   * `off()`: Silences or disables the device safely.[^src-20260822-readme-4]
 * **`Sensor`**: Defines standard methods for input sensors:
-  * `initialize()`: Performs hardware handshake and calibration.[^src-20260822-readme-4]
-  * `read() -> DistanceData`: Returns structured reading with validity flags and timestamps.[^src-20260822-readme-4]
-  * `health_check() -> bool`: Verifies hardware communication status.[^src-20260822-readme-4]
+  * `initialize()`: Establishes the sensor connection and performs required setup.[^src-20260822-developmentguide]
+  * `get_data() -> dict[str, Any]`: Returns sensor-specific data, including distance and validity fields for distance sensors.[^src-20260822-developmentguide]
+  * `close()`: Releases sensor and bus resources.[^src-20260822-developmentguide]
 
 ## Dynamic Driver Registry (`ninja_core.hal`)
 
@@ -79,7 +79,7 @@ The HAL (`ninja_core/hal.py`) initializes and coordinates drivers using dynamic 
 
 ```python
 DRIVER_REGISTRY = {
-    "servos": {"module": "pi0servo.core.servo_group", "class": "ServoGroup"},
+    "servos": {"module": "pi0servo.core.multi_servos", "class": "ServoGroup"},
     "buzzer": {"module": "pi0buzzer.driver", "class": "MusicBuzzer"},
     "display": {"module": "pi0disp.core.driver", "class": "ST7789V"},
     "distance_sensor": {"module": "pi0vl53l0x.driver", "class": "VL53L0X"},
@@ -92,7 +92,7 @@ This design allows individual drivers to be updated, replaced, or mocked during 
 
 All runtime settings are consolidated into a master `config.json` managed by `ninja_core.config.NinjaConfig`:[^src-20260822-readme-3] [^src-20260822-developmentguide]
 * **Hardware settings**: Servo pulse calibrations, buzzer volume, display rotation/brightness, sensor offsets.[^src-20260822-developmentguide]
-* **System settings**: Robot name (`bluetooth.name`), robot type (`robot_type`: `tire`, `humanoid`, `spider`), API keys (Gemini), ngrok authtoken.[^src-20260822-developmentguide]
+* **System settings**: Robot name (`bluetooth.name`), robot type (`robot_type`: `tire`, `humanoid`, `spider`), API keys, selected Gemini agent model, and ngrok authtoken.[^src-20260822-developmentguide]
 * **Synchronization**: Subsystem configurations can be synchronized via `uv run ninja_core config import` or `config import-all`.[^src-20260822-readme-3] [^src-20260822-developmentguide]
 
 [^src-20260822-developmentguide]: NinjaRobot V5 Development Guide.

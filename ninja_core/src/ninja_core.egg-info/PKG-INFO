@@ -215,7 +215,7 @@ This confirms that all `ninja_core` systems are successfully communicating with 
 
 The AI Agent allows you to control the robot using natural language.
 
-#### 3.1. Setup Google Gemini API Key
+#### 3.1. Setup Google Gemini API Key and Model
 
 1.  **Create an API Key:**
     -   Go to [Google AI Studio](https://aistudio.google.com/).
@@ -226,6 +226,12 @@ The AI Agent allows you to control the robot using natural language.
     ```bash
     uv run ninja_core config set-key gemini YOUR_ACTUAL_API_KEY_HERE
     ```
+
+    NinjaRobot queries Google's model catalog with the supplied key and lists Gemini models that support agent content generation. After you select a numbered model, NinjaRobot runs a bounded minimal generation request and saves the API key/model only if that request succeeds. Validation can take up to 60 seconds for a thinking model. A failed lookup, non-responsive model, or cancelled prompt leaves the existing Gemini configuration unchanged.
+
+    The guided `uv run ninja_core init-tool` option performs the same model-selection flow while hiding the entered API key.
+
+    Gemini 3 models use a bounded REST compatibility path with low thinking because the installed legacy Python SDK cannot configure their current thinking controls. A normal agent request may still take several seconds. The chat and server consoles show the configured model and return a visible error if the model exceeds the request timeout.
 
 #### 3.2. Setup ngrok (For Remote Access)
 

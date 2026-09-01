@@ -11,16 +11,16 @@ sources:
 - id: src-20260822-installationguide
   resource: urn:llmwiki:source:src-20260822-installationguide
   title: NinjaRobot V5 Installation Guide
-  content_hash: sha256:0d1f5247e341259bd895e884f9e95c25bfa2ad083368dee35096b8ca1a12d163
+  content_hash: sha256:f1b95c621b3a1c6cfe77f2a1c3923a40314783c02fdde83f0cb4bbc881ae13a4
 - id: src-20260822-developmentguide
   resource: urn:llmwiki:source:src-20260822-developmentguide
   title: NinjaRobot V5 Development Guide
-  content_hash: sha256:374bb5c44297ceb5134e5c4558f07d84378db45ea18ece6cdc3ecf3319a08e85
+  content_hash: sha256:26272dce2ec7dcab9f3181e1ce0621448ef12547ff26f3b7a0ac4fc50cef9b4d
 semantic_review:
   version: 1
-  performed_by: agent:antigravity
-  performed_at: '2026-08-23T01:00:00Z'
-  target_hash: sha256:c4a48b189d5ebd33f646891004b9299b83bbfd2f05f4a1c0240b074732757c1d
+  performed_by: agent:codex
+  performed_at: '2026-09-01T07:28:37Z'
+  target_hash: sha256:ad5770e86fd86e78e921f6a6c3932927dd3b87adcd07d5fe6647f7480ae28bbd
   result: passed
   checks:
     source_support: passed
@@ -29,13 +29,13 @@ semantic_review:
     claim_strength: passed
     visual_evidence: not_applicable
   notes:
-  - GPIO pin assignments, power distribution requirements, and OS installation steps
-    verified.
+  - Hardware, wiring, and installation claims are supported by the registered guides; pin descriptions
+    retain configurability and no wiring was physically verified.
 ---
 
 # Installation and Hardware Wiring Reference
 
-This guide details the complete hardware assembly, pinout connections, and operating system configuration for NinjaRobot V5 on the Raspberry Pi Zero 2W.[^src-20260822-installationguide] [^src-20260822-developmentguide]
+This reference summarizes hardware requirements, pinout connections, and operating system setup for NinjaRobot V5 on the Raspberry Pi Zero 2W.[^src-20260822-installationguide] [^src-20260822-developmentguide]
 
 ## Hardware Requirements
 

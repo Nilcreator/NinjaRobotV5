@@ -1,7 +1,9 @@
 import click
 
 from .config import import_and_update_config, set_api_key, set_robot_name, set_robot_type
-from .init_tool import run_init_tool
+from .gemini_models import GeminiModelDiscoveryError
+from .gemini_runtime import GeminiRuntimeError
+from .init_tool import configure_gemini_api_key, run_init_tool
 
 from .movement_cli import run_cli as run_movement_cli
 
@@ -60,6 +62,13 @@ def set_key(service, key):
 
     Usage: ninja_core config set-key gemini YOUR_API_KEY
     """
+    if service == "gemini":
+        try:
+            configure_gemini_api_key(key)
+        except (GeminiModelDiscoveryError, GeminiRuntimeError, ValueError) as exc:
+            raise click.ClickException(str(exc)) from exc
+        return
+
     set_api_key(service, key)
 
 
@@ -120,6 +129,7 @@ def chat():
             print("Initializing AI Agent...")
             action_library = ActionLibrary()
             agent = NinjaAgent(config, action_library=action_library)
+            print(f"Using Gemini model: {agent.model_name}")
             
             # Initialize Controllers
             faces = AnimatedFaces(hal)
