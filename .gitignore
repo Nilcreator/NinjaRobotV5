@@ -1,0 +1,5 @@
+# Local system configuration
+/config.json
+/servo.json
+/buzzer.json
+/config_bak.json
